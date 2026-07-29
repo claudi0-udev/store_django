@@ -1,10 +1,11 @@
 from decimal import Decimal
 
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import RequestFactory, TestCase
 
 from .models import Product
-from .views import AddNewProduct
+from .views import AddNewProduct, HomePage
 
 
 class TestProductValidation(TestCase):
@@ -15,9 +16,21 @@ class TestProductValidation(TestCase):
             product.full_clean()
 
 
+class TestHomePageView(TestCase):
+    def test_home_page_renders_visitor_landing_content(self):
+        request = RequestFactory().get('/')
+        response = HomePage(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Descubre tu próxima compra')
+        self.assertContains(response, 'Explorar catálogo')
+
+
 class TestAddProductView(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
+        User = get_user_model()
+        self.staff_user = User.objects.create_user(username='staff_test', password='staffpass', is_staff=True)
 
     def test_add_new_product_rejects_missing_required_fields(self):
         request = self.factory.post(
@@ -35,6 +48,7 @@ class TestAddProductView(TestCase):
                 'descriptionTxtArea': '',
             },
         )
+        request.user = self.staff_user
 
         initial_count = Product.objects.count()
         response = AddNewProduct(request)
@@ -61,6 +75,7 @@ class TestAddProductView(TestCase):
                 'descriptionTxtArea': '',
             },
         )
+        request.user = self.staff_user
 
         initial_count = Product.objects.count()
         response = AddNewProduct(request)

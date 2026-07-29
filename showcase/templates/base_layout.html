@@ -17,8 +17,11 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNavDropdown">
           <ul class="navbar-nav mr-auto">
-            <li class="nav-item active">
-              <a class="nav-link" href={% url 'products' %}>Home <span class="sr-only">(current)</span></a>
+            <li class="nav-item">
+              <a class="nav-link" href={% url 'home' %}>Inicio</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href={% url 'products' %}>Catálogo</a>
             </li>
             {% if user.is_authenticated and user.is_staff %}
             <li class="nav-item">
@@ -32,7 +35,10 @@
               <span class="nav-link">Hola, {{ user.username }}</span>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="{% url 'logout' %}">Salir</a>
+              <form method="post" action="{% url 'logout' %}" class="form-inline my-2 my-lg-0">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-link nav-link p-0">Salir</button>
+              </form>
             </li>
             {% else %}
             <li class="nav-item">
@@ -46,7 +52,17 @@
         </div>
       </nav>
 
-    <div class="container">
+    <div class="container mt-4">
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        {% endfor %}
+        {% endif %}
 
         {% block body %}
 

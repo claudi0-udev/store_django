@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm
@@ -8,11 +9,49 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.core.paginator import Paginator
 
+from .forms import ProductForm
 from .models import Brand, Category, Distributor, Feature, FeatureValue, Manufacturer, Product
 
 
 def HelloWorld(request):
     return HttpResponse('<h2>Hello World!</h2>')
+
+
+def HomePage(request):
+    featured_products = Product.objects.select_related('category', 'brand', 'manufacturer', 'distributor').order_by('-id')[:6]
+    best_selling_products = Product.objects.select_related('category').order_by('-units')[:4]
+    new_products = Product.objects.select_related('category').order_by('-id')[:4]
+    categories = Category.objects.order_by('name')[:8]
+
+    search_query = (request.GET.get('q') or '').strip()
+    category_id = request.GET.get('category')
+    ordering = request.GET.get('ordering') or '-id'
+
+    products_query = Product.objects.select_related('category', 'brand', 'manufacturer', 'distributor')
+
+    if search_query:
+        products_query = products_query.filter(name__icontains=search_query)
+
+    if category_id:
+        products_query = products_query.filter(category_id=category_id)
+
+    if ordering in {'-id', 'id', '-price', 'price', '-units', 'units'}:
+        products_query = products_query.order_by(ordering)
+    else:
+        products_query = products_query.order_by('-id')
+
+    products = products_query[:8]
+
+    return render(request, 'home.html', {
+        'featured_products': featured_products,
+        'best_selling_products': best_selling_products,
+        'new_products': new_products,
+        'categories': categories,
+        'search_query': search_query,
+        'category_id': category_id,
+        'ordering': ordering,
+        'products': products,
+    })
 
 
 def staff_required(view_func):
@@ -51,102 +90,43 @@ def AddNewProduct(request):
     categories = Category.objects.filter(parent_category_id=0).order_by('name')
 
     if request.method == 'GET':
+        form = ProductForm()
         return render(request, 'add_product.html', {
             'brands': brands,
             'manufacturers': manufacturers,
             'distributors': distributors,
             'categories': categories,
+            'form': form,
         })
-
-    # Normalize and validate form values before creating a product.
-    name = (request.POST.get('nameTxt') or '').strip()
-    category_id = request.POST.get('categorySelect')
-    msrp_raw = request.POST.get('msrpTxt', '')
-    price_raw = request.POST.get('priceTxt', '')
-    brand_id = request.POST.get('brandSelect')
-    manufacturer_id = request.POST.get('manufacturerSelect')
-    distributor_id = request.POST.get('distributorSelect')
-    units_raw = request.POST.get('unitsTxt', '0')
-    date = None if request.POST.get('dateTxt', '') == '' else request.POST.get('dateTxt')
-    description = (request.POST.get('descriptionTxtArea') or '').strip()
 
     form_data = {
-        'nameTxt': name,
-        'categorySelect': category_id,
-        'msrpTxt': msrp_raw,
-        'priceTxt': price_raw,
-        'brandSelect': brand_id,
-        'manufacturerSelect': manufacturer_id,
-        'distributorSelect': distributor_id,
-        'unitsTxt': units_raw,
-        'dateTxt': date,
-        'descriptionTxtArea': description,
+        'nameTxt': (request.POST.get('nameTxt') or '').strip(),
+        'categorySelect': request.POST.get('categorySelect', ''),
+        'msrpTxt': request.POST.get('msrpTxt', ''),
+        'priceTxt': request.POST.get('priceTxt', ''),
+        'brandSelect': request.POST.get('brandSelect', ''),
+        'manufacturerSelect': request.POST.get('manufacturerSelect', ''),
+        'distributorSelect': request.POST.get('distributorSelect', ''),
+        'unitsTxt': request.POST.get('unitsTxt', '0'),
+        'dateTxt': request.POST.get('dateTxt', ''),
+        'descriptionTxtArea': (request.POST.get('descriptionTxtArea') or '').strip(),
     }
 
-    errors = []
+    form = ProductForm({
+        'name': form_data['nameTxt'],
+        'category': form_data['categorySelect'],
+        'brand': form_data['brandSelect'],
+        'manufacturer': form_data['manufacturerSelect'],
+        'distributor': form_data['distributorSelect'],
+        'description': form_data['descriptionTxtArea'],
+        'release_date': form_data['dateTxt'],
+        'msrp': form_data['msrpTxt'],
+        'price': form_data['priceTxt'],
+        'units': form_data['unitsTxt'],
+    })
 
-    def _parse_optional_decimal(value):
-        if value in (None, ''):
-            return None
-        return Decimal(value)
-
-    try:
-        # Parse money fields as Decimal so prices can store cents safely.
-        price = _parse_optional_decimal(price_raw)
-        msrp = _parse_optional_decimal(msrp_raw)
-        units = int(units_raw) if units_raw not in (None, '') else 0
-        category_id = None if category_id in (None, '') else int(category_id)
-        brand_id = None if brand_id in (None, '') else int(brand_id)
-        manufacturer_id = None if manufacturer_id in (None, '') else int(manufacturer_id)
-        distributor_id = None if distributor_id in (None, '') else int(distributor_id)
-    except (TypeError, ValueError):
-        errors.append('Please enter valid numeric values for MSRP and price')
-        return render(request, 'add_product.html', {
-            'brands': brands,
-            'manufacturers': manufacturers,
-            'distributors': distributors,
-            'categories': categories,
-            'errors': errors,
-            'form_data': form_data,
-        })
-
-    if not name:
-        errors.append('Please provide a product name')
-    if not description:
-        errors.append('Please provide a product description')
-    if category_id is None:
-        errors.append('Please select a category')
-    if price is None:
-        errors.append('Please provide a price')
-    elif price < Decimal('1'):
-        errors.append('Price must be at least 1')
-
-    if errors:
-        return render(request, 'add_product.html', {
-            'brands': brands,
-            'manufacturers': manufacturers,
-            'distributors': distributors,
-            'categories': categories,
-            'errors': errors,
-            'form_data': form_data,
-        })
-
-    try:
-        product = Product(
-            name=name,
-            category_id=category_id,
-            brand_id=brand_id,
-            description=description,
-            manufacturer_id=manufacturer_id,
-            distributor_id=distributor_id,
-            release_date=date,
-            msrp=msrp,
-            price=price,
-            units=units or 0,
-        )
-        product.save()
-
-        # Persist feature values only when a non-empty value is provided.
+    if form.is_valid():
+        product = form.save()
         if product.category_id is not None:
             features_found = Feature.objects.filter(category_id=product.category_id)
             for feature in features_found:
@@ -157,18 +137,23 @@ def AddNewProduct(request):
                         product_id=product.pk,
                         value=feature_value,
                     )
-    except (ValidationError, ValueError, TypeError):
-        errors.append('The product could not be saved. Please review the submitted values.')
-        return render(request, 'add_product.html', {
-            'brands': brands,
-            'manufacturers': manufacturers,
-            'distributors': distributors,
-            'categories': categories,
-            'errors': errors,
-            'form_data': form_data,
-        })
+        messages.success(request, 'Product created successfully.')
+        return redirect('products')
 
-    return redirect('products')
+    errors = []
+    for field_errors in form.errors.values():
+        for error in field_errors:
+            errors.append(error)
+
+    return render(request, 'add_product.html', {
+        'brands': brands,
+        'manufacturers': manufacturers,
+        'distributors': distributors,
+        'categories': categories,
+        'errors': errors,
+        'form_data': form_data,
+        'form': form,
+    })
 
 
 def GetCategories(request):

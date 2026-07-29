@@ -1,7 +1,8 @@
 from django.urls import path
-from .views import HelloWorld, ListProducts, ProductDetail, AddNewProduct, GetSubcategories, GetFeatures, AddCategory, GetCategories, GetBrands, GetManufacturers, GetDistributors, AddBrand, AddDistributor, AddManufacturer, AddFeature, Register
+from .views import HelloWorld, HomePage, ListProducts, ProductDetail, AddNewProduct, GetSubcategories, GetFeatures, AddCategory, GetCategories, GetBrands, GetManufacturers, GetDistributors, AddBrand, AddDistributor, AddManufacturer, AddFeature, Register
 
 urlpatterns = [
+    path('', HomePage, name='home'),
     path('hello-world/', HelloWorld),
     path('products/', ListProducts, name='products'),
     path('products/detail/<int:productId>', ProductDetail, name='productDetail'),

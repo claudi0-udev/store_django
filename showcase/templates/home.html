@@ -1,0 +1,184 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<section class="row align-items-center py-5">
+  <div class="col-lg-7">
+    <h1 class="display-4 font-weight-bold">Descubre tu próxima compra</h1>
+    <p class="lead text-muted">
+      Una tienda simple, elegante y preparada para mostrar productos con una experiencia clara para el visitante.
+    </p>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-primary btn-lg" href="{% url 'products' %}">Explorar catálogo</a>
+      <a class="btn btn-outline-secondary btn-lg" href="{% url 'register' %}">Crear cuenta</a>
+    </div>
+  </div>
+  <div class="col-lg-5 mt-4 mt-lg-0">
+    <div class="card shadow-sm border-0 bg-light">
+      <div class="card-body">
+        <h5 class="card-title">¿Qué encontrarás?</h5>
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item">Catálogo organizado por categorías</li>
+          <li class="list-group-item">Detalles de cada producto y disponibilidad</li>
+          <li class="list-group-item">Registro de usuarios y acceso para administración</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="row mb-4">
+  <div class="col-12">
+    <div id="promoCarousel" class="carousel slide shadow-sm rounded" data-ride="carousel">
+      <ol class="carousel-indicators">
+        <li data-target="#promoCarousel" data-slide-to="0" class="active"></li>
+        <li data-target="#promoCarousel" data-slide-to="1"></li>
+        <li data-target="#promoCarousel" data-slide-to="2"></li>
+      </ol>
+      <div class="carousel-inner">
+        <div class="carousel-item active">
+          <div class="d-block w-100 p-5 rounded bg-primary text-white">
+            <h3>Promoción del mes</h3>
+            <p class="mb-0">Aprovecha descuentos especiales en productos seleccionados.</p>
+          </div>
+        </div>
+        <div class="carousel-item">
+          <div class="d-block w-100 p-5 rounded bg-success text-white">
+            <h3>Envío gratis</h3>
+            <p class="mb-0">Disfruta de envío gratis en pedidos por encima de un valor mínimo.</p>
+          </div>
+        </div>
+        <div class="carousel-item">
+          <div class="d-block w-100 p-5 rounded bg-warning text-dark">
+            <h3>Nuevos lanzamientos</h3>
+            <p class="mb-0">Descubre la colección más reciente para esta temporada.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="row mb-4">
+  <div class="col-12">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+          <div class="col-md-5">
+            <label class="sr-only" for="q">Buscar</label>
+            <input class="form-control" id="q" type="search" name="q" value="{{ search_query }}" placeholder="Buscar productos por nombre">
+          </div>
+          <div class="col-md-3">
+            <label class="sr-only" for="category">Categoría</label>
+            <select class="form-control" id="category" name="category">
+              <option value="">Todas las categorías</option>
+              {% for category in categories %}
+              <option value="{{ category.id }}" {% if category_id == category.id|stringformat:'s' %}selected{% endif %}>{{ category.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="sr-only" for="ordering">Ordenar</label>
+            <select class="form-control" id="ordering" name="ordering">
+              <option value="-id" {% if ordering == '-id' %}selected{% endif %}>Más recientes</option>
+              <option value="price" {% if ordering == 'price' %}selected{% endif %}>Precio asc.</option>
+              <option value="-price" {% if ordering == '-price' %}selected{% endif %}>Precio desc.</option>
+              <option value="-units" {% if ordering == '-units' %}selected{% endif %}>Más disponibles</option>
+            </select>
+          </div>
+          <div class="col-md-2 d-flex gap-2">
+            <button class="btn btn-primary" type="submit">Buscar</button>
+            {% if search_query or category_id or ordering != '-id' %}
+            <a class="btn btn-outline-secondary" href="{% url 'home' %}">Limpiar</a>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="row mb-4">
+  <div class="col-12">
+    <h2 class="h5 font-weight-bold mb-3">Categorías populares</h2>
+    <div class="d-flex flex-wrap gap-2">
+      {% for category in categories %}
+      <span class="badge badge-pill badge-light border px-3 py-2">{{ category.name }}</span>
+      {% empty %}
+      <span class="text-muted">Pronto añadiremos más categorías.</span>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="row mb-4">
+  <div class="col-12">
+    <h2 class="h4 font-weight-bold mb-3">Mejores ventas</h2>
+    <div class="row">
+      {% for product in best_selling_products %}
+      <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+          <div class="card-body">
+            <h5 class="card-title">{{ product.name }}</h5>
+            <p class="card-text text-muted">{{ product.description|truncatechars:90 }}</p>
+            <p class="font-weight-bold text-primary mb-0">$ {{ product.price }}</p>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="row mb-4">
+  <div class="col-12">
+    <h2 class="h4 font-weight-bold mb-3">Nuevos productos</h2>
+    <div class="row">
+      {% for product in new_products %}
+      <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+          <div class="card-body">
+            <span class="badge badge-success mb-2">Nuevo</span>
+            <h5 class="card-title">{{ product.name }}</h5>
+            <p class="card-text text-muted">{{ product.description|truncatechars:90 }}</p>
+            <p class="font-weight-bold text-primary mb-0">$ {{ product.price }}</p>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="row mb-5">
+  <div class="col-12">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2 class="h4 font-weight-bold mb-0">Productos destacados</h2>
+      <a class="btn btn-sm btn-outline-primary" href="{% url 'products' %}">Ver todos</a>
+    </div>
+
+    <div class="row">
+      {% for product in products %}
+      <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+          <div class="card-body">
+            <span class="badge badge-info mb-2">{{ product.category.name|default:'Sin categoría' }}</span>
+            <h5 class="card-title">{{ product.name }}</h5>
+            <p class="card-text text-muted">{{ product.description|truncatechars:110 }}</p>
+            <p class="font-weight-bold text-primary mb-0">$ {{ product.price }}</p>
+          </div>
+          <div class="card-footer bg-white border-0">
+            <a class="btn btn-outline-primary btn-sm" href="{% url 'productDetail' product.id %}">Ver detalle</a>
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="col-12">
+        <div class="alert alert-light border" role="alert">
+          No hay productos para mostrar todavía.
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

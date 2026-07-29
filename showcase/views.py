@@ -220,6 +220,6 @@ def AddFeature(request): #Add a new feature referencing category in DB
             feature.save()
             return JsonResponse({'message' : 'Success'})
         except Exception as e:
-            print('Error creating new distributor : ' + str(e))
+            print('Error creating new feature: ' + str(e))
 
     return HttpResponse('Success')

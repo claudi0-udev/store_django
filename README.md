@@ -75,6 +75,22 @@ http://127.0.0.1:8000/products/
 
 La configuración actual usa SQLite para desarrollo local. Si deseas usar PostgreSQL, puedes cambiar la configuración en `mysite/settings.py` y ajustar los datos de conexión.
 
+### Credenciales por defecto
+
+- En modo SQLite no hay usuario Django preconfigurado.
+- Para crear un administrador usa:
+
+```bash
+python manage.py createsuperuser
+```
+
+- Si configuras PostgreSQL cambiando `USE_SQLITE` a `0`, los valores por defecto en `mysite/settings.py` son:
+  - `NAME`: `store`
+  - `USER`: `pi`
+  - `PASSWORD`: `1234`
+  - `HOST`: `192.168.1.190`
+  - `PORT`: `5432`
+
 ## Problemas comunes
 
 ### Error: `ModuleNotFoundError: No module named 'django'`

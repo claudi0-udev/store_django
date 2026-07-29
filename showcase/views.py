@@ -1,225 +1,239 @@
-from django.shortcuts import render, redirect
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
-from .models import Product, Feature, Category, FeatureValue, Brand, Manufacturer, Distributor
+from django.shortcuts import get_object_or_404, redirect, render
 from django.core.paginator import Paginator
 
-import json
+from .models import Brand, Category, Distributor, Feature, FeatureValue, Manufacturer, Product
 
-# Create your views here.
 
 def HelloWorld(request):
     return HttpResponse('<h2>Hello World!</h2>')
 
+
 def ListProducts(request):
-    products = Product.objects.all()
-    paginator = Paginator(products, 5) #Show 20 products per page
+    # Use select_related to reduce the number of queries when rendering the product list.
+    products = Product.objects.select_related('category', 'brand', 'manufacturer', 'distributor').order_by('-id')
+    paginator = Paginator(products, 5)
     page_number = request.GET.get('page')
     page_products = paginator.get_page(page_number)
-    print(page_products)
     return render(request, 'products_list.html', {
-        'products' : page_products,
+        'products': page_products,
     })
-    #Json Response
-    #data_json = list(Product.objects.values())
-    #data_json = {'products' : data_json}
-    #return JsonResponse(data_json, safe=False)
+
 
 def ProductDetail(request, productId):
-    product = Product.objects.get(pk=productId)
+    # Return a 404 instead of crashing when a product ID does not exist.
+    product = get_object_or_404(Product.objects.select_related('category', 'brand', 'manufacturer', 'distributor'), pk=productId)
     category = Category.objects.filter(id=product.category_id)
-    featureValues = FeatureValue.objects.filter(product_id=productId)
-    print(featureValues, product, category)
-    #product = list(Product.objects.filter(id=productId).values())
-    #return JsonResponse(product, safe=False)
+    feature_values = FeatureValue.objects.filter(product_id=productId).select_related('feature')
     return render(request, 'product_detail.html', {
         'product': product,
-        'category' : category,
-        'featureValues' : featureValues,
+        'category': category,
+        'featureValues': feature_values,
     })
 
-def AddNewProduct(request): #Create new product in DB
-    if(request.method == 'GET'):
-        brands = Brand.objects.all()
-        manufacturers = Manufacturer.objects.all()
-        distributors = Distributor.objects.all()
-        categories = Category.objects.filter(parent_category_id=0)
+
+def AddNewProduct(request):
+    if request.method == 'GET':
+        brands = Brand.objects.all().order_by('name')
+        manufacturers = Manufacturer.objects.all().order_by('name')
+        distributors = Distributor.objects.all().order_by('name')
+        categories = Category.objects.filter(parent_category_id=0).order_by('name')
         return render(request, 'add_product.html', {
-            'brands' : brands,
-            'manufacturers' : manufacturers,
-            'distributors' : distributors,
-            'categories' : categories,
+            'brands': brands,
+            'manufacturers': manufacturers,
+            'distributors': distributors,
+            'categories': categories,
         })
-    else:
-        name = request.POST['nameTxt']
-        category = request.POST['categorySelect']
-        msrp = request.POST['msrpTxt']
-        price = request.POST['priceTxt']
-        brand = request.POST['brandSelect']
-        manufacturer = request.POST['manufacturerSelect']
-        distributor = request.POST['distributorSelect']
-        units = request.POST['unitsTxt']
-        date = None if request.POST['dateTxt'] == '' else request.POST['dateTxt']
-        description = request.POST['descriptionTxtArea']
-        try:
-            product = Product.objects.create(
-                name = name,
-                category_id = category,
-                brand_id = brand,
-                description = description,
-                manufacturer_id = manufacturer,
-                distributor_id = distributor,
-                release_date = date,
-                msrp = msrp,
-                price = price,
-                units = units,
-            )
-            product.save()
-            #Now trying set feature values
-            c = product.category.id
-            pid = product.pk
-            featuresFound = Feature.objects.filter(category_id = c)
-            for f in featuresFound:
-                feature_value = request.POST['txt_' + str(f.pk)]
-                FeatureValue.objects.create(
-                    feature_id = f.pk,
-                    product_id = pid,
-                    value = feature_value,
-                )
-        except Exception as e:
-            print('Error creating new product : ' + str(e))
-        return redirect('products')
 
-def GetCategories(request): #Get all categories in JSON format
-    categories = list(Category.objects.all().values())
-    
-    if(len(categories) > 0):
-        data = {'message' : 'Success', 'categories' : categories}
+    # Normalize and validate form values before creating a product.
+    name = (request.POST.get('nameTxt') or '').strip()
+    category_id = request.POST.get('categorySelect')
+    msrp_raw = request.POST.get('msrpTxt', '')
+    price_raw = request.POST.get('priceTxt', '')
+    brand_id = request.POST.get('brandSelect')
+    manufacturer_id = request.POST.get('manufacturerSelect')
+    distributor_id = request.POST.get('distributorSelect')
+    units_raw = request.POST.get('unitsTxt', '0')
+    date = None if request.POST.get('dateTxt', '') == '' else request.POST.get('dateTxt')
+    description = (request.POST.get('descriptionTxtArea') or '').strip()
+
+    def _parse_optional_int(value):
+        if value in (None, ''):
+            return None
+        return int(value)
+
+    try:
+        price = _parse_optional_int(price_raw)
+        msrp = _parse_optional_int(msrp_raw)
+        units = _parse_optional_int(units_raw) if units_raw not in (None, '') else 0
+        category_id = None if category_id in (None, '') else int(category_id)
+        brand_id = None if brand_id in (None, '') else int(brand_id)
+        manufacturer_id = None if manufacturer_id in (None, '') else int(manufacturer_id)
+        distributor_id = None if distributor_id in (None, '') else int(distributor_id)
+    except (TypeError, ValueError):
+        return redirect('addProduct')
+
+    if not name or not description or category_id is None or price is None or price < 1:
+        return redirect('addProduct')
+
+    try:
+        product = Product(
+            name=name,
+            category_id=category_id,
+            brand_id=brand_id,
+            description=description,
+            manufacturer_id=manufacturer_id,
+            distributor_id=distributor_id,
+            release_date=date,
+            msrp=msrp,
+            price=price,
+            units=units or 0,
+        )
+        product.save()
+
+        # Persist feature values only when a non-empty value is provided.
+        if product.category_id is not None:
+            features_found = Feature.objects.filter(category_id=product.category_id)
+            for feature in features_found:
+                feature_value = (request.POST.get('txt_' + str(feature.pk), '') or '').strip()
+                if feature_value:
+                    FeatureValue.objects.create(
+                        feature_id=feature.pk,
+                        product_id=product.pk,
+                        value=feature_value,
+                    )
+    except (ValidationError, ValueError, TypeError):
+        return redirect('addProduct')
+
+    return redirect('products')
+
+
+def GetCategories(request):
+    categories = list(Category.objects.all().order_by('name').values())
+    if len(categories) > 0:
+        data = {'message': 'Success', 'categories': categories}
     else:
-        data = {'message' : 'Not Found'}
-    
+        data = {'message': 'Not Found'}
     return JsonResponse(data)
 
-def GetSubcategories(request, categoryID): #Get categories by ID in JSON format
-    sub_categories = list(Category.objects.filter(parent_category_id=categoryID).values())
-    
-    if(len(sub_categories) > 0):
-        data = {'message' : 'Success', 'categories' : sub_categories}
+
+def GetSubcategories(request, categoryID):
+    sub_categories = list(Category.objects.filter(parent_category_id=categoryID).order_by('name').values())
+    if len(sub_categories) > 0:
+        data = {'message': 'Success', 'categories': sub_categories}
     else:
-        data = {'message' : 'Not Found'}
-    
+        data = {'message': 'Not Found'}
     return JsonResponse(data)
 
-def GetFeatures(request, categoryID): #Get all features in JSON format
-    features = list(Feature.objects.filter(category_id = categoryID).values())
-    if(len(features) > 0):
-        data = {'message' : 'Success', 'features' : features}
+
+def GetFeatures(request, categoryID):
+    features = list(Feature.objects.filter(category_id=categoryID).order_by('name').values())
+    if len(features) > 0:
+        data = {'message': 'Success', 'features': features}
     else:
-        data = {'message' : 'Not Found'}
+        data = {'message': 'Not Found'}
     return JsonResponse(data)
 
-def GetBrands(request): #Get all brands in JSON format
-    brands = list(Brand.objects.all().values())
-    
-    if(len(brands) > 0):
-        data = {'message' : 'Success', 'brands' : brands}
+
+def GetBrands(request):
+    brands = list(Brand.objects.all().order_by('name').values())
+    if len(brands) > 0:
+        data = {'message': 'Success', 'brands': brands}
     else:
-        data = {'message' : 'Not Found'}
-    
+        data = {'message': 'Not Found'}
     return JsonResponse(data)
 
-def GetManufacturers(request): #Get all manufacturers in JSON format
-    manufacturers = list(Manufacturer.objects.all().values())
-    
-    if(len(manufacturers) > 0):
-        data = {'message' : 'Success', 'manufacturers' : manufacturers}
+
+def GetManufacturers(request):
+    manufacturers = list(Manufacturer.objects.all().order_by('name').values())
+    if len(manufacturers) > 0:
+        data = {'message': 'Success', 'manufacturers': manufacturers}
     else:
-        data = {'message' : 'Not Found'}
-    
+        data = {'message': 'Not Found'}
     return JsonResponse(data)
 
-def GetDistributors(request): #Get all distributors in JSON format
-    distributors = list(Distributor.objects.all().values())
-    
-    if(len(distributors) > 0):
-        data = {'message' : 'Success', 'distributors' : distributors}
+
+def GetDistributors(request):
+    distributors = list(Distributor.objects.all().order_by('name').values())
+    if len(distributors) > 0:
+        data = {'message': 'Success', 'distributors': distributors}
     else:
-        data = {'message' : 'Not Found'}
-    
+        data = {'message': 'Not Found'}
     return JsonResponse(data)
 
-def AddCategory(request): #Add a new category in DB
+
+def AddCategory(request):
     if request.method == 'POST':
-        #name = request.POST['name'] 
-        #parent_category_id = request.POST['parent_category_id']
-        #values = {'name': name, 'parent_category_id' : parent_category_id}
+        # Validate category input before persisting it.
+        name = (request.POST.get('name') or '').strip()
+        parent_category_id_raw = request.POST.get('parent_category_id')
+        if not name:
+            return JsonResponse({'message': 'Error', 'error': 'El nombre es obligatorio.'}, status=400)
+
         try:
-            name = request.POST.get('name')
-            parent_category_id = request.POST.get('parent_category_id')
-            category = Category.objects.create(
-                name = name,
-                parent_category_id = parent_category_id
-            )
-            category.save()
-            return JsonResponse({'message' : 'Success'})
-        except Exception as e:
-            print('Error creating new category : ' + str(e))
+            parent_category_id = None if parent_category_id_raw in (None, '', '0') else int(parent_category_id_raw)
+        except (TypeError, ValueError):
+            return JsonResponse({'message': 'Error', 'error': 'El identificador de categoría padre es inválido.'}, status=400)
 
-    return HttpResponse('Success')
+        category = Category.objects.create(name=name, parent_category_id=parent_category_id)
+        return JsonResponse({'message': 'Success', 'category_id': category.id})
 
-def AddBrand(request): #Add a new brand in DB
+    return JsonResponse({'message': 'Method not allowed'}, status=405)
+
+
+def AddBrand(request):
     if request.method == 'POST':
-        try:
-            name = request.POST.get('name')
-            brand = Brand.objects.create(
-                name = name
-            )
-            brand.save()
-            return JsonResponse({'message' : 'Success'})
-        except Exception as e:
-            print('Error creating new brand : ' + str(e))
+        # Validate brand input before persisting it.
+        name = (request.POST.get('name') or '').strip()
+        if not name:
+            return JsonResponse({'message': 'Error', 'error': 'El nombre es obligatorio.'}, status=400)
 
-    return HttpResponse('Success')
+        brand = Brand.objects.create(name=name)
+        return JsonResponse({'message': 'Success', 'brand_id': brand.id})
 
-def AddManufacturer(request): #Add a new manunfacturer in DB
+    return JsonResponse({'message': 'Method not allowed'}, status=405)
+
+
+def AddManufacturer(request):
     if request.method == 'POST':
-        try:
-            name = request.POST.get('name')
-            manufacturer = Manufacturer.objects.create(
-                name = name
-            )
-            manufacturer.save()
-            return JsonResponse({'message' : 'Success'})
-        except Exception as e:
-            print('Error creating new manufacturer : ' + str(e))
+        # Validate manufacturer input before persisting it.
+        name = (request.POST.get('name') or '').strip()
+        if not name:
+            return JsonResponse({'message': 'Error', 'error': 'El nombre es obligatorio.'}, status=400)
 
-    return HttpResponse('Success')
+        manufacturer = Manufacturer.objects.create(name=name)
+        return JsonResponse({'message': 'Success', 'manufacturer_id': manufacturer.id})
 
-def AddDistributor(request): #Add a new distributor in DB
+    return JsonResponse({'message': 'Method not allowed'}, status=405)
+
+
+def AddDistributor(request):
     if request.method == 'POST':
-        try:
-            name = request.POST.get('name')
-            distributor = Distributor.objects.create(
-                name = name
-            )
-            distributor.save()
-            return JsonResponse({'message' : 'Success'})
-        except Exception as e:
-            print('Error creating new distributor : ' + str(e))
+        # Validate distributor input before persisting it.
+        name = (request.POST.get('name') or '').strip()
+        if not name:
+            return JsonResponse({'message': 'Error', 'error': 'El nombre es obligatorio.'}, status=400)
 
-    return HttpResponse('Success')
+        distributor = Distributor.objects.create(name=name)
+        return JsonResponse({'message': 'Success', 'distributor_id': distributor.id})
 
-def AddFeature(request): #Add a new feature referencing category in DB
+    return JsonResponse({'message': 'Method not allowed'}, status=405)
+
+
+def AddFeature(request):
     if request.method == 'POST':
-        try:
-            name = request.POST.get('name')
-            categoryId = request.POST.get('categoryId')
-            feature = Feature.objects.create(
-                name = name,
-                category_id = categoryId,
-            )
-            feature.save()
-            return JsonResponse({'message' : 'Success'})
-        except Exception as e:
-            print('Error creating new feature: ' + str(e))
+        # Validate feature names and category references before persisting them.
+        name = (request.POST.get('name') or '').strip()
+        category_id = request.POST.get('categoryId')
+        if not name or category_id in (None, ''):
+            return JsonResponse({'message': 'Error', 'error': 'El nombre y la categoría son obligatorios.'}, status=400)
 
-    return HttpResponse('Success')
+        try:
+            feature = Feature.objects.create(name=name, category_id=int(category_id))
+        except (TypeError, ValueError):
+            return JsonResponse({'message': 'Error', 'error': 'La categoría es inválida.'}, status=400)
+
+        return JsonResponse({'message': 'Success', 'feature_id': feature.id})
+
+    return JsonResponse({'message': 'Method not allowed'}, status=405)

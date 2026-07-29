@@ -108,8 +108,9 @@ class Product(models.Model):
     manufacturer = models.ForeignKey(Manufacturer, on_delete=models.CASCADE, null=True)
     distributor = models.ForeignKey(Distributor, on_delete=models.CASCADE, null=True)
     release_date = models.DateField(null=True, blank=True)
-    msrp = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
-    price = models.IntegerField(validators=[MinValueValidator(1)])
+    # Use DecimalField for money fields to support cents accurately and avoid float rounding issues.
+    msrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(1)])
+    price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(1)])
     units = models.IntegerField(default=0, validators=[MinValueValidator(0)])
 
     def clean(self):

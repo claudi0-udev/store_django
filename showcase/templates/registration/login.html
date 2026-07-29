@@ -1,0 +1,26 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<div class="row justify-content-center mt-5">
+  <div class="col-md-5">
+    <h2 class="mb-4">Iniciar sesión</h2>
+    <form method="post">
+      {% csrf_token %}
+      {% if form.errors %}
+      <div class="alert alert-danger">
+        Por favor corrige los errores a continuación.
+      </div>
+      {% endif %}
+      <div class="form-group">
+        <label for="id_username">Usuario</label>
+        {{ form.username }}
+      </div>
+      <div class="form-group">
+        <label for="id_password">Clave</label>
+        {{ form.password }}
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

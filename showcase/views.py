@@ -1,3 +1,8 @@
+from decimal import Decimal
+
+from django.contrib.auth import login
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -8,6 +13,11 @@ from .models import Brand, Category, Distributor, Feature, FeatureValue, Manufac
 
 def HelloWorld(request):
     return HttpResponse('<h2>Hello World!</h2>')
+
+
+def staff_required(view_func):
+    decorated = user_passes_test(lambda user: user.is_staff, login_url='login')(view_func)
+    return login_required(decorated, login_url='login')
 
 
 def ListProducts(request):
@@ -33,12 +43,14 @@ def ProductDetail(request, productId):
     })
 
 
+@staff_required
 def AddNewProduct(request):
+    brands = Brand.objects.all().order_by('name')
+    manufacturers = Manufacturer.objects.all().order_by('name')
+    distributors = Distributor.objects.all().order_by('name')
+    categories = Category.objects.filter(parent_category_id=0).order_by('name')
+
     if request.method == 'GET':
-        brands = Brand.objects.all().order_by('name')
-        manufacturers = Manufacturer.objects.all().order_by('name')
-        distributors = Distributor.objects.all().order_by('name')
-        categories = Category.objects.filter(parent_category_id=0).order_by('name')
         return render(request, 'add_product.html', {
             'brands': brands,
             'manufacturers': manufacturers,
@@ -58,24 +70,66 @@ def AddNewProduct(request):
     date = None if request.POST.get('dateTxt', '') == '' else request.POST.get('dateTxt')
     description = (request.POST.get('descriptionTxtArea') or '').strip()
 
-    def _parse_optional_int(value):
+    form_data = {
+        'nameTxt': name,
+        'categorySelect': category_id,
+        'msrpTxt': msrp_raw,
+        'priceTxt': price_raw,
+        'brandSelect': brand_id,
+        'manufacturerSelect': manufacturer_id,
+        'distributorSelect': distributor_id,
+        'unitsTxt': units_raw,
+        'dateTxt': date,
+        'descriptionTxtArea': description,
+    }
+
+    errors = []
+
+    def _parse_optional_decimal(value):
         if value in (None, ''):
             return None
-        return int(value)
+        return Decimal(value)
 
     try:
-        price = _parse_optional_int(price_raw)
-        msrp = _parse_optional_int(msrp_raw)
-        units = _parse_optional_int(units_raw) if units_raw not in (None, '') else 0
+        # Parse money fields as Decimal so prices can store cents safely.
+        price = _parse_optional_decimal(price_raw)
+        msrp = _parse_optional_decimal(msrp_raw)
+        units = int(units_raw) if units_raw not in (None, '') else 0
         category_id = None if category_id in (None, '') else int(category_id)
         brand_id = None if brand_id in (None, '') else int(brand_id)
         manufacturer_id = None if manufacturer_id in (None, '') else int(manufacturer_id)
         distributor_id = None if distributor_id in (None, '') else int(distributor_id)
     except (TypeError, ValueError):
-        return redirect('addProduct')
+        errors.append('Please enter valid numeric values for MSRP and price')
+        return render(request, 'add_product.html', {
+            'brands': brands,
+            'manufacturers': manufacturers,
+            'distributors': distributors,
+            'categories': categories,
+            'errors': errors,
+            'form_data': form_data,
+        })
 
-    if not name or not description or category_id is None or price is None or price < 1:
-        return redirect('addProduct')
+    if not name:
+        errors.append('Please provide a product name')
+    if not description:
+        errors.append('Please provide a product description')
+    if category_id is None:
+        errors.append('Please select a category')
+    if price is None:
+        errors.append('Please provide a price')
+    elif price < Decimal('1'):
+        errors.append('Price must be at least 1')
+
+    if errors:
+        return render(request, 'add_product.html', {
+            'brands': brands,
+            'manufacturers': manufacturers,
+            'distributors': distributors,
+            'categories': categories,
+            'errors': errors,
+            'form_data': form_data,
+        })
 
     try:
         product = Product(
@@ -104,7 +158,15 @@ def AddNewProduct(request):
                         value=feature_value,
                     )
     except (ValidationError, ValueError, TypeError):
-        return redirect('addProduct')
+        errors.append('The product could not be saved. Please review the submitted values.')
+        return render(request, 'add_product.html', {
+            'brands': brands,
+            'manufacturers': manufacturers,
+            'distributors': distributors,
+            'categories': categories,
+            'errors': errors,
+            'form_data': form_data,
+        })
 
     return redirect('products')
 
@@ -163,6 +225,20 @@ def GetDistributors(request):
     return JsonResponse(data)
 
 
+def Register(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            return redirect('products')
+    else:
+        form = UserCreationForm()
+
+    return render(request, 'register.html', {'form': form})
+
+
+@staff_required
 def AddCategory(request):
     if request.method == 'POST':
         # Validate category input before persisting it.
@@ -182,6 +258,7 @@ def AddCategory(request):
     return JsonResponse({'message': 'Method not allowed'}, status=405)
 
 
+@staff_required
 def AddBrand(request):
     if request.method == 'POST':
         # Validate brand input before persisting it.
@@ -195,6 +272,7 @@ def AddBrand(request):
     return JsonResponse({'message': 'Method not allowed'}, status=405)
 
 
+@staff_required
 def AddManufacturer(request):
     if request.method == 'POST':
         # Validate manufacturer input before persisting it.
@@ -208,6 +286,7 @@ def AddManufacturer(request):
     return JsonResponse({'message': 'Method not allowed'}, status=405)
 
 
+@staff_required
 def AddDistributor(request):
     if request.method == 'POST':
         # Validate distributor input before persisting it.
@@ -221,6 +300,7 @@ def AddDistributor(request):
     return JsonResponse({'message': 'Method not allowed'}, status=405)
 
 
+@staff_required
 def AddFeature(request):
     if request.method == 'POST':
         # Validate feature names and category references before persisting them.

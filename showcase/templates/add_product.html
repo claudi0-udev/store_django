@@ -4,9 +4,18 @@
 
 
 <form class="needs-validation py-6" method="post" novalidate>{% csrf_token %}
+  {% if errors %}
+  <div class="alert alert-danger" role="alert">
+    <ul class="mb-0">
+      {% for error in errors %}
+      <li>{{ error }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
   <div class="form-group">
     <label>Product Name</label>
-    <input class="form-control" id="nameTxt" name="nameTxt" placeholder="Enter product name" required>
+    <input class="form-control" id="nameTxt" name="nameTxt" value="{{ form_data.nameTxt|default:'' }}" placeholder="Enter product name" required>
     <div class="valid-feedback">
       Looks good!
     </div>
@@ -25,7 +34,7 @@
     <select class="form-control" id="categorySelect" name="categorySelect" required>
       <option value="">-</option>
       {% for c in categories %}
-      <option value={{ c.id }}>{{ c.name }}</option>
+      <option value={{ c.id }}{% if form_data.categorySelect == c.id|stringformat:'s' %} selected{% endif %}>{{ c.name }}</option>
       {% endfor %}
     </select>
   </div>
@@ -33,18 +42,18 @@
   </div>
   <div class="form-group">
     <label>MSRP</label>
-    <input type="number" class="form-control" id="msrpTxt" name="msrpTxt" placeholder="Enter product MSRP value">
+    <input type="number" class="form-control" id="msrpTxt" name="msrpTxt" value="{{ form_data.msrpTxt|default:'' }}" placeholder="Enter product MSRP value">
   </div>
   <div class="form-group">
     <label>Price</label>
-    <input type="number" class="form-control" id="priceTxt" name="priceTxt" placeholder="Enter price value">
+    <input type="number" class="form-control" id="priceTxt" name="priceTxt" value="{{ form_data.priceTxt|default:'' }}" placeholder="Enter price value">
   </div>
   <div class="form-group">
     <label>Brand</label>
     <a href="javascript:newBrandModal()" class="badge badge-info">New Brand</a>
     <select class="form-control" id="brandSelect" name="brandSelect">
       {% for b in brands %}
-      <option value={{ b.id }}>{{ b.name }}</option>
+      <option value={{ b.id }}{% if form_data.brandSelect == b.id|stringformat:'s' %} selected{% endif %}>{{ b.name }}</option>
       {% endfor %}
     </select>
   </div>
@@ -53,7 +62,7 @@
     <a href="javascript:newManufacturerModal()" class="badge badge-info">New Manufacturer</a>
     <select class="form-control" id="manufacturerSelect" name="manufacturerSelect">
       {% for m in manufacturers %}
-      <option value={{ m.id }}>{{ m.name }}</option>
+      <option value={{ m.id }}{% if form_data.manufacturerSelect == m.id|stringformat:'s' %} selected{% endif %}>{{ m.name }}</option>
       {% endfor %}
     </select>
   </div>
@@ -62,21 +71,21 @@
     <a href="javascript:newDistributorModal()" class="badge badge-info">New Distributor</a>
     <select class="form-control" id="distributorSelect" name="distributorSelect">
       {% for d in distributors %}
-      <option value={{ d.id }}>{{ d.name }}</option>
+      <option value={{ d.id }}{% if form_data.distributorSelect == d.id|stringformat:'s' %} selected{% endif %}>{{ d.name }}</option>
       {% endfor %}
     </select>
   </div>
   <div class="form-group">
     <label>Description</label>
-    <textarea class="form-control" id="descriptionTxtArea" name="descriptionTxtArea" rows="3"></textarea>
+    <textarea class="form-control" id="descriptionTxtArea" name="descriptionTxtArea" rows="3">{{ form_data.descriptionTxtArea|default:'' }}</textarea>
   </div>
   <div class="form-group">
     <label>Release date</label>
-    <input type="date" class="form-control" id="dateTxt" name="dateTxt">
+    <input type="date" class="form-control" id="dateTxt" name="dateTxt" value="{{ form_data.dateTxt|default:'' }}">
   </div>
   <div class="form-group">
     <label>Units</label>
-    <input type="number" class="form-control" id="unitsTxt" name="unitsTxt" placeholder="Enter products number value">
+    <input type="number" class="form-control" id="unitsTxt" name="unitsTxt" value="{{ form_data.unitsTxt|default:'' }}" placeholder="Enter products number value">
   </div>
   <button type="submit" class="btn btn-primary btn-block">Save</button>
 </form>

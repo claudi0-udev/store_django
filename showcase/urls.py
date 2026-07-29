@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import HelloWorld, ListProducts, ProductDetail, AddNewProduct, GetSubcategories, GetFeatures, AddCategory, GetCategories, GetBrands, GetManufacturers, GetDistributors, AddBrand, AddDistributor, AddManufacturer, AddFeature
+from .views import HelloWorld, ListProducts, ProductDetail, AddNewProduct, GetSubcategories, GetFeatures, AddCategory, GetCategories, GetBrands, GetManufacturers, GetDistributors, AddBrand, AddDistributor, AddManufacturer, AddFeature, Register
 
 urlpatterns = [
     path('hello-world/', HelloWorld),
@@ -17,4 +17,5 @@ urlpatterns = [
     path('products/add_manufacturer/', AddManufacturer, name='addManufacturer'),
     path('products/add_distributor/', AddDistributor, name='addDistributor'),
     path('products/add_feature/', AddFeature, name='addFeature'),
+    path('accounts/register/', Register, name='register'),
 ]

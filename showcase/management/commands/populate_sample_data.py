@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from showcase.models import (
@@ -88,8 +90,8 @@ class Command(BaseCommand):
                 "distributor": distributors["TechDistribution"],
                 "description": "Smartphone premium con cámara avanzada, pantalla OLED y rendimiento de alto nivel para uso diario y creativo.",
                 "release_date": timezone.now().date().replace(year=timezone.now().year - 1),
-                "msrp": 1299,
-                "price": 1199,
+                "msrp": Decimal("1299.00"),
+                "price": Decimal("1199.00"),
                 "units": 25,
                 "features": {
                     "Color": "Titanio natural",
@@ -105,8 +107,8 @@ class Command(BaseCommand):
                 "distributor": distributors["Global Retail Co."],
                 "description": "Teléfono Android de gama alta con pantalla grande, cámara versátil y excelente experiencia multimedia.",
                 "release_date": timezone.now().date().replace(year=timezone.now().year - 1),
-                "msrp": 1399,
-                "price": 1299,
+                "msrp": Decimal("1399.00"),
+                "price": Decimal("1299.00"),
                 "units": 18,
                 "features": {
                     "Color": "Negro",
@@ -122,8 +124,8 @@ class Command(BaseCommand):
                 "distributor": distributors["Prime Supply"],
                 "description": "Laptop ultraligera con chip M2, ideal para trabajo, estudio y navegación intensiva.",
                 "release_date": timezone.now().date().replace(year=timezone.now().year - 2),
-                "msrp": 1499,
-                "price": 1399,
+                "msrp": Decimal("1499.00"),
+                "price": Decimal("1399.00"),
                 "units": 12,
                 "features": {
                     "Procesador": "Apple M2",
@@ -138,8 +140,8 @@ class Command(BaseCommand):
                 "distributor": distributors["TechDistribution"],
                 "description": "Auriculares premium con cancelación de ruido activa y sonido envolvente para viajes y trabajo.",
                 "release_date": timezone.now().date().replace(year=timezone.now().year - 1),
-                "msrp": 399,
-                "price": 349,
+                "msrp": Decimal("399.00"),
+                "price": Decimal("349.00"),
                 "units": 30,
                 "features": {
                     "Conectividad": "Bluetooth 5.3",
@@ -154,8 +156,8 @@ class Command(BaseCommand):
                 "distributor": distributors["SportLine"],
                 "description": "Zapatillas deportivas con amortiguación ligera y diseño versátil para entrenar o moverte con comodidad.",
                 "release_date": timezone.now().date().replace(year=timezone.now().year - 1),
-                "msrp": 129,
-                "price": 109,
+                "msrp": Decimal("129.00"),
+                "price": Decimal("109.00"),
                 "units": 40,
                 "features": {
                     "Talla": "42",
@@ -170,8 +172,8 @@ class Command(BaseCommand):
                 "distributor": distributors["Global Retail Co."],
                 "description": "Cafetera automática con molinillo integrado y varios modos de preparación para cada preferencia.",
                 "release_date": timezone.now().date().replace(year=timezone.now().year - 2),
-                "msrp": 599,
-                "price": 549,
+                "msrp": Decimal("599.00"),
+                "price": Decimal("549.00"),
                 "units": 15,
                 "features": {
                     "Capacidad": "1.8 litros",

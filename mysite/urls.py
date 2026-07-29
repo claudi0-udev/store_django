@@ -19,5 +19,6 @@ import showcase.urls
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include(showcase.urls.urlpatterns))
+    path('', include(showcase.urls.urlpatterns)),
+    path('accounts/', include('django.contrib.auth.urls')),
 ]

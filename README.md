@@ -53,7 +53,21 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
-## 6. Ejecutar la aplicación
+## 6. Crear usuarios por defecto para desarrollo
+
+Puedes crear usuarios de ejemplo para los roles más comunes con:
+
+```bash
+python manage.py create_default_users
+```
+
+Credenciales creadas:
+
+- `admin` / `Admin$2026!` — superusuario staff
+- `staff` / `Staff$2026!` — usuario staff sin superuser
+- `customer` / `Customer$2026!` — usuario regular
+
+## 7. Ejecutar la aplicación
 
 ```bash
 python manage.py runserver

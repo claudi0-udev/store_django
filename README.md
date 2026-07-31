@@ -37,7 +37,22 @@ py -m venv venv
 pip install -r requirements.txt
 ```
 
-## 4. Preparar la base de datos
+## 4. Configurar carga de imágenes
+
+Este proyecto ahora soporta imágenes de producto mediante `ImageField` de Django.
+
+Asegúrate de que el paquete `Pillow` esté instalado (ya está incluido en `requirements.txt`).
+
+En `mysite/settings.py` se configuran las siguientes variables para el almacenamiento de archivos multimedia:
+
+```python
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+```
+
+Además, en desarrollo Django sirve estas imágenes automáticamente cuando `DEBUG = True`.
+
+## 5. Preparar la base de datos
 
 Este proyecto está configurado para usar SQLite por defecto en desarrollo, por lo que no necesitas una base de datos externa.
 
@@ -47,7 +62,14 @@ Ejecuta:
 python manage.py migrate
 ```
 
-## 5. Crear un superusuario (opcional)
+Si agregaste el nuevo campo de imagen al modelo, ejecuta también:
+
+```bash
+python manage.py makemigrations showcase
+python manage.py migrate
+```
+
+## 6. Crear un superusuario (opcional)
 
 ```bash
 python manage.py createsuperuser
@@ -78,6 +100,12 @@ Abre en tu navegador:
 ```text
 http://127.0.0.1:8000/products/
 ```
+
+## Uso de imágenes de producto
+
+- Usa el formulario de `Agregar producto` para subir una imagen.
+- El archivo se guardará en `media/product_images/`.
+- Las imágenes se muestran en la vista de detalle del producto.
 
 ## Estructura general
 

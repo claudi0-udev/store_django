@@ -1,23 +1,40 @@
 # Notas del proyecto - store_django
 
 ## Contexto general
-- Proyecto Django de tienda (`store_django`) con app `showcase`.
-- Se estaba trabajando en mejorar validaciones, manejar precios como `DecimalField`, sembrar datos de ejemplo y proteger rutas de administración con autenticación.
-- Se implementó una interfaz básica de registro/login, y se agregó control de acceso para vistas administrativas.
+- Proyecto Django de tienda en fase de prototipo/mi-ecommerce con la app `showcase`.
+- El objetivo principal ha sido convertirlo en una base más realista y mantenible, con validaciones, datos de ejemplo, autenticación y una experiencia de inicio más completa.
 
-## Cambios recientes
-- `showcase/models.py`: Campos de precio (`price`, `msrp`) convertidos a `DecimalField(max_digits=10, decimal_places=2)`.
-- `showcase/views.py`: se agregó validación de datos y se corrigió protección de la vista `Register` retirando `@staff_required`.
-- `showcase/urls.py`: se añadió la ruta `accounts/register/` para el registro de usuarios.
-- `mysite/urls.py`: se mantiene `accounts/` incluido con `django.contrib.auth.urls`.
-- Verificación: `python manage.py check` pasó sin errores y `reverse('register')` resuelve correctamente.
+## Cambios implementados
+- Se fortalecieron las validaciones de productos y entidades del catálogo para evitar datos incompletos o inválidos.
+- Los campos monetarios (`price`, `msrp`) se cambiaron a `DecimalField` para manejar valores con precisión de céntimos.
+- Se añadieron datos de ejemplo realistas con un comando de gestión para poblar la base de datos.
+- Se incorporó autenticación con login, logout, registro y control de acceso para vistas administrativas.
+- La ruta pública de registro ahora crea únicamente cuentas de cliente (`customer`).
+  - Las cuentas `staff`, `admin` o `superuser` solo pueden crearse desde el admin de Django o mediante un superuser autorizado.
+- Se creó una landing page para visitantes con:
+  - hero banner
+  - carrusel de promociones
+  - sección de mejores ventas
+  - bloque de nuevos productos
+  - buscador avanzado con filtros por categoría y orden
+- Se añadió un flujo de creación de productos con formulario dedicado y mensajes de feedback.
+- Se documentó la configuración básica del proyecto y los usuarios por defecto en el README.
+
+## Archivos clave
+- `showcase/models.py`: modelo de productos y catálogo con validaciones y campos monetarios seguros.
+- `showcase/forms.py`: formulario dedicado para crear productos.
+- `showcase/views.py`: control de vistas públicas, administración y autenticación.
+- `showcase/templates/home.html`: landing page con secciones de ecommerce.
+- `showcase/templates/add_product.html`: formulario de alta de productos.
+- `showcase/management/commands/`: comandos para sembrar datos y crear usuarios por defecto.
 
 ## Estado actual
-- La ruta de registro es accesible para usuarios no staff.
-- Las vistas de administración siguen restringidas por `@staff_required`.
-- La configuración de autenticación y las plantillas de registro/login están integradas.
+- El proyecto está estable y funcional.
+- La app pasa las comprobaciones de Django y las pruebas del proyecto.
+- La experiencia de inicio ya es mucho más cercana a una tienda online real.
 
 ## Próximos pasos sugeridos
-- Revisar `showcase/templates/` para asegurar que el menú muestre correctamente opciones de login/logout y registro.
-- Añadir pruebas de flujo de registro y acceso de usuarios no staff.
-- Extender permisos para roles adicionales si se necesita control más fino de administración.
+- Pulir el diseño visual de la interfaz.
+- Añadir acciones de compra/cart y detalle de producto más rico.
+- Mejorar la navegación por categorías y filtros.
+- Extender pruebas de autenticación y flujos de usuario.

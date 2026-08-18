@@ -43,14 +43,19 @@ def HomePage(request):
     new_products = Product.objects.filter(is_active=True).select_related('category').order_by('-id')[:4]
     categories = Category.objects.order_by('name')[:8]
 
-    search_query = (request.GET.get('q') or '').strip()
+    search_query = (request.GET.get('q') or request.GET.get('search') or '').strip()
     category_id = request.GET.get('category')
     ordering = request.GET.get('ordering') or '-id'
 
     products_query = Product.objects.filter(is_active=True).select_related('category', 'brand', 'manufacturer', 'distributor')
 
     if search_query:
-        products_query = products_query.filter(name__icontains=search_query)
+        products_query = products_query.filter(
+            Q(name__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(brand__name__icontains=search_query) |
+            Q(category__name__icontains=search_query)
+        )
 
     if category_id:
         products_query = products_query.filter(category_id=category_id)
@@ -83,21 +88,57 @@ def ListProducts(request):
     user = getattr(request, 'user', None)
     is_staff = bool(user and user.is_authenticated and user.is_staff)
     show_archived = request.GET.get('archived') == '1' and is_staff
-    if show_archived:
-        products = Product.objects.filter(is_active=False).select_related('category', 'brand', 'manufacturer', 'distributor').order_by('-deleted_at')
-    else:
-        products = Product.objects.filter(is_active=True).select_related('category', 'brand', 'manufacturer', 'distributor').order_by('-id')
 
-    paginator = Paginator(products, 5)
+    search_query = (request.GET.get('q') or request.GET.get('search') or '').strip()
+    category_id = request.GET.get('category')
+    brand_id = request.GET.get('brand')
+    ordering = request.GET.get('ordering') or '-id'
+
+    if show_archived:
+        products_qs = Product.objects.filter(is_active=False).select_related('category', 'brand', 'manufacturer', 'distributor').order_by('-deleted_at')
+    else:
+        products_qs = Product.objects.filter(is_active=True).select_related('category', 'brand', 'manufacturer', 'distributor')
+
+    if search_query:
+        products_qs = products_qs.filter(
+            Q(name__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(brand__name__icontains=search_query) |
+            Q(category__name__icontains=search_query)
+        )
+
+    if category_id:
+        products_qs = products_qs.filter(category_id=category_id)
+
+    if brand_id:
+        products_qs = products_qs.filter(brand_id=brand_id)
+
+    if not show_archived:
+        if ordering in {'-id', 'id', '-price', 'price', '-units', 'units'}:
+            products_qs = products_qs.order_by(ordering)
+        else:
+            products_qs = products_qs.order_by('-id')
+
+    paginator = Paginator(products_qs, 8)
     page_number = request.GET.get('page')
     page_products = paginator.get_page(page_number)
     archived_count = Product.objects.filter(is_active=False).count() if is_staff else 0
+    categories = Category.objects.order_by('name')
+    brands = Brand.objects.order_by('name')
 
     return render(request, 'products_list.html', {
         'products': page_products,
         'show_archived': show_archived,
         'archived_count': archived_count,
+        'search_query': search_query,
+        'category_id': category_id,
+        'brand_id': brand_id,
+        'ordering': ordering,
+        'categories': categories,
+        'brands': brands,
+        'total_results': paginator.count,
     })
+
 
 
 def ProductDetail(request, productId):

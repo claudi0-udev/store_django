@@ -117,10 +117,25 @@
       {% for product in best_selling_products %}
       <div class="col-md-6 col-lg-3 mb-4">
         <div class="card h-100 shadow-sm border-0">
+          {% if product.image %}
+          <div style="height: 160px; overflow: hidden;" class="text-center bg-light p-2 rounded-top">
+            <img src="{{ product.image.url }}" class="img-fluid h-100" style="object-fit: contain;" alt="{{ product.name }}">
+          </div>
+          {% endif %}
           <div class="card-body">
-            <h5 class="card-title">{{ product.name }}</h5>
-            <p class="card-text text-muted">{{ product.description|truncatechars:90 }}</p>
+            <h5 class="card-title h6 font-weight-bold mb-1">{{ product.name }}</h5>
+            <p class="card-text text-muted small">{{ product.description|truncatechars:80 }}</p>
             <p class="font-weight-bold text-primary mb-0">$ {{ product.price }}</p>
+          </div>
+          <div class="card-footer bg-white border-0 pt-0 d-flex justify-content-between">
+            <a class="btn btn-outline-secondary btn-sm mr-1 flex-fill" href="{% url 'productDetail' product.id %}">Detalle</a>
+            <form method="post" action="{% url 'cartAdd' product.id %}" class="m-0 flex-fill">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button type="submit" class="btn btn-primary btn-sm btn-block" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
+                + 🛒
+              </button>
+            </form>
           </div>
         </div>
       </div>
@@ -136,11 +151,26 @@
       {% for product in new_products %}
       <div class="col-md-6 col-lg-3 mb-4">
         <div class="card h-100 shadow-sm border-0">
+          {% if product.image %}
+          <div style="height: 160px; overflow: hidden;" class="text-center bg-light p-2 rounded-top">
+            <img src="{{ product.image.url }}" class="img-fluid h-100" style="object-fit: contain;" alt="{{ product.name }}">
+          </div>
+          {% endif %}
           <div class="card-body">
             <span class="badge badge-success mb-2">Nuevo</span>
-            <h5 class="card-title">{{ product.name }}</h5>
-            <p class="card-text text-muted">{{ product.description|truncatechars:90 }}</p>
+            <h5 class="card-title h6 font-weight-bold mb-1">{{ product.name }}</h5>
+            <p class="card-text text-muted small">{{ product.description|truncatechars:80 }}</p>
             <p class="font-weight-bold text-primary mb-0">$ {{ product.price }}</p>
+          </div>
+          <div class="card-footer bg-white border-0 pt-0 d-flex justify-content-between">
+            <a class="btn btn-outline-secondary btn-sm mr-1 flex-fill" href="{% url 'productDetail' product.id %}">Detalle</a>
+            <form method="post" action="{% url 'cartAdd' product.id %}" class="m-0 flex-fill">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button type="submit" class="btn btn-primary btn-sm btn-block" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
+                + 🛒
+              </button>
+            </form>
           </div>
         </div>
       </div>
@@ -160,14 +190,26 @@
       {% for product in products %}
       <div class="col-md-6 col-lg-4 mb-4">
         <div class="card h-100 shadow-sm border-0">
+          {% if product.image %}
+          <div style="height: 180px; overflow: hidden;" class="text-center bg-light p-2 rounded-top">
+            <img src="{{ product.image.url }}" class="img-fluid h-100" style="object-fit: contain;" alt="{{ product.name }}">
+          </div>
+          {% endif %}
           <div class="card-body">
             <span class="badge badge-info mb-2">{{ product.category.name|default:'Sin categoría' }}</span>
-            <h5 class="card-title">{{ product.name }}</h5>
-            <p class="card-text text-muted">{{ product.description|truncatechars:110 }}</p>
+            <h5 class="card-title font-weight-bold">{{ product.name }}</h5>
+            <p class="card-text text-muted">{{ product.description|truncatechars:100 }}</p>
             <p class="font-weight-bold text-primary mb-0">$ {{ product.price }}</p>
           </div>
-          <div class="card-footer bg-white border-0">
-            <a class="btn btn-outline-primary btn-sm" href="{% url 'productDetail' product.id %}">Ver detalle</a>
+          <div class="card-footer bg-white border-0 pt-0 d-flex justify-content-between">
+            <a class="btn btn-outline-secondary btn-sm mr-2 flex-fill" href="{% url 'productDetail' product.id %}">Ver detalle</a>
+            <form method="post" action="{% url 'cartAdd' product.id %}" class="m-0 flex-fill">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button type="submit" class="btn btn-primary btn-sm btn-block font-weight-bold" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
+                🛒 Añadir
+              </button>
+            </form>
           </div>
         </div>
       </div>

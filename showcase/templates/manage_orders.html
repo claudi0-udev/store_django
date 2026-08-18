@@ -1,0 +1,222 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent px-0">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'products' %}">Catálogo</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Panel de Gestión de Pedidos</li>
+  </ol>
+</nav>
+
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+  <div>
+    <h1 class="h2 font-weight-bold mb-1">🚚 Panel de Gestión y Despacho de Pedidos</h1>
+    <p class="text-muted mb-0">Control operativo de compras, validación de pagos, despacho y seguimiento de envíos.</p>
+  </div>
+  <div class="mt-3 mt-md-0">
+    <a href="/admin/showcase/order/" class="btn btn-outline-secondary btn-sm mr-2" target="_blank">
+      ⚙️ Django Admin
+    </a>
+    <a href="{% url 'products' %}" class="btn btn-primary btn-sm font-weight-bold">
+      + Catálogo
+    </a>
+  </div>
+</div>
+
+<!-- Tarjetas de Métricas -->
+<div class="row mb-4">
+  <div class="col-6 col-lg-2 mb-3 mb-lg-0">
+    <div class="card shadow-sm border-0 text-center p-3 h-100">
+      <div class="text-muted small font-weight-bold">TOTAL PEDIDOS</div>
+      <div class="h3 font-weight-bold text-dark mb-0">{{ total_orders }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-2 mb-3 mb-lg-0">
+    <div class="card shadow-sm border-0 text-center p-3 h-100 bg-light">
+      <div class="text-muted small font-weight-bold">⏳ PENDIENTES</div>
+      <div class="h3 font-weight-bold text-warning mb-0">{{ pending_count }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-2 mb-3 mb-lg-0">
+    <div class="card shadow-sm border-0 text-center p-3 h-100">
+      <div class="text-muted small font-weight-bold">💳 PAGADAS / PREPARAR</div>
+      <div class="h3 font-weight-bold text-info mb-0">{{ paid_count }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-2 mb-3 mb-lg-0">
+    <div class="card shadow-sm border-0 text-center p-3 h-100">
+      <div class="text-muted small font-weight-bold">🚚 EN CAMINO</div>
+      <div class="h3 font-weight-bold text-primary mb-0">{{ shipped_count }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-2 mb-3 mb-lg-0">
+    <div class="card shadow-sm border-0 text-center p-3 h-100">
+      <div class="text-muted small font-weight-bold">✅ ENTREGADOS</div>
+      <div class="h3 font-weight-bold text-success mb-0">{{ completed_count }}</div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-2">
+    <div class="card shadow-sm border-0 text-center p-3 h-100 bg-primary text-white">
+      <div class="small font-weight-bold text-white-50">RECAUDACIÓN</div>
+      <div class="h4 font-weight-bold mb-0 text-nowrap">$ {{ total_revenue }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Filtros y Búsqueda -->
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-body py-3">
+    <div class="row align-items-center">
+      <div class="col-lg-7 mb-3 mb-lg-0">
+        <ul class="nav nav-pills small font-weight-bold">
+          <li class="nav-item">
+            <a class="nav-link {% if status_filter == 'all' %}active{% endif %}" href="{% url 'manageOrders' %}?status=all{% if search_query %}&q={{ search_query }}{% endif %}">
+              Todos ({{ total_orders }})
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if status_filter == 'pending' %}active bg-warning text-dark{% endif %}" href="{% url 'manageOrders' %}?status=pending{% if search_query %}&q={{ search_query }}{% endif %}">
+              ⏳ Pendientes ({{ pending_count }})
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if status_filter == 'paid' %}active bg-info text-white{% endif %}" href="{% url 'manageOrders' %}?status=paid{% if search_query %}&q={{ search_query }}{% endif %}">
+              💳 Pagadas ({{ paid_count }})
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if status_filter == 'shipped' %}active bg-primary text-white{% endif %}" href="{% url 'manageOrders' %}?status=shipped{% if search_query %}&q={{ search_query }}{% endif %}">
+              🚚 En Camino ({{ shipped_count }})
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if status_filter == 'completed' %}active bg-success text-white{% endif %}" href="{% url 'manageOrders' %}?status=completed{% if search_query %}&q={{ search_query }}{% endif %}">
+              ✅ Entregados ({{ completed_count }})
+            </a>
+          </li>
+        </ul>
+      </div>
+      <div class="col-lg-5">
+        <form method="get" class="d-flex">
+          <input type="hidden" name="status" value="{{ status_filter }}">
+          <input type="text" name="q" class="form-control form-control-sm mr-2" placeholder="Buscar por #, cliente, teléfono o tracking..." value="{{ search_query }}">
+          <button type="submit" class="btn btn-sm btn-primary px-3">Buscar</button>
+          {% if search_query %}
+          <a href="{% url 'manageOrders' %}?status={{ status_filter }}" class="btn btn-sm btn-outline-secondary ml-1">✕</a>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabla de Pedidos -->
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-body p-0">
+    {% if orders %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 bg-white">
+        <thead class="thead-light">
+          <tr>
+            <th scope="col" style="width: 80px;"># Orden</th>
+            <th scope="col">Fecha</th>
+            <th scope="col">Cliente / Contacto</th>
+            <th scope="col">Dirección de Entrega</th>
+            <th scope="col">Items</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Total</th>
+            <th scope="col" class="text-right">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+          <tr>
+            <td class="align-middle font-weight-bold">
+              <a href="{% url 'manageOrderDetail' order.id %}" class="text-dark">
+                #{{ order.id }}
+              </a>
+            </td>
+            <td class="align-middle text-muted small text-nowrap">
+              {{ order.created_at|date:"d/m/Y H:i" }}
+            </td>
+            <td class="align-middle">
+              <div class="font-weight-bold">{{ order.first_name }} {{ order.last_name }}</div>
+              <div class="small">
+                📞 <a href="tel:{{ order.phone }}" class="text-primary font-weight-bold">{{ order.phone }}</a>
+              </div>
+              <div class="small text-muted">{{ order.email }}</div>
+            </td>
+            <td class="align-middle small">
+              <div>{{ order.address }}</div>
+              <div class="text-muted">{{ order.city }} {% if order.postal_code %}(CP: {{ order.postal_code }}){% endif %}</div>
+            </td>
+            <td class="align-middle">
+              {% for item in order.items.all %}
+              <div class="small text-nowrap mb-1">
+                <span class="badge badge-light border">{{ item.quantity }}x</span> {{ item.product.name|default:'Producto retirado' }}
+              </div>
+              {% endfor %}
+            </td>
+            <td class="align-middle">
+              {% if order.status == 'pending' %}
+              <span class="badge badge-warning px-2 py-1">⏳ Pendiente</span>
+              {% elif order.status == 'paid' %}
+              <span class="badge badge-info px-2 py-1">💳 Pagada / Preparar</span>
+              {% elif order.status == 'shipped' %}
+              <span class="badge badge-primary px-2 py-1">🚚 En Camino</span>
+              {% if order.tracking_number %}
+              <div class="small text-muted mt-1">{{ order.tracking_company }}: <code>{{ order.tracking_number }}</code></div>
+              {% endif %}
+              {% elif order.status == 'completed' %}
+              <span class="badge badge-success px-2 py-1">✅ Entregado</span>
+              {% elif order.status == 'cancelled' %}
+              <span class="badge badge-danger px-2 py-1">❌ Cancelado</span>
+              {% else %}
+              <span class="badge badge-secondary px-2 py-1">{{ order.get_status_display }}</span>
+              {% endif %}
+            </td>
+            <td class="align-middle font-weight-bold text-primary text-nowrap">
+              $ {{ order.total_amount }}
+            </td>
+            <td class="align-middle text-right text-nowrap">
+              <a href="{% url 'manageOrderDetail' order.id %}" class="btn btn-sm btn-primary font-weight-bold">
+                Gestionar →
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <div class="display-4 mb-2">📦</div>
+      <h4 class="font-weight-bold">No se encontraron pedidos</h4>
+      <p class="mb-0">No hay compras que coincidan con los filtros seleccionados.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Paginación -->
+{% if orders.has_other_pages %}
+<nav aria-label="Page navigation" class="mb-5">
+  <ul class="pagination justify-content-center">
+    {% if orders.has_previous %}
+    <li class="page-item">
+      <a class="page-link" href="?page={{ orders.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">Anterior</a>
+    </li>
+    {% endif %}
+    <li class="page-item disabled">
+      <span class="page-link">Página {{ orders.number }} de {{ orders.paginator.num_pages }}</span>
+    </li>
+    {% if orders.has_next %}
+    <li class="page-item">
+      <a class="page-link" href="?page={{ orders.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">Siguiente</a>
+    </li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}

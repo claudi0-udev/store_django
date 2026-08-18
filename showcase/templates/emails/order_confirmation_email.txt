@@ -1,0 +1,28 @@
+========================================
+¡GRACIAS POR TU COMPRA! - TIENDA DJANGO
+========================================
+
+Orden #{{ order.id }}
+Fecha: {{ order.created_at|date:"d/m/Y H:i" }}
+
+Hola {{ order.first_name }} {{ order.last_name }},
+Tu pedido ha sido recibido exitosamente y se encuentra en preparación.
+
+DETALLE DE PRODUCTOS:
+----------------------------------------
+{% for item in items %}
+* {{ item.product.name|default:'Producto' }}
+  Cantidad: {{ item.quantity }} | Precio Unit: $ {{ item.price }} | Subtotal: $ {{ item.get_cost }}
+{% endfor %}
+----------------------------------------
+TOTAL PAGADO: $ {{ order.total_amount }}
+
+DATOS DE ENVÍO:
+Destinatario: {{ order.first_name }} {{ order.last_name }}
+Dirección: {{ order.address }}, {{ order.city }}
+Correo: {{ order.email }}
+{% if order.phone %}Teléfono: {{ order.phone }}{% endif %}
+
+Si tienes cualquier duda, contáctanos indicando tu número de orden #{{ order.id }}.
+
+© {{ order.created_at|date:"Y" }} Tienda Django

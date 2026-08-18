@@ -1,0 +1,149 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent px-0">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'products' %}">Catálogo</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Carrito de compras</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h2 font-weight-bold mb-0">Carrito de Compras</h1>
+  {% if cart|length > 0 %}
+  <span class="badge badge-primary px-3 py-2" style="font-size: 0.95rem;">
+    {{ cart.get_total_quantity }} artículo{% if cart.get_total_quantity != 1 %}s{% endif %}
+  </span>
+  {% endif %}
+</div>
+
+{% if cart|length > 0 %}
+<div class="row">
+  <div class="col-lg-8 mb-4">
+    <div class="card shadow-sm border-0 mb-3">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 bg-white">
+          <thead class="thead-light">
+            <tr>
+              <th scope="col" style="width: 80px;">Producto</th>
+              <th scope="col">Descripción</th>
+              <th scope="col" class="text-center">Precio</th>
+              <th scope="col" class="text-center" style="width: 150px;">Cantidad</th>
+              <th scope="col" class="text-right">Subtotal</th>
+              <th scope="col" class="text-center" style="width: 50px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in cart %}
+            <tr>
+              <td class="align-middle">
+                {% if item.product.image %}
+                <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}" class="rounded img-fluid" style="width: 60px; height: 60px; object-fit: contain;">
+                {% else %}
+                <div class="bg-light rounded d-flex align-items-center justify-content-center text-muted" style="width: 60px; height: 60px; font-size: 11px;">
+                  Sin img
+                </div>
+                {% endif %}
+              </td>
+              <td class="align-middle">
+                <a href="{% url 'productDetail' item.product.id %}" class="text-dark font-weight-bold text-decoration-none">
+                  {{ item.product.name }}
+                </a>
+                <div class="small text-muted">{{ item.product.category.name|default:'Sin categoría' }}</div>
+              </td>
+              <td class="align-middle text-center font-weight-bold">
+                $ {{ item.price }}
+              </td>
+              <td class="align-middle text-center">
+                <div class="d-inline-flex align-items-center border rounded p-1 bg-light">
+                  <form method="post" action="{% url 'cartUpdate' item.product.id %}" class="m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="decrement">
+                    <button type="submit" class="btn btn-sm btn-light border-0 py-0 px-2 font-weight-bold" title="Reducir">−</button>
+                  </form>
+                  <span class="px-2 font-weight-bold">{{ item.quantity }}</span>
+                  <form method="post" action="{% url 'cartUpdate' item.product.id %}" class="m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="increment">
+                    <button type="submit" class="btn btn-sm btn-light border-0 py-0 px-2 font-weight-bold" title="Aumentar" {% if item.product.units > 0 and item.quantity >= item.product.units %}disabled{% endif %}>+</button>
+                  </form>
+                </div>
+                {% if item.product.units > 0 and item.quantity >= item.product.units %}
+                <div class="small text-warning font-weight-bold mt-1">Máx. disponible</div>
+                {% endif %}
+              </td>
+              <td class="align-middle text-right font-weight-bold text-primary">
+                $ {{ item.total_price }}
+              </td>
+              <td class="align-middle text-center">
+                <form method="post" action="{% url 'cartRemove' item.product.id %}" class="m-0">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="Eliminar del carrito">
+                    &times;
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center">
+      <a href="{% url 'products' %}" class="btn btn-outline-secondary">
+        ← Seguir comprando
+      </a>
+      <form method="post" action="{% url 'cartClear' %}" onsubmit="return confirm('¿Estás seguro de que deseas vaciar el carrito?');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-danger btn-sm">
+          Vaciar carrito
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card shadow-sm border-0 mb-4 sticky-top" style="top: 20px;">
+      <div class="card-body">
+        <h5 class="card-title font-weight-bold mb-3">Resumen de la orden</h5>
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">Subtotal ({{ cart.get_total_quantity }} un.)</span>
+          <span class="font-weight-bold">$ {{ cart.get_total_price }}</span>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">Envío estimado</span>
+          <span class="text-success font-weight-bold">Gratis</span>
+        </div>
+        <hr>
+        <div class="d-flex justify-content-between align-items-baseline mb-4">
+          <span class="h5 font-weight-bold mb-0">Total</span>
+          <span class="h4 text-primary font-weight-bold mb-0">$ {{ cart.get_total_price }}</span>
+        </div>
+
+        <a href="{% url 'orderCreate' %}" class="btn btn-primary btn-block btn-lg mb-3 font-weight-bold">
+          Proceder al pago (Checkout) →
+        </a>
+
+        <div class="bg-light p-3 rounded small text-muted">
+          <div class="mb-1">🔒 <strong>Compra protegida:</strong> Tus transacciones son 100% seguras.</div>
+          <div>🚚 <strong>Envíos a todo el país:</strong> Seguimiento en línea.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="card shadow-sm border-0 text-center py-5 my-4">
+  <div class="card-body">
+    <div class="display-3 mb-3 text-muted">🛒</div>
+    <h2 class="h4 font-weight-bold mb-2">Tu carrito está vacío</h2>
+    <p class="text-muted mb-4">Aún no has agregado ningún producto a tu carrito de compras.</p>
+    <a href="{% url 'products' %}" class="btn btn-primary btn-lg px-4">
+      Explorar catálogo de productos
+    </a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

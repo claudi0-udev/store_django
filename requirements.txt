@@ -1,6 +1,6 @@
 asgiref==3.12.1
 Django==6.0.7
-Pillow==10.0.0
+Pillow>=10.0.0
 packaging==26.2
 psycopg2-binary==2.9.12
 setuptools==83.0.0

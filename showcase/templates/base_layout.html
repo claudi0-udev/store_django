@@ -25,19 +25,38 @@
             </li>
             {% if user.is_authenticated and user.is_staff %}
             <li class="nav-item">
-              <a class="nav-link" href={% url 'addProduct' %}>Nuevo producto</a>
+              <a class="nav-link text-primary font-weight-bold" href="{% url 'manageOrders' %}">🚚 Gestión de Pedidos</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href={% url 'addProduct' %}>+ Nuevo producto</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link text-warning" href="{% url 'archivedProducts' %}">📦 Papelera / Auditoría</a>
             </li>
             {% endif %}
           </ul>
-          <ul class="navbar-nav ml-auto">
+          <ul class="navbar-nav ml-auto align-items-center">
+            <li class="nav-item mr-2">
+              <a class="nav-link btn btn-outline-primary btn-sm px-3 text-primary d-flex align-items-center" href="{% url 'cartDetail' %}">
+                <span class="mr-1">🛒 Carrito</span>
+                {% if cart|length > 0 %}
+                <span class="badge badge-primary badge-pill ml-1">{{ cart.get_total_quantity }}</span>
+                {% else %}
+                <span class="badge badge-secondary badge-pill ml-1">0</span>
+                {% endif %}
+              </a>
+            </li>
             {% if user.is_authenticated %}
             <li class="nav-item">
-              <span class="nav-link">Hola, {{ user.username }}</span>
+              <a class="nav-link" href="{% url 'orderHistory' %}">Mis pedidos</a>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link font-weight-bold">Hola, {{ user.username }}</span>
             </li>
             <li class="nav-item">
               <form method="post" action="{% url 'logout' %}" class="form-inline my-2 my-lg-0">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-link nav-link p-0">Salir</button>
+                <button type="submit" class="btn btn-link nav-link p-0 text-muted">Salir</button>
               </form>
             </li>
             {% else %}

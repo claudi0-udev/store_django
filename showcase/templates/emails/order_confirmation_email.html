@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirmación de Pedido</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f8f9fa;
+      margin: 0;
+      padding: 20px;
+      color: #333333;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      border: 1px solid #e9ecef;
+    }
+    .header {
+      background: linear-gradient(135deg, #007bff, #0056b3);
+      color: #ffffff;
+      padding: 30px 25px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .header p {
+      margin: 8px 0 0;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .content {
+      padding: 25px;
+    }
+    .order-badge {
+      display: inline-block;
+      background: #e7f1ff;
+      color: #0056b3;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-top: 25px;
+      margin-bottom: 12px;
+      color: #212529;
+      border-bottom: 2px solid #e9ecef;
+      padding-bottom: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      margin-bottom: 20px;
+    }
+    th {
+      background-color: #f8f9fa;
+      color: #495057;
+      font-size: 13px;
+      text-transform: uppercase;
+      padding: 10px;
+      text-align: left;
+      border-bottom: 2px solid #dee2e6;
+    }
+    td {
+      padding: 12px 10px;
+      border-bottom: 1px solid #dee2e6;
+      font-size: 14px;
+    }
+    .text-right {
+      text-align: right;
+    }
+    .text-center {
+      text-align: center;
+    }
+    .total-row td {
+      font-weight: bold;
+      font-size: 16px;
+      color: #007bff;
+      border-top: 2px solid #333333;
+    }
+    .info-box {
+      background: #f8f9fa;
+      border-radius: 6px;
+      padding: 15px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #495057;
+    }
+    .footer {
+      background: #f8f9fa;
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: #6c757d;
+      border-top: 1px solid #e9ecef;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎉 ¡Gracias por tu compra!</h1>
+      <p>Hemos recibido tu pedido correctamente en <strong>Tienda Django</strong></p>
+    </div>
+
+    <div class="content">
+      <div style="text-align: center;">
+        <span class="order-badge">Orden #{{ order.id }}</span>
+      </div>
+
+      <p>Hola <strong>{{ order.first_name }} {{ order.last_name }}</strong>,</p>
+      <p>Tu orden ha sido confirmada y ya se encuentra en proceso de preparación. A continuación te presentamos el resumen de tu compra:</p>
+
+      <div class="section-title">📦 Detalle de Productos</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th class="text-center">Cant.</th>
+            <th class="text-right">Precio Unit.</th>
+            <th class="text-right">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td><strong>{{ item.product.name|default:'Producto del catálogo' }}</strong></td>
+            <td class="text-center">{{ item.quantity }}</td>
+            <td class="text-right">$ {{ item.price }}</td>
+            <td class="text-right">$ {{ item.get_cost }}</td>
+          </tr>
+          {% endfor %}
+          <tr class="total-row">
+            <td colspan="3" class="text-right">Total:</td>
+            <td class="text-right">$ {{ order.total_amount }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="section-title">📍 Datos de Envío y Contacto</div>
+      <div class="info-box">
+        <strong>Destinatario:</strong> {{ order.first_name }} {{ order.last_name }}<br>
+        <strong>Dirección:</strong> {{ order.address }}, {{ order.city }} {% if order.postal_code %}(CP: {{ order.postal_code }}){% endif %}<br>
+        <strong>Correo:</strong> {{ order.email }}<br>
+        {% if order.phone %}<strong>Teléfono:</strong> {{ order.phone }}<br>{% endif %}
+        <strong>Fecha del pedido:</strong> {{ order.created_at|date:"d/m/Y H:i" }}
+      </div>
+
+      <p style="margin-top: 25px; font-size: 13px; color: #6c757d;">
+        Si tienes alguna duda o consulta sobre tu envío, responde directamente a este correo electrónico con tu número de orden <strong>#{{ order.id }}</strong>.
+      </p>
+    </div>
+
+    <div class="footer">
+      © {{ order.created_at|date:"Y" }} Tienda Django. Todos los derechos reservados.<br>
+      Este es un correo automático de confirmación de compra.
+    </div>
+  </div>
+</body>
+</html>

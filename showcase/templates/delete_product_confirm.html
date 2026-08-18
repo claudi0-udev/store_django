@@ -1,0 +1,54 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent px-0">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'products' %}">Catálogo</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'productDetail' product.id %}">{{ product.name }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Eliminar</li>
+  </ol>
+</nav>
+
+<div class="row justify-content-center py-4">
+  <div class="col-lg-7">
+    <div class="card shadow-sm border-danger">
+      <div class="card-header bg-danger text-white py-3">
+        <h4 class="font-weight-bold mb-0">⚠️ Confirmación de Eliminación</h4>
+      </div>
+      <div class="card-body p-4 text-center">
+        <div class="display-4 text-danger mb-3">🗑️</div>
+        <h2 class="h4 font-weight-bold mb-3">¿Estás seguro de que deseas retirar este producto del catálogo?</h2>
+        <p class="text-muted mb-4">
+          El producto será <strong>archivado (Soft Delete)</strong> y dejará de mostrarse en la tienda pública. Se generará una <strong>copia de respaldo en el registro de auditoría</strong> y el historial de compras pasadas se mantendrá intacto. Podrás restaurarlo en cualquier momento.
+        </p>
+
+        <div class="alert alert-light border text-left p-3 mb-4">
+          <div class="d-flex align-items-center">
+            {% if product.image %}
+            <img src="{{ product.image.url }}" alt="{{ product.name }}" class="rounded mr-3" style="width: 70px; height: 70px; object-fit: contain;">
+            {% endif %}
+            <div>
+              <h5 class="font-weight-bold mb-1">{{ product.name }}</h5>
+              <div class="text-muted small mb-1">Categoría: <strong>{{ product.category.name|default:'Sin categoría' }}</strong> | Stock: <strong>{{ product.units }} un.</strong></div>
+              <div class="font-weight-bold text-primary">$ {{ product.price }}</div>
+            </div>
+          </div>
+        </div>
+
+        <form method="post">
+          {% csrf_token %}
+          <div class="d-flex justify-content-center gap-3">
+            <a href="{% url 'productDetail' product.id %}" class="btn btn-secondary btn-lg px-4 mr-2">
+              Cancelar
+            </a>
+            <button type="submit" class="btn btn-danger btn-lg px-4 font-weight-bold">
+              Sí, eliminar definitivamente
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

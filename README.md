@@ -1,158 +1,188 @@
-# Store Django
+# 🛒 Store Django - Plataforma de Comercio Electrónico
 
-Proyecto Django para una plantilla base de tienda online, con gestión inicial de productos, categorías, marcas, fabricantes, distribuidores y características. El objetivo es servir como base reutilizable para distintos tipos de ecommerce.
+Plataforma de comercio electrónico moderna, robusta y escalable desarrollada en **Django 6.1** y **Python 3**. Diseñada como base reutilizable y profesional para tiendas en línea, con catálogo dinámico, carrito de compras en sesión, checkout con geolocalización en mapa interactivo, sistema de correos de confirmación, panel de despacho para administradores y borrado lógico con auditoría.
 
-## Requisitos
+---
 
-- Python 3.10 o superior
-- pip
-- virtualenv (opcional, pero recomendado)
+## 🚀 Características Principales
 
-## 1. Clonar el proyecto
+### 📦 1. Catálogo y Gestión de Productos
+- Catálogo interactivo con filtrado y búsqueda.
+- Subida y almacenamiento de imágenes con **Pillow** (`media/product_images/`).
+- Manejo exacto de precios monetarios (`DecimalField`).
+- Gestión de marcas, categorías, fabricantes, distribuidores y características dinámicas clave-valor.
+- Formularios de creación y edición con validación de inventario (`units`) y datos normalizados.
 
+### 🛡️ 2. Borrado Lógico y Auditoría (Soft Delete)
+- Al eliminar un producto, no se destruye de la base de datos: se marca como inactivo (`is_active=False`) y se registra la fecha (`deleted_at`).
+- **Respaldo de Auditoría:** Cada eliminación genera un snapshot en formato JSON en `ProductAuditLog`.
+- **Integridad de Pedidos:** Los pedidos históricos mantienen intacto su registro monetario y nombre de producto sin errores en cascada (`SET_NULL`).
+- **Papelera de Reciclaje:** Panel en `/products/archived/` para restaurar productos archivados en 1 clic.
+
+### 🛒 3. Carrito de Compras en Sesión
+- Arquitectura desacoplada en `showcase/cart.py` mediante sesiones de Django.
+- Agregar productos, ajustar cantidades, eliminar artículos individuales o vaciar el carrito.
+- Contador dinámico en la barra de navegación visible en todas las páginas vía `context_processors.py`.
+- Descuento automático de stock al finalizar la compra.
+
+### 🗺️ 4. Checkout con Mapa Interactivo y Geolocalización GPS
+- **Leaflet.js + OpenStreetMap:** Mapa interactivo integrado sin necesidad de API keys de pago.
+- **Pin Arrastrable y Clic:** Selección del punto exacto de entrega con marcador interactivo.
+- **Autocompletado Inteligente (*Reverse Geocoding*):** Al mover el pin, el sistema obtiene la calle, comuna y código postal con Nominatim y los escribe automáticamente en la casilla de texto.
+- **Casilla de Texto Editable:** El comprador puede complementar libremente su dirección (depto, torre, piso).
+- **Seguridad en Contacto:** Teléfono de contacto obligatorio con validación numérica ($\ge 8$ dígitos).
+- **Almacenamiento de Coordenadas:** Las coordenadas GPS (`latitude`, `longitude`) quedan guardadas en la orden.
+
+### 📧 5. Sistema de Confirmación por Correo Electrónico
+- Envío automático de correo al comprador al completar la orden.
+- Plantilla HTML responsiva moderna (`order_confirmation_email.html`) y formato alternativo en texto plano (`order_confirmation_email.txt`).
+- Desglose de artículos, precios unitarios, total pagado, dirección y teléfono de entrega.
+
+### 🚚 6. Panel de Gestión y Despacho de Pedidos (Staff / Admin)
+- Vista centralizada en `/manage/orders/` para el equipo de logística y operaciones.
+- **Métricas en tiempo real:** Total de órdenes, pedidos pendientes, pagados/en preparación, en camino, entregados y recaudación total.
+- **Filtros por Estado:** Pestañas para filtrar por *Pendiente*, *Pagada*, *En Camino*, *Completada* o *Cancelada*.
+- **Buscador:** Búsqueda por número de pedido, cliente, teléfono, email o código de seguimiento.
+- **Acciones Rápidas:**
+  - Llamada directa al cliente mediante enlace `tel:`.
+  - Asignación de Courier (*Chilexpress, Starken, Blue Express, etc.*) y número de seguimiento (*Tracking ID*).
+  - Visualización del mapa con el pin exacto de entrega y botones directos hacia **Google Maps** y **Waze**.
+  - Impresión directa de hoja de despacho y empaque (`🖨️`).
+
+### 👤 7. Autenticación y Cuentas de Usuario
+- **Registro de Clientes:** Formulario completo con validación de nombre, apellido, email único y contraseña segura.
+- **Inicio de Sesión:** Interfaz moderna con selector de credenciales de prueba preconfiguradas.
+- **Historial de Pedidos:** Sección "Mis pedidos" para que los clientes consulten el estado de sus compras y su código de seguimiento.
+
+---
+
+## 🛠️ Requisitos e Instalación
+
+### Requisitos Previos
+- **Python 3.10** o superior
+- **pip** y **git**
+
+### 1. Clonar el repositorio y acceder
 ```bash
-git clone <url-del-repositorio>
+git clone https://github.com/claudi0-udev/store_django.git
 cd store_django
+git checkout testing
 ```
 
-## 2. Crear y activar un entorno virtual
+### 2. Crear y activar el entorno virtual
 
-### Linux / macOS
-
+**En Linux / macOS:**
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-### Windows (PowerShell)
-
+**En Windows (PowerShell):**
 ```powershell
 py -m venv venv
 .\venv\Scripts\Activate.ps1
 ```
 
-## 3. Instalar dependencias
-
+### 3. Instalar dependencias
 ```bash
 pip install -r requirements.txt
 ```
 
-## 4. Configurar carga de imágenes
-
-Este proyecto ahora soporta imágenes de producto mediante `ImageField` de Django.
-
-Asegúrate de que el paquete `Pillow` esté instalado (ya está incluido en `requirements.txt`).
-
-En `mysite/settings.py` se configuran las siguientes variables para el almacenamiento de archivos multimedia:
-
-```python
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-```
-
-Además, en desarrollo Django sirve estas imágenes automáticamente cuando `DEBUG = True`.
-
-## 5. Preparar la base de datos
-
-Este proyecto está configurado para usar SQLite por defecto en desarrollo, por lo que no necesitas una base de datos externa.
-
-Ejecuta:
-
+### 4. Aplicar migraciones de la base de datos
 ```bash
 python manage.py migrate
 ```
 
-Si agregaste el nuevo campo de imagen al modelo, ejecuta también:
-
-```bash
-python manage.py makemigrations showcase
-python manage.py migrate
-```
-
-## 6. Crear un superusuario (opcional)
-
-```bash
-python manage.py createsuperuser
-```
-
-## 6. Crear usuarios por defecto para desarrollo
-
-Puedes crear usuarios de ejemplo para los roles más comunes con:
-
+### 5. Cargar usuarios por defecto (Desarrollo)
 ```bash
 python manage.py create_default_users
 ```
 
-Credenciales creadas:
+---
 
-- `admin` / `Admin$2026!` — superusuario staff
-- `staff` / `Staff$2026!` — usuario staff sin superuser
-- `customer` / `Customer$2026!` — usuario regular
+## 👥 Credenciales de Acceso por Defecto
 
-## 7. Ejecutar la aplicación
+| Rol | Usuario | Contraseña | Permisos |
+| :--- | :--- | :--- | :--- |
+| **Super Administrador** | `admin` | `Admin$2026!` | Acceso total a Django Admin, catálogo, despacho y papelera |
+| **Personal Staff / Despacho** | `staff` | `Staff$2026!` | Gestión de catálogo, panel de despacho y auditoría |
+| **Cliente Regular** | `customer` | `Customer$2026!` | Catálogo, carrito, checkout e historial de compras |
 
+---
+
+## 🌐 Ejecución del Servidor
+
+Inicia el servidor de desarrollo:
 ```bash
-python manage.py runserver
+python manage.py runserver 0.0.0.0:8000
 ```
 
-Abre en tu navegador:
+Accede desde tu navegador:
+* **Inicio de la Tienda:** [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
+* **Catálogo de Productos:** [http://127.0.0.1:8000/products/](http://127.0.0.1:8000/products/)
+* **Carrito de Compras:** [http://127.0.0.1:8000/cart/](http://127.0.0.1:8000/cart/)
+* **Panel de Gestión de Pedidos (Staff):** [http://127.0.0.1:8000/manage/orders/](http://127.0.0.1:8000/manage/orders/)
+* **Papelera y Auditoría de Productos:** [http://127.0.0.1:8000/products/archived/](http://127.0.0.1:8000/products/archived/)
+* **Panel Django Admin:** [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/)
+
+---
+
+## 🧪 Pruebas Automatizadas
+
+El proyecto cuenta con una completa suite de pruebas automatizadas que cubren modelos, formularios, vistas, soft delete, flujo de compras, validación telefónica, coordenadas GPS y envío de correos.
+
+Para ejecutar todas las pruebas:
+```bash
+python manage.py test
+```
+
+**Resultado actual:**
+```text
+Ran 36 tests in 58.052s
+
+OK
+```
+
+---
+
+## 📂 Estructura del Proyecto
 
 ```text
-http://127.0.0.1:8000/products/
+store_django/
+├── mysite/                   # Configuración del proyecto Django
+│   ├── settings.py           # Ajustes generales, media, emails y bases de datos
+│   ├── urls.py               # Ruteo principal y autenticación
+│   └── wsgi.py
+├── showcase/                 # Aplicación principal de la tienda
+│   ├── models.py             # Modelos: Product, Order, OrderItem, ProductAuditLog, etc.
+│   ├── views.py              # Controladores de catálogo, carrito, checkout y gestión
+│   ├── forms.py              # Formularios: ProductForm, OrderCreateForm, Registro y Login
+│   ├── cart.py               # Servicio de lógica del carrito en sesión
+│   ├── emails.py             # Servicio de despacho de correos de confirmación
+│   ├── context_processors.py # Inyección global del carrito en plantillas
+│   ├── admin.py              # Configuración de Django Admin y acciones bulk
+│   ├── urls.py               # Rutas de la tienda y panel de despacho
+│   ├── tests.py              # Suite de 36 pruebas unitarias e integración
+│   └── templates/            # Plantillas HTML responsivas (Bootstrap 4 + Leaflet)
+│       ├── base_layout.html
+│       ├── home.html
+│       ├── products_list.html
+│       ├── product_detail.html
+│       ├── edit_product.html
+│       ├── archived_products.html
+│       ├── cart_detail.html
+│       ├── order_create.html # Checkout con mapa interactivo
+│       ├── order_confirmation.html
+│       ├── order_history.html
+│       ├── manage_orders.html       # Tablero de despacho para staff
+│       ├── manage_order_detail.html # Ficha operativa con mapa y tracking
+│       ├── registration/
+│       │   ├── login.html
+│       │   └── logged_out.html
+│       └── emails/
+│           ├── order_confirmation_email.html
+│           └── order_confirmation_email.txt
+├── media/                    # Almacenamiento de imágenes de productos
+├── requirements.txt          # Dependencias de Python (Django, Pillow, etc.)
+└── README.md                 # Documentación completa del proyecto
 ```
-
-## Uso de imágenes de producto
-
-- Usa el formulario de `Agregar producto` para subir una imagen.
-- El archivo se guardará en `media/product_images/`.
-- Las imágenes se muestran en la vista de detalle del producto.
-
-## Estructura general
-
-- `mysite/`: configuración principal de Django
-- `showcase/`: aplicación principal con modelos, vistas, plantillas y URLs
-- `requirements.txt`: dependencias del proyecto
-
-## Nota sobre la base de datos
-
-La configuración actual usa SQLite para desarrollo local. Si deseas usar PostgreSQL, puedes cambiar la configuración en `mysite/settings.py` y ajustar los datos de conexión.
-
-### Credenciales por defecto
-
-- En modo SQLite no hay usuario Django preconfigurado.
-- Para crear un administrador usa:
-
-```bash
-python manage.py createsuperuser
-```
-
-- Si configuras PostgreSQL cambiando `USE_SQLITE` a `0`, los valores por defecto en `mysite/settings.py` son:
-  - `NAME`: `store`
-  - `USER`: `pi`
-  - `PASSWORD`: `1234`
-  - `HOST`: `192.168.1.190`
-  - `PORT`: `5432`
-
-## Problemas comunes
-
-### Error: `ModuleNotFoundError: No module named 'django'`
-
-Asegúrate de haber activado el entorno virtual y ejecutado:
-
-```bash
-pip install -r requirements.txt
-```
-
-### Error al levantar el servidor por configuración de base de datos
-
-Si usas SQLite, asegúrate de ejecutar:
-
-```bash
-python manage.py migrate
-```
-
-## Siguiente paso recomendado
-
-- Crear el módulo de carrito de compras
-- Añadir autenticación de usuarios
-- Implementar catálogo más dinámico y personalizable

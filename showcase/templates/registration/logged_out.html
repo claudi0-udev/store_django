@@ -1,12 +1,21 @@
 {% extends 'base_layout.html' %}
 
 {% block body %}
-<div class="row justify-content-center mt-5">
-  <div class="col-md-6">
-    <div class="alert alert-success" role="alert">
-      Has cerrado sesión correctamente.
+<div class="row justify-content-center py-5">
+  <div class="col-md-6 col-lg-5">
+    <div class="card shadow-sm border-0 text-center p-4 p-md-5">
+      <div class="display-3 text-muted mb-3">👋</div>
+      <h1 class="h3 font-weight-bold mb-2">Has cerrado sesión con éxito</h1>
+      <p class="text-muted mb-4">Gracias por visitarnos. Tu carrito y compras guardadas te esperarán para tu próxima visita.</p>
+      <div class="d-flex justify-content-center gap-2">
+        <a href="{% url 'home' %}" class="btn btn-outline-secondary px-4 mr-2">
+          Volver al inicio
+        </a>
+        <a href="{% url 'login' %}" class="btn btn-primary px-4 font-weight-bold">
+          Iniciar sesión
+        </a>
+      </div>
     </div>
-    <a href="{% url 'login' %}" class="btn btn-primary">Ingresar de nuevo</a>
   </div>
 </div>
 {% endblock %}

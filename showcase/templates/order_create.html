@@ -25,6 +25,63 @@
     0% { background-color: #e8f4fd; border-color: #007bff; }
     100% { background-color: #ffffff; border-color: #ced4da; }
   }
+
+  /* Stepper */
+  .checkout-stepper {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 25px;
+    position: relative;
+  }
+  .stepper-item {
+    flex: 1;
+    text-align: center;
+    position: relative;
+  }
+  .stepper-item::before {
+    content: '';
+    position: absolute;
+    top: 18px;
+    left: -50%;
+    right: 50%;
+    height: 2px;
+    background-color: #dee2e6;
+    z-index: 0;
+  }
+  .stepper-item:first-child::before {
+    content: none;
+  }
+  .stepper-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #e9ecef;
+    color: #6c757d;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-bottom: 6px;
+    position: relative;
+    z-index: 1;
+  }
+  .stepper-item.completed .stepper-circle {
+    background: #28a745;
+    color: #ffffff;
+  }
+  .stepper-item.active .stepper-circle {
+    background: #007bff;
+    color: #ffffff;
+    box-shadow: 0 0 0 4px rgba(0,123,255,0.2);
+  }
+  .stepper-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6c757d;
+  }
+  .stepper-item.active .stepper-label {
+    color: #007bff;
+  }
 </style>
 
 <nav aria-label="breadcrumb">
@@ -35,7 +92,23 @@
   </ol>
 </nav>
 
-<h1 class="h2 font-weight-bold mb-4">Finalizar Compra (Checkout)</h1>
+<!-- Checkout Stepper -->
+<div class="checkout-stepper px-2 py-3 bg-white rounded shadow-sm border mb-4">
+  <div class="stepper-item completed">
+    <div class="stepper-circle">✓</div>
+    <div class="stepper-label">1. Carrito</div>
+  </div>
+  <div class="stepper-item active">
+    <div class="stepper-circle">2</div>
+    <div class="stepper-label">2. Despacho y Ubicación</div>
+  </div>
+  <div class="stepper-item">
+    <div class="stepper-circle">3</div>
+    <div class="stepper-label">3. Confirmación</div>
+  </div>
+</div>
+
+<h1 class="h2 font-weight-bold mb-4">Finalizar Compra</h1>
 
 <form method="post" id="checkoutForm" novalidate>
   {% csrf_token %}
@@ -45,8 +118,19 @@
   <div class="row">
     <div class="col-lg-7 mb-4">
       <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-white border-0 py-3">
+        <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
           <h5 class="font-weight-bold mb-0">1. Datos de Contacto y Envío</h5>
+          {% if last_order %}
+          <button type="button" class="btn btn-xs btn-outline-primary py-1 px-2 font-weight-bold" id="btnUseSavedAddress"
+            data-phone="{{ last_order.phone }}"
+            data-address="{{ last_order.address }}"
+            data-city="{{ last_order.city }}"
+            data-postal="{{ last_order.postal_code }}"
+            data-lat="{{ last_order.latitude|default:'' }}"
+            data-lng="{{ last_order.longitude|default:'' }}">
+            📍 Usar mi dirección habitual
+          </button>
+          {% endif %}
         </div>
         <div class="card-body pt-0">
           {% if form.errors %}
@@ -139,14 +223,14 @@
             <label class="custom-control-label font-weight-bold" for="paymentOnline">
               💳 Pago con Tarjeta (Crédito / Débito / Webpay)
             </label>
-            <div class="small text-muted ml-4">Transacción segura procesada al instante.</div>
+            <div class="small text-muted ml-4">Transacción protegida con cifrado bancario seguro.</div>
           </div>
           <div class="custom-control custom-radio">
             <input type="radio" id="paymentTransfer" name="payment_method" class="custom-control-input">
             <label class="custom-control-label font-weight-bold" for="paymentTransfer">
               🏦 Transferencia Bancaria
             </label>
-            <div class="small text-muted ml-4">Envío tras verificación del comprobante.</div>
+            <div class="small text-muted ml-4">Envío tras validación del comprobante.</div>
           </div>
         </div>
       </div>
@@ -193,8 +277,14 @@
             Confirmar y Realizar Pedido
           </button>
 
-          <div class="text-center mt-3 small text-muted">
-            🔒 Compra 100% segura con cifrado SSL.
+          <!-- Sellos de Seguridad en Resumen -->
+          <div class="mt-4 pt-3 border-top text-center text-muted small">
+            <div class="d-flex justify-content-around mb-2">
+              <div>🔒 <strong>SSL Seguro</strong></div>
+              <div>🚚 <strong>GPS Tracking</strong></div>
+              <div>🛡️ <strong>Garantía</strong></div>
+            </div>
+            <div style="font-size: 11px;">Tus datos viajan 100% cifrados y protegidos.</div>
           </div>
         </div>
       </div>
@@ -209,6 +299,7 @@
 
     var inputLat = document.getElementById('id_latitude');
     var inputLng = document.getElementById('id_longitude');
+    var inputPhone = document.getElementById('id_phone');
     var inputAddress = document.getElementById('id_address');
     var inputCity = document.getElementById('id_city');
     var inputPostal = document.getElementById('id_postal_code');
@@ -240,7 +331,6 @@
     }
 
     function updateCoordinates(lat, lng, fetchAddress) {
-      // 1. Guardar siempre las coordenadas exactas en los campos ocultos
       if (inputLat) inputLat.value = lat.toFixed(6);
       if (inputLng) inputLng.value = lng.toFixed(6);
 
@@ -251,7 +341,6 @@
       if (fetchAddress) {
         if (statusEl) statusEl.innerHTML = '⌛ Obteniendo dirección de calle para (' + lat.toFixed(4) + ', ' + lng.toFixed(4) + ')...';
 
-        // Geocodificación inversa con Nominatim (OSM)
         fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng + '&zoom=18&addressdetails=1')
           .then(function(res) { return res.json(); })
           .then(function(data) {
@@ -266,13 +355,10 @@
               if (houseNumber) {
                 streetAddress += ' ' + houseNumber;
               }
-
-              // Fallback si road no vino explícito
               if (!streetAddress && data.display_name) {
                 streetAddress = data.display_name.split(',')[0];
               }
 
-              // 2. Colocar el nombre de la dirección en la casilla de texto para que el usuario la pueda editar
               if (streetAddress && inputAddress) {
                 inputAddress.value = streetAddress;
                 triggerHighlight(inputAddress);
@@ -295,26 +381,22 @@
           })
           .catch(function(err) {
             console.log('Error reverse geocoding:', err);
-            if (statusEl) {
-              statusEl.innerHTML = '📍 Coordenadas guardadas (' + lat.toFixed(5) + ', ' + lng.toFixed(5) + '). Escribe tu dirección en el formulario.';
-            }
           });
       }
     }
 
-    // Evento al arrastrar el marcador
+    // Eventos de movimiento
     marker.on('dragend', function(e) {
       var pos = marker.getLatLng();
       updateCoordinates(pos.lat, pos.lng, true);
     });
 
-    // Evento al hacer clic en el mapa
     map.on('click', function(e) {
       marker.setLatLng(e.latlng);
       updateCoordinates(e.latlng.lat, e.latlng.lng, true);
     });
 
-    // Botón: Mi ubicación actual (GPS)
+    // Botón GPS
     var btnGeo = document.getElementById('btnGeolocate');
     if (btnGeo && navigator.geolocation) {
       btnGeo.addEventListener('click', function() {
@@ -327,12 +409,11 @@
           updateCoordinates(userLat, userLng, true);
         }, function(err) {
           alert('No se pudo acceder a tu ubicación GPS. Por favor selecciona el punto en el mapa directamente.');
-          if (statusEl) statusEl.innerHTML = '⚠️ GPS no disponible. Por favor haz clic en el mapa.';
         }, { enableHighAccuracy: true, timeout: 8000 });
       });
     }
 
-    // Botón: Buscar dirección escrita en el mapa
+    // Botón Buscar Dirección Escrita
     var btnSearch = document.getElementById('btnSearchAddress');
     if (btnSearch) {
       btnSearch.addEventListener('click', function() {
@@ -363,12 +444,36 @@
               marker.bindPopup("<b>📍 " + first.display_name.split(',')[0] + "</b>").openPopup();
             } else {
               alert('No encontramos la dirección exacta en el mapa. Por favor haz clic directamente en tu calle.');
-              if (statusEl) statusEl.innerHTML = '⚠️ Dirección no encontrada. Haz clic en el mapa para ubicarla.';
             }
           })
           .catch(function(err) {
             console.log('Error search geocoding:', err);
           });
+      });
+    }
+
+    // Botón: Usar mi dirección habitual (1 clic)
+    var btnSavedAddr = document.getElementById('btnUseSavedAddress');
+    if (btnSavedAddr) {
+      btnSavedAddr.addEventListener('click', function() {
+        var phone = this.getAttribute('data-phone');
+        var address = this.getAttribute('data-address');
+        var city = this.getAttribute('data-city');
+        var postal = this.getAttribute('data-postal');
+        var lat = parseFloat(this.getAttribute('data-lat'));
+        var lng = parseFloat(this.getAttribute('data-lng'));
+
+        if (phone && inputPhone) { inputPhone.value = phone; triggerHighlight(inputPhone); }
+        if (address && inputAddress) { inputAddress.value = address; triggerHighlight(inputAddress); }
+        if (city && inputCity) { inputCity.value = city; triggerHighlight(inputCity); }
+        if (postal && inputPostal) { inputPostal.value = postal; triggerHighlight(inputPostal); }
+
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+          map.setView([lat, lng], 16);
+          marker.setLatLng([lat, lng]);
+          updateCoordinates(lat, lng, false);
+          marker.bindPopup("<b>📍 Tu dirección habitual</b><br>" + address).openPopup();
+        }
       });
     }
 

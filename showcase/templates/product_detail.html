@@ -5,6 +5,9 @@
   <ol class="breadcrumb bg-transparent px-0">
     <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
     <li class="breadcrumb-item"><a href="{% url 'products' %}">Catálogo</a></li>
+    {% if product.category %}
+    <li class="breadcrumb-item"><a href="{% url 'home' %}?category={{ product.category.id }}">{{ product.category.name }}</a></li>
+    {% endif %}
     <li class="breadcrumb-item active" aria-current="page">{{ product.name }}</li>
   </ol>
 </nav>
@@ -13,7 +16,7 @@
   {% if not product.is_active %}
   <div class="alert alert-danger d-flex justify-content-between align-items-center shadow-sm border-0 mb-4">
     <div>
-      <strong>⚠️ Producto Archivado:</strong> Este producto no es visible para los clientes en la tienda.
+      <strong>⚠️ Producto Archivado:</strong> Este producto está oculto para los compradores.
     </div>
     <div>
       <a href="{% url 'restoreProduct' product.id %}" class="btn btn-sm btn-success font-weight-bold mr-1">
@@ -27,7 +30,7 @@
   {% else %}
   <div class="alert alert-warning d-flex justify-content-between align-items-center shadow-sm border-0 mb-4">
     <div>
-      <strong>⚙️ Modo Administrador:</strong> Gestiona este artículo en el catálogo.
+      <strong>⚙️ Modo Administrador:</strong> Opciones de edición y gestión.
     </div>
     <div>
       <a href="{% url 'editProduct' product.id %}" class="btn btn-sm btn-primary font-weight-bold mr-1">
@@ -41,70 +44,102 @@
   {% endif %}
 {% endif %}
 
-
-
 <div class="row my-4">
+  <!-- Foto de Producto con Galería -->
   <div class="col-lg-5 mb-4 mb-lg-0">
-    <div class="card shadow-sm border-0 text-center p-3">
+    <div class="card shadow-sm border-0 text-center p-3 h-100 bg-white d-flex align-items-center justify-content-center">
       {% if product.image %}
-      <img src="{{ product.image.url }}" class="img-fluid rounded mx-auto" alt="{{ product.name }}" style="max-height: 380px; object-fit: contain;">
+      <img src="{{ product.image.url }}" class="img-fluid rounded mx-auto" alt="{{ product.name }}" style="max-height: 420px; object-fit: contain;">
       {% else %}
-      <div class="bg-light d-flex align-items-center justify-content-center rounded" style="height: 320px;">
-        <span class="text-muted font-weight-bold">Sin imagen disponible</span>
+      <div class="bg-light d-flex align-items-center justify-content-center rounded w-100" style="height: 350px;">
+        <span class="text-muted font-weight-bold">📷 Sin imagen disponible</span>
       </div>
       {% endif %}
     </div>
   </div>
 
+  <!-- Detalles de Compra -->
   <div class="col-lg-7">
     <div class="card shadow-sm border-0 h-100">
-      <div class="card-body">
-        <span class="badge badge-info mb-2">{{ product.category.name|default:'Sin categoría' }}</span>
-        {% if product.brand %}
-        <span class="badge badge-secondary mb-2">{{ product.brand.name }}</span>
-        {% endif %}
-
-        <h1 class="h3 font-weight-bold">{{ product.name }}</h1>
-        <p class="text-muted">{{ product.description }}</p>
-
-        <div class="d-flex align-items-baseline mb-3">
-          <h2 class="h2 text-primary font-weight-bold mr-3 mb-0">$ {{ product.price }}</h2>
-          {% if product.msrp %}
-          <span class="text-muted" style="text-decoration: line-through;">MSRP: $ {{ product.msrp }}</span>
-          {% endif %}
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <span class="badge badge-info px-3 py-1">{{ product.category.name|default:'Sin categoría' }}</span>
+            {% if product.brand %}
+            <span class="badge badge-secondary px-3 py-1">{{ product.brand.name }}</span>
+            {% endif %}
+          </div>
+          <div>
+            {% if product.units > 3 %}
+            <span class="badge badge-success px-3 py-1">✅ En Stock ({{ product.units }} un.)</span>
+            {% elif product.units > 0 %}
+            <span class="badge badge-danger px-3 py-1">🔥 ¡Últimas {{ product.units }} unidades!</span>
+            {% else %}
+            <span class="badge badge-secondary px-3 py-1">Agotado</span>
+            {% endif %}
+          </div>
         </div>
 
-        <div class="mb-3">
-          {% if product.units > 0 %}
-          <span class="badge badge-success px-3 py-2">En stock ({{ product.units }} disponibles)</span>
-          {% else %}
-          <span class="badge badge-danger px-3 py-2">Agotado</span>
-          {% endif %}
+        <h1 class="h3 font-weight-bold mb-2">{{ product.name }}</h1>
+        <p class="text-muted mb-3">{{ product.description }}</p>
+
+        <!-- Precios y Cuotas -->
+        <div class="p-3 bg-light rounded mb-4 border">
+          <div class="d-flex align-items-baseline mb-1">
+            <h2 class="h2 text-primary font-weight-bold mr-3 mb-0">$ {{ product.price }}</h2>
+            {% if product.msrp %}
+            <span class="text-muted" style="text-decoration: line-through;">Precio normal: $ {{ product.msrp }}</span>
+            {% endif %}
+          </div>
+          <div class="small text-success font-weight-bold mt-1">
+            💳 Hasta <strong>3 cuotas</strong> sin interés con tarjeta de crédito
+          </div>
+          <div class="small text-muted">
+            🚚 <strong>Envío disponible</strong> a todo el país con seguimiento en mapa GPS.
+          </div>
         </div>
 
-        <form method="post" action="{% url 'cartAdd' product.id %}" class="my-4">
+        <!-- Formulario de Compra Rápida con botones +/- -->
+        <form method="post" action="{% url 'cartAdd' product.id %}" class="ajax-add-to-cart mb-4">
           {% csrf_token %}
           <div class="form-row align-items-center">
-            <div class="col-auto">
+            <div class="col-auto mb-2 mb-sm-0">
               <label class="sr-only" for="quantity">Cantidad</label>
               <div class="input-group">
                 <div class="input-group-prepend">
-                  <span class="input-group-text font-weight-bold">Cantidad</span>
+                  <button type="button" class="btn btn-outline-secondary font-weight-bold" id="btnQtyMinus" {% if product.units == 0 %}disabled{% endif %}>-</button>
                 </div>
-                <input type="number" id="quantity" name="quantity" class="form-control" value="1" min="1" max="{{ product.units|default:1 }}" style="width: 80px;" {% if product.units == 0 %}disabled{% endif %}>
+                <input type="number" id="quantity" name="quantity" class="form-control text-center font-weight-bold" value="1" min="1" max="{{ product.units|default:1 }}" style="width: 70px;" {% if product.units == 0 %}disabled{% endif %}>
+                <div class="input-group-append">
+                  <button type="button" class="btn btn-outline-secondary font-weight-bold" id="btnQtyPlus" {% if product.units == 0 %}disabled{% endif %}>+</button>
+                </div>
               </div>
             </div>
-            <div class="col-auto">
-              <button type="submit" class="btn btn-primary font-weight-bold px-4" {% if product.units == 0 %}disabled{% endif %}>
+            <div class="col">
+              <button type="submit" class="btn btn-primary btn-block btn-lg font-weight-bold shadow-sm" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
                 🛒 Añadir al carrito
               </button>
             </div>
           </div>
         </form>
 
-        <hr>
+        <!-- Sellos de Confianza y Garantía -->
+        <div class="row text-center text-muted small py-2 mb-4 border-top border-bottom">
+          <div class="col-4">
+            <div class="font-weight-bold text-dark">🛡️ Garantía Oficial</div>
+            <div>Cambio o devolución</div>
+          </div>
+          <div class="col-4 border-left border-right">
+            <div class="font-weight-bold text-dark">🚚 Despacho Seguro</div>
+            <div>Seguimiento en línea</div>
+          </div>
+          <div class="col-4">
+            <div class="font-weight-bold text-dark">🔒 Pago Protegido</div>
+            <div>Cifrado seguro SSL</div>
+          </div>
+        </div>
 
-        <h5 class="font-weight-bold mb-3">Especificaciones y Detalles</h5>
+        <h5 class="font-weight-bold mb-3">Ficha Técnica y Especificaciones</h5>
         <table class="table table-sm table-striped border rounded">
           <tbody>
             {% if product.brand %}
@@ -139,12 +174,77 @@
             {% endfor %}
           </tbody>
         </table>
-
-        <div class="mt-4">
-          <a href="{% url 'products' %}" class="btn btn-outline-secondary">← Volver al catálogo</a>
-        </div>
       </div>
     </div>
   </div>
 </div>
+
+<!-- Módulo de Productos Relacionados (Cross-Selling) -->
+{% if related_products %}
+<section class="mt-5 pt-4 border-top">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="h4 font-weight-bold mb-0">✨ Quienes vieron este producto también se interesaron por:</h3>
+    <a href="{% url 'products' %}" class="btn btn-sm btn-outline-primary">Ver todo el catálogo →</a>
+  </div>
+  <div class="row">
+    {% for rp in related_products %}
+    <div class="col-6 col-md-3 mb-4">
+      <div class="card h-100 shadow-sm border-0">
+        {% if rp.image %}
+        <div style="height: 150px; overflow: hidden;" class="text-center bg-light p-2 rounded-top">
+          <img src="{{ rp.image.url }}" class="img-fluid h-100" style="object-fit: contain;" alt="{{ rp.name }}">
+        </div>
+        {% else %}
+        <div style="height: 150px;" class="bg-light d-flex align-items-center justify-content-center text-muted small">
+          Sin imagen
+        </div>
+        {% endif %}
+        <div class="card-body p-3 d-flex flex-column justify-content-between">
+          <div>
+            <div class="small text-muted mb-1">{{ rp.category.name|default:'' }}</div>
+            <h6 class="font-weight-bold mb-1 text-truncate" title="{{ rp.name }}">{{ rp.name }}</h6>
+            <div class="font-weight-bold text-primary mb-2">$ {{ rp.price }}</div>
+          </div>
+          <div>
+            <a href="{% url 'productDetail' rp.id %}" class="btn btn-sm btn-outline-secondary btn-block mb-1">Ver detalle</a>
+            <form method="post" action="{% url 'cartAdd' rp.id %}" class="ajax-add-to-cart m-0">
+              {% csrf_token %}
+              <input type="hidden" name="quantity" value="1">
+              <button type="submit" class="btn btn-sm btn-primary btn-block font-weight-bold" {% if rp.units == 0 %}disabled{% endif %}>
+                + 🛒
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var qtyInput = document.getElementById('quantity');
+    var btnMinus = document.getElementById('btnQtyMinus');
+    var btnPlus = document.getElementById('btnQtyPlus');
+    var maxQty = parseInt("{{ product.units|default:1 }}", 10);
+
+    if (qtyInput && btnMinus && btnPlus) {
+      btnMinus.addEventListener('click', function() {
+        var current = parseInt(qtyInput.value, 10) || 1;
+        if (current > 1) {
+          qtyInput.value = current - 1;
+        }
+      });
+
+      btnPlus.addEventListener('click', function() {
+        var current = parseInt(qtyInput.value, 10) || 1;
+        if (current < maxQty) {
+          qtyInput.value = current + 1;
+        }
+      });
+    }
+  });
+</script>
 {% endblock %}

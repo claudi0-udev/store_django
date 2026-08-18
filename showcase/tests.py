@@ -6,8 +6,10 @@ from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory, TestCase, override_settings
 
-from .models import Category, Order, OrderItem, Product, ProductAuditLog
+User = get_user_model()
+from .models import Brand, Category, Distributor, Manufacturer, Order, OrderItem, Product, ProductAuditLog
 from .views import AddNewProduct, HomePage, ListProducts, ProductDetail
+
 
 
 
@@ -773,6 +775,153 @@ class TestStaffOrderManagement(TestCase):
         legacy_order.refresh_from_db()
         self.assertEqual(legacy_order.status, 'shipped')
         self.assertEqual(legacy_order.phone, '+56987654321')
+
+
+class BuyerExperienceEnhancementsTests(TestCase):
+    def setUp(self):
+        self.brand = Brand.objects.create(name='TechCorp')
+        self.category = Category.objects.create(name='Computación', parent_category_id=0)
+        self.category_other = Category.objects.create(name='Audio', parent_category_id=0)
+        self.manufacturer = Manufacturer.objects.create(name='TechFactory')
+        self.distributor = Distributor.objects.create(name='TechDistro')
+
+        self.p1 = Product.objects.create(
+            name='Laptop Pro 15',
+            description='Potente laptop con procesador de última generación.',
+            price=Decimal('1200.00'),
+            units=5,
+            category=self.category,
+            brand=self.brand,
+            manufacturer=self.manufacturer,
+            distributor=self.distributor,
+            is_active=True,
+        )
+        self.p2 = Product.objects.create(
+            name='Laptop Slim 13',
+            description='Laptop ultraligera y delgada para movilidad.',
+            price=Decimal('900.00'),
+            units=2,
+            category=self.category,
+            brand=self.brand,
+            manufacturer=self.manufacturer,
+            distributor=self.distributor,
+            is_active=True,
+        )
+        self.p3 = Product.objects.create(
+            name='Auriculares Bluetooth',
+            description='Auriculares inalámbricos con cancelación de ruido.',
+            price=Decimal('80.00'),
+            units=10,
+            category=self.category_other,
+            brand=self.brand,
+            manufacturer=self.manufacturer,
+            distributor=self.distributor,
+            is_active=True,
+        )
+
+
+        self.user = User.objects.create_user(
+            username='shopper',
+            email='shopper@example.com',
+            password='password123',
+            first_name='Claudio',
+            last_name='Aviles',
+        )
+
+    def test_ajax_add_to_cart_returns_json(self):
+        response = self.client.post(
+            f'/cart/add/{self.p1.id}/',
+            {'quantity': 2},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            HTTP_ACCEPT='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['cart_total_quantity'], 2)
+        self.assertEqual(data['cart_total_price'], '2400.00')
+        self.assertEqual(data['product_name'], 'Laptop Pro 15')
+
+    def test_ajax_cart_update_and_remove_returns_json(self):
+        # Add item first
+        self.client.post(f'/cart/add/{self.p1.id}/', {'quantity': 1})
+
+        # AJAX increment
+        res_inc = self.client.post(
+            f'/cart/update/{self.p1.id}/',
+            {'action': 'increment'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(res_inc.status_code, 200)
+        data_inc = res_inc.json()
+        self.assertTrue(data_inc['success'])
+        self.assertEqual(data_inc['item_quantity'], 2)
+        self.assertEqual(data_inc['cart_total_quantity'], 2)
+        self.assertEqual(data_inc['cart_total_price'], '2400.00')
+
+        # AJAX remove
+        res_rem = self.client.post(
+            f'/cart/remove/{self.p1.id}/',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(res_rem.status_code, 200)
+        data_rem = res_rem.json()
+        self.assertTrue(data_rem['success'])
+        self.assertEqual(data_rem['cart_total_quantity'], 0)
+        self.assertEqual(data_rem['cart_total_price'], '0.00')
+
+    def test_live_product_search_api(self):
+        # Query matching 'Laptop'
+        response = self.client.get('/products/live-search/?q=Lap')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('results', data)
+        self.assertEqual(len(data['results']), 2)
+        names = [item['name'] for item in data['results']]
+        self.assertIn('Laptop Pro 15', names)
+        self.assertIn('Laptop Slim 13', names)
+
+        # Short query (< 2 chars) returns empty results
+        response_short = self.client.get('/products/live-search/?q=L')
+        self.assertEqual(response_short.json(), {'results': []})
+
+    def test_product_detail_includes_related_products(self):
+        response = self.client.get(f'/products/detail/{self.p1.id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('related_products', response.context)
+        related_ids = [p.id for p in response.context['related_products']]
+        self.assertNotIn(self.p1.id, related_ids)
+        self.assertIn(self.p2.id, related_ids)
+
+    def test_checkout_last_order_passed_to_context_for_autofill(self):
+        # Create a previous order
+        prev_order = Order.objects.create(
+            user=self.user,
+            first_name='Claudio',
+            last_name='Aviles',
+            email='shopper@example.com',
+            phone='+56912345678',
+            address='Av. Siempre Viva 742',
+            city='Santiago',
+            postal_code='8320000',
+            latitude=Decimal('-33.450000'),
+            longitude=Decimal('-70.660000'),
+            total_amount=Decimal('500.00'),
+            status='completed',
+            paid=True,
+        )
+
+        # Add item to cart
+        self.client.post(f'/cart/add/{self.p1.id}/', {'quantity': 1})
+
+        # Login and access checkout
+        self.client.login(username='shopper', password='password123')
+        response = self.client.get('/orders/checkout/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['last_order'], prev_order)
+        self.assertContains(response, 'Usar mi dirección habitual')
+        self.assertContains(response, 'Av. Siempre Viva 742')
+
 
 
 

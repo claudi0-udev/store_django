@@ -110,11 +110,23 @@ def ProductDetail(request, productId):
 
     category = Category.objects.filter(id=product.category_id)
     feature_values = FeatureValue.objects.filter(product_id=productId).select_related('feature')
+
+    # Productos relacionados (Cross-selling)
+    related_qs = Product.objects.filter(is_active=True, category=product.category).exclude(id=product.id)[:4]
+    related_products = list(related_qs)
+    if len(related_products) < 4:
+        extra_needed = 4 - len(related_products)
+        excluded_ids = [product.id] + [p.id for p in related_products]
+        extra_qs = Product.objects.filter(is_active=True).exclude(id__in=excluded_ids)[:extra_needed]
+        related_products.extend(list(extra_qs))
+
     return render(request, 'product_detail.html', {
         'product': product,
         'category': category,
         'featureValues': feature_values,
+        'related_products': related_products,
     })
+
 
 
 
@@ -513,6 +525,34 @@ def CartDetail(request):
     return render(request, 'cart_detail.html', {'cart': cart})
 
 
+def LiveProductSearch(request):
+    query = (request.GET.get('q') or '').strip()
+    if len(query) < 2:
+        return JsonResponse({'results': []})
+
+    products = Product.objects.filter(is_active=True).filter(
+        Q(name__icontains=query) |
+        Q(description__icontains=query) |
+        Q(category__name__icontains=query) |
+        Q(brand__name__icontains=query)
+    ).select_related('category', 'brand')[:6]
+
+    results = []
+    for p in products:
+        results.append({
+            'id': p.id,
+            'name': p.name,
+            'price': str(p.price),
+            'image': p.image.url if p.image else '',
+            'category': p.category.name if p.category else '',
+            'brand': p.brand.name if p.brand else '',
+            'units': p.units,
+            'url': f'/products/detail/{p.id}/',
+        })
+
+    return JsonResponse({'results': results})
+
+
 def CartAdd(request, productId):
     cart = Cart(request)
     product = get_object_or_404(Product, pk=productId)
@@ -527,8 +567,20 @@ def CartAdd(request, productId):
         override = False
 
     cart.add(product=product, quantity=quantity, override_quantity=override)
-    messages.success(request, f'Se agregó "{product.name}" al carrito.')
 
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
+        return JsonResponse({
+            'success': True,
+            'message': f'"{product.name}" agregado al carrito.',
+            'product_id': product.id,
+            'product_name': product.name,
+            'product_image': product.image.url if product.image else '',
+            'product_price': str(product.price),
+            'cart_total_quantity': cart.get_total_quantity(),
+            'cart_total_price': str(cart.get_total_price()),
+        })
+
+    messages.success(request, f'Se agregó "{product.name}" al carrito.')
     next_url = request.POST.get('next') or request.GET.get('next')
     if next_url:
         return redirect(next_url)
@@ -539,6 +591,16 @@ def CartRemove(request, productId):
     cart = Cart(request)
     product = get_object_or_404(Product, pk=productId)
     cart.remove(product)
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
+        return JsonResponse({
+            'success': True,
+            'product_id': product.id,
+            'message': f'"{product.name}" eliminado del carrito.',
+            'cart_total_quantity': cart.get_total_quantity(),
+            'cart_total_price': str(cart.get_total_price()),
+        })
+
     messages.info(request, f'Se eliminó "{product.name}" del carrito.')
     return redirect('cartDetail')
 
@@ -557,6 +619,23 @@ def CartUpdate(request, productId):
             cart.add(product, quantity=qty, override_quantity=True)
         except (ValueError, TypeError):
             pass
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
+        item_qty = 0
+        item_subtotal = '0.00'
+        product_id_str = str(product.id)
+        if product_id_str in cart.cart:
+            item_qty = cart.cart[product_id_str]['quantity']
+            item_subtotal = str(Decimal(cart.cart[product_id_str]['price']) * item_qty)
+        return JsonResponse({
+            'success': True,
+            'product_id': product.id,
+            'item_quantity': item_qty,
+            'item_subtotal': item_subtotal,
+            'cart_total_quantity': cart.get_total_quantity(),
+            'cart_total_price': str(cart.get_total_price()),
+        })
+
     return redirect('cartDetail')
 
 
@@ -572,6 +651,10 @@ def OrderCreate(request):
     if len(cart) == 0:
         messages.warning(request, 'Tu carrito de compras está vacío.')
         return redirect('products')
+
+    last_order = None
+    if request.user.is_authenticated:
+        last_order = Order.objects.filter(user=request.user).order_by('-created_at').first()
 
     if request.method == 'POST':
         form = OrderCreateForm(request.POST)
@@ -610,12 +693,23 @@ def OrderCreate(request):
                 'last_name': request.user.last_name,
                 'email': request.user.email,
             }
+            if last_order:
+                initial_data.update({
+                    'phone': last_order.phone,
+                    'address': last_order.address,
+                    'city': last_order.city,
+                    'postal_code': last_order.postal_code,
+                    'latitude': last_order.latitude,
+                    'longitude': last_order.longitude,
+                })
         form = OrderCreateForm(initial=initial_data)
 
     return render(request, 'order_create.html', {
         'cart': cart,
         'form': form,
+        'last_order': last_order,
     })
+
 
 
 def OrderConfirmation(request, orderId):

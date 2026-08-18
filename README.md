@@ -49,10 +49,21 @@ Plataforma de comercio electrónico moderna, robusta y escalable desarrollada en
   - Visualización del mapa con el pin exacto de entrega y botones directos hacia **Google Maps** y **Waze**.
   - Impresión directa de hoja de despacho y empaque (`🖨️`).
 
-### 👤 7. Autenticación y Cuentas de Usuario
+### ✨ 7. Suite de Experiencia del Comprador (UI/UX)
+- **Live Search Autocomplete:** Búsqueda predictiva instantánea en la barra de navegación con imágenes, categorías, stock y precios.
+- **Compra Rápida desde Tarjetas:** Botón `+ 🛒` directo en la página principal y catálogo con notificación flotante (*Toast*) y animación.
+- **Badges de Stock y Urgencia:** Alertas visuales dinámicas (*"🔥 ¡Últimas X unidades!"*, *"En Stock"*, *"Agotado"*).
+- **Ficha de Producto Completa:** Selector táctil `+`/`-`, facilidades en cuotas con tarjeta, sellos de garantía y módulo de productos relacionados (*Cross-Selling*).
+- **Carrito Dinámico AJAX:** Actualización de cantidades y totales en tiempo real sin recargar la página y banner de envío gratis.
+- **Checkout con Memoria de Dirección:** *Stepper* de progreso (`Carrito` ➔ `Despacho` ➔ `Confirmación`) y botón para reutilizar la dirección anterior en 1 clic.
+- **Seguimiento Visual y WhatsApp:** Línea de tiempo gráfica de despacho (*Tracking Timeline*) y botón de soporte directo por WhatsApp con el número de orden precargado.
+
+
+### 👤 8. Autenticación y Cuentas de Usuario
 - **Registro de Clientes:** Formulario completo con validación de nombre, apellido, email único y contraseña segura.
 - **Inicio de Sesión:** Interfaz moderna con selector de credenciales de prueba preconfiguradas.
 - **Historial de Pedidos:** Sección "Mis pedidos" para que los clientes consulten el estado de sus compras y su código de seguimiento.
+
 
 ---
 

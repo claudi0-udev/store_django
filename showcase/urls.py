@@ -23,6 +23,7 @@ from .views import (
     HelloWorld,
     HomePage,
     ListProducts,
+    LiveProductSearch,
     ManageOrderDetail,
     ManageOrdersList,
     ManageOrderUpdateStatus,
@@ -39,7 +40,9 @@ urlpatterns = [
     path('', HomePage, name='home'),
     path('hello-world/', HelloWorld),
     path('products/', ListProducts, name='products'),
+    path('products/live-search/', LiveProductSearch, name='liveProductSearch'),
     path('products/detail/<int:productId>/', ProductDetail, name='productDetail'),
+
     path('products/new/', AddNewProduct, name='addProduct'),
     path('products/edit/<int:productId>/', EditProduct, name='editProduct'),
     path('products/delete/<int:productId>/', DeleteProduct, name='deleteProduct'),

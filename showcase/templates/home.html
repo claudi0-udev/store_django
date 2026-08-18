@@ -123,22 +123,33 @@
           </div>
           {% endif %}
           <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              {% if product.units == 0 %}
+              <span class="badge badge-secondary">Agotado</span>
+              {% elif product.units <= 3 %}
+              <span class="badge badge-danger">🔥 ¡Últimas {{ product.units }}!</span>
+              {% else %}
+              <span class="badge badge-success">En Stock</span>
+              {% endif %}
+              <span class="small text-muted">{{ product.category.name|default:'' }}</span>
+            </div>
             <h5 class="card-title h6 font-weight-bold mb-1">{{ product.name }}</h5>
-            <p class="card-text text-muted small">{{ product.description|truncatechars:80 }}</p>
+            <p class="card-text text-muted small">{{ product.description|truncatechars:70 }}</p>
             <p class="font-weight-bold text-primary mb-0">$ {{ product.price }}</p>
           </div>
           <div class="card-footer bg-white border-0 pt-0 d-flex justify-content-between">
             <a class="btn btn-outline-secondary btn-sm mr-1 flex-fill" href="{% url 'productDetail' product.id %}">Detalle</a>
-            <form method="post" action="{% url 'cartAdd' product.id %}" class="m-0 flex-fill">
+            <form method="post" action="{% url 'cartAdd' product.id %}" class="ajax-add-to-cart m-0 flex-fill">
               {% csrf_token %}
-              <input type="hidden" name="next" value="{{ request.get_full_path }}">
-              <button type="submit" class="btn btn-primary btn-sm btn-block" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
+              <input type="hidden" name="quantity" value="1">
+              <button type="submit" class="btn btn-primary btn-sm btn-block font-weight-bold" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
                 + 🛒
               </button>
             </form>
           </div>
         </div>
       </div>
+
       {% endfor %}
     </div>
   </div>
@@ -157,17 +168,24 @@
           </div>
           {% endif %}
           <div class="card-body">
-            <span class="badge badge-success mb-2">Nuevo</span>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="badge badge-success">Nuevo</span>
+              {% if product.units <= 3 and product.units > 0 %}
+              <span class="badge badge-danger">🔥 ¡Últimas {{ product.units }}!</span>
+              {% elif product.units == 0 %}
+              <span class="badge badge-secondary">Agotado</span>
+              {% endif %}
+            </div>
             <h5 class="card-title h6 font-weight-bold mb-1">{{ product.name }}</h5>
-            <p class="card-text text-muted small">{{ product.description|truncatechars:80 }}</p>
+            <p class="card-text text-muted small">{{ product.description|truncatechars:70 }}</p>
             <p class="font-weight-bold text-primary mb-0">$ {{ product.price }}</p>
           </div>
           <div class="card-footer bg-white border-0 pt-0 d-flex justify-content-between">
             <a class="btn btn-outline-secondary btn-sm mr-1 flex-fill" href="{% url 'productDetail' product.id %}">Detalle</a>
-            <form method="post" action="{% url 'cartAdd' product.id %}" class="m-0 flex-fill">
+            <form method="post" action="{% url 'cartAdd' product.id %}" class="ajax-add-to-cart m-0 flex-fill">
               {% csrf_token %}
-              <input type="hidden" name="next" value="{{ request.get_full_path }}">
-              <button type="submit" class="btn btn-primary btn-sm btn-block" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
+              <input type="hidden" name="quantity" value="1">
+              <button type="submit" class="btn btn-primary btn-sm btn-block font-weight-bold" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
                 + 🛒
               </button>
             </form>
@@ -196,16 +214,25 @@
           </div>
           {% endif %}
           <div class="card-body">
-            <span class="badge badge-info mb-2">{{ product.category.name|default:'Sin categoría' }}</span>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="badge badge-info">{{ product.category.name|default:'Sin categoría' }}</span>
+              {% if product.units == 0 %}
+              <span class="badge badge-secondary">Agotado</span>
+              {% elif product.units <= 3 %}
+              <span class="badge badge-danger">🔥 ¡Últimas {{ product.units }}!</span>
+              {% else %}
+              <span class="badge badge-success">En Stock</span>
+              {% endif %}
+            </div>
             <h5 class="card-title font-weight-bold">{{ product.name }}</h5>
             <p class="card-text text-muted">{{ product.description|truncatechars:100 }}</p>
             <p class="font-weight-bold text-primary mb-0">$ {{ product.price }}</p>
           </div>
           <div class="card-footer bg-white border-0 pt-0 d-flex justify-content-between">
             <a class="btn btn-outline-secondary btn-sm mr-2 flex-fill" href="{% url 'productDetail' product.id %}">Ver detalle</a>
-            <form method="post" action="{% url 'cartAdd' product.id %}" class="m-0 flex-fill">
+            <form method="post" action="{% url 'cartAdd' product.id %}" class="ajax-add-to-cart m-0 flex-fill">
               {% csrf_token %}
-              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <input type="hidden" name="quantity" value="1">
               <button type="submit" class="btn btn-primary btn-sm btn-block font-weight-bold" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
                 🛒 Añadir
               </button>
@@ -213,6 +240,7 @@
           </div>
         </div>
       </div>
+
       {% empty %}
       <div class="col-12">
         <div class="alert alert-light border" role="alert">

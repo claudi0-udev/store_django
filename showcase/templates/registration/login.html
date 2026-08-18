@@ -1,0 +1,80 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<div class="row justify-content-center py-5">
+  <div class="col-md-6 col-lg-5">
+    <div class="card shadow-sm border-0 rounded-lg">
+      <div class="card-body p-4 p-md-5">
+        <div class="text-center mb-4">
+          <div class="display-4 mb-2">🔐</div>
+          <h1 class="h3 font-weight-bold mb-1">Iniciar Sesión</h1>
+          <p class="text-muted small">Ingresa a tu cuenta para continuar con tus compras y pedidos.</p>
+        </div>
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger" role="alert">
+          {% for error in form.non_field_errors %}
+          <div class="small">{{ error }}</div>
+          {% endfor %}
+        </div>
+        {% elif form.errors %}
+        <div class="alert alert-danger" role="alert">
+          <div class="small font-weight-bold">Por favor verifica los datos ingresados:</div>
+          <ul class="mb-0 small pl-3">
+            {% for field, errors in form.errors.items %}
+              {% for error in errors %}
+              <li>{{ error }}</li>
+              {% endfor %}
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% if next %}
+          <input type="hidden" name="next" value="{{ next }}">
+          {% endif %}
+
+          <div class="form-group mb-3">
+            <label for="{{ form.username.id_for_label }}" class="font-weight-bold small text-muted">Nombre de usuario</label>
+            {{ form.username }}
+          </div>
+
+          <div class="form-group mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label for="{{ form.password.id_for_label }}" class="font-weight-bold small text-muted mb-0">Contraseña</label>
+            </div>
+            {{ form.password }}
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block btn-lg font-weight-bold py-2 mb-3 shadow-sm">
+            Ingresar a mi cuenta
+          </button>
+        </form>
+
+        <div class="text-center pt-3 border-top">
+          <span class="text-muted small">¿No tienes una cuenta aún?</span>
+          <a href="{% url 'register' %}{% if next %}?next={{ next }}{% endif %}" class="font-weight-bold small ml-1">
+            Regístrate aquí
+          </a>
+        </div>
+
+        <div class="text-center mt-4">
+          <a class="small text-muted" data-toggle="collapse" href="#demoCredentials" role="button" aria-expanded="false" aria-controls="demoCredentials">
+            💡 Ver usuarios de prueba de la tienda
+          </a>
+          <div class="collapse mt-2" id="demoCredentials">
+            <div class="card card-body bg-light border-0 small text-left p-3">
+              <div class="mb-1"><strong>Admin:</strong> <code>admin</code> / <code>Admin$2026!</code></div>
+              <div class="mb-1"><strong>Staff:</strong> <code>staff</code> / <code>Staff$2026!</code></div>
+              <div><strong>Cliente:</strong> <code>customer</code> / <code>Customer$2026!</code></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

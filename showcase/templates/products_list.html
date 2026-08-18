@@ -1,80 +1,126 @@
 {% extends 'base_layout.html' %}
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    {% block body %}
-    <div class="h2 text-center py-2">All Products</div>
-    <table class="table table-striped border rounded">
-        <thead>
+{% block body %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h2 mb-0">{% if show_archived %}📦 Productos Archivados (Papelera){% else %}Catálogo de Productos{% endif %}</h1>
+    <div>
+        {% if user.is_authenticated and user.is_staff %}
+        <a href="{% url 'archivedProducts' %}" class="btn btn-outline-secondary mr-2">📋 Auditoría y Papelera</a>
+        <a href="{% url 'addProduct' %}" class="btn btn-primary">+ Nuevo Producto</a>
+        {% endif %}
+    </div>
+</div>
+
+{% if user.is_authenticated and user.is_staff %}
+<ul class="nav nav-pills mb-3">
+    <li class="nav-item">
+        <a class="nav-link {% if not show_archived %}active{% endif %}" href="{% url 'products' %}">
+            Activos en tienda
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if show_archived %}active bg-danger{% endif %}" href="{% url 'products' %}?archived=1">
+            🗑️ Archivados <span class="badge badge-light ml-1">{{ archived_count }}</span>
+        </a>
+    </li>
+</ul>
+{% endif %}
+
+
+<div class="table-responsive shadow-sm rounded">
+    <table class="table table-hover table-striped mb-0 bg-white">
+        <thead class="thead-light">
             <tr>
-                <th>#</th>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Category</th>
-                <th>Description</th>
-                <th>Manufacturer</th>            
-                <th>Brand</th>            
-                <th>Distributor</th>            
-                <th>Units</th>            
-                <th>Actions</th>            
+                <th scope="col" style="width: 70px;">Imagen</th>
+                <th scope="col">Nombre</th>
+                <th scope="col">Categoría</th>
+                <th scope="col">Marca</th>
+                <th scope="col">Precio</th>
+                <th scope="col">Stock</th>
+                <th scope="col" class="text-right">Acciones</th>
             </tr>
         </thead>
         <tbody>
             {% for p in products %}
             <tr>
-                <td>{{ forloop.counter }}</td>
-                <td>{{ p.id }}</td>
-                <td>{{p.name}}</td>
-                <td>{{p.category.name}}</td>
-                <td>{{p.description}}</td>
-                <td>{{p.manufacturer.name}}</td>
-                <td>{{p.brand.name}}</td>
-                <td>{{p.distributor.name}}</td>
-                <td>{{p.units}}</td>
-                <td><a href={% url 'productDetail' p.id %}>Details</a></td>
+                <td class="align-middle">
+                    {% if p.image %}
+                    <img src="{{ p.image.url }}" alt="{{ p.name }}" class="rounded" style="width: 50px; height: 50px; object-fit: cover;">
+                    {% else %}
+                    <div class="bg-light rounded d-flex align-items-center justify-content-center text-muted" style="width: 50px; height: 50px; font-size: 10px;">
+                        N/A
+                    </div>
+                    {% endif %}
+                </td>
+                <td class="align-middle">
+                    <strong>{{ p.name }}</strong>
+                    <div class="small text-muted text-truncate" style="max-width: 250px;">{{ p.description }}</div>
+                </td>
+                <td class="align-middle"><span class="badge badge-light border">{{ p.category.name|default:'-' }}</span></td>
+                <td class="align-middle">{{ p.brand.name|default:'-' }}</td>
+                <td class="align-middle font-weight-bold text-primary">$ {{ p.price }}</td>
+                <td class="align-middle">
+                    {% if p.units > 0 %}
+                    <span class="badge badge-success">{{ p.units }} un.</span>
+                    {% else %}
+                    <span class="badge badge-danger">Agotado</span>
+                    {% endif %}
+                </td>
+                <td class="align-middle text-right text-nowrap">
+                    <a href="{% url 'productDetail' p.id %}" class="btn btn-sm btn-outline-secondary mr-1" title="Ver detalle">Detalle</a>
+                    <form method="post" action="{% url 'cartAdd' p.id %}" class="d-inline-block m-0 mr-1">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button type="submit" class="btn btn-sm btn-primary" {% if p.units == 0 %}disabled title="Agotado"{% endif %}>
+                            + 🛒
+                        </button>
+                    </form>
+                    {% if user.is_authenticated and user.is_staff %}
+                    <a href="{% url 'editProduct' p.id %}" class="btn btn-sm btn-outline-info mr-1" title="Editar producto">✏️</a>
+                    <a href="{% url 'deleteProduct' p.id %}" class="btn btn-sm btn-outline-danger" title="Eliminar producto">🗑️</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center py-4 text-muted">
+                    No se encontraron productos en el catálogo.
+                </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-    
+</div>
 
-    <div class="mt-2">
-        <ul class="pagination justify-content-center">
+{% if products.has_other_pages %}
+<div class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if products.has_previous %}
+        <li class="page-item">
+            <a href="?page={{ products.previous_page_number }}" class="page-link">Anterior</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link">Anterior</span>
+        </li>
+        {% endif %}
+        
+        {% for i in products.paginator.page_range %}
+        <li class="page-item {% if products.number == i %} active {% endif %}">
+            <a href="?page={{ i }}" class="page-link">{{ i }}</a>
+        </li>
+        {% endfor %}
 
-            {% if products.has_previous %}
-            <li class="page-item">
-                <a href="?page={{ products.previous_page_number }}" class="page-link">Previous</a>
-            </li>
-            {% else %}
-            <li class="page-item disabled">
-                <a href="#" class="page-link">Previous</a>
-            </li>
-            {% endif %}
-            
-            {% for i in products.paginator.page_range %}
-            <li class="page-item {% if products.number == i %} active {% endif %}">
-                <a href="?page={{ i }}" class="page-link">{{ i }}</a>
-            </li>
-            {% endfor %}
-
-            {% if products.has_next %}
-            <li class="page-item">
-                <a href="?page={{ products.next_page_number }}" class="page-link">Next</a>
-            </li>
-            {% endif %}
-        </ul>
-    </div>
-
-
-
-
-    {% endblock %}
-</body>
-</html>
+        {% if products.has_next %}
+        <li class="page-item">
+            <a href="?page={{ products.next_page_number }}" class="page-link">Siguiente</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link">Siguiente</span>
+        </li>
+        {% endif %}
+    </ul>
+</div>
+{% endif %}
+{% endblock %}

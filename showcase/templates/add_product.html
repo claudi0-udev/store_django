@@ -3,82 +3,97 @@
 {% block body %}
 
 
-<form class="needs-validation py-6" method="post" novalidate>{% csrf_token %}
+<form class="needs-validation py-4" method="post" enctype="multipart/form-data" novalidate>{% csrf_token %}
+  {% if errors %}
+  <div class="alert alert-danger" role="alert">
+    <ul class="mb-0">
+      {% for error in errors %}
+      <li>{{ error }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
   <div class="form-group">
-    <label>Product Name</label>
-    <input class="form-control" id="nameTxt" name="nameTxt" placeholder="Enter product name" required>
+    <label for="nameTxt">Nombre del producto</label>
+    <input class="form-control" id="nameTxt" name="nameTxt" value="{{ form_data.nameTxt|default:'' }}" placeholder="Ej: Laptop Pro 16" required>
     <div class="valid-feedback">
-      Looks good!
+      ¡Se ve bien!
     </div>
     <div class="invalid-feedback">
-      Please insert a name.
+      Por favor ingresa un nombre.
     </div>
   </div>
   <div class="form-group">
-    <label>Category</label>
-    <a href="javascript:loadSubcategories(0)" class="badge badge-info"> Reset </a>
-    <!--<a href="javascript:newCategory()" class="badge badge-info"> New Category </a> -->
-    <!--<a href="#newCategory" data-toggle="modal" class="badge badge-info">New Category</a>-->
-    <a href="javascript:newCategoryModal()" class="badge badge-info">New Category</a>
+    <label for="categorySelect">Categoría</label>
+    <a href="javascript:loadSubcategories(0)" class="badge badge-info"> Reiniciar </a>
+    <a href="javascript:newCategoryModal()" class="badge badge-info">Nueva Categoría</a>
     <a id="categoryInput"></a>
     <div class="h6" id="previousCategoryTxt"></div>
     <select class="form-control" id="categorySelect" name="categorySelect" required>
       <option value="">-</option>
       {% for c in categories %}
-      <option value={{ c.id }}>{{ c.name }}</option>
+      <option value={{ c.id }}{% if form_data.categorySelect == c.id|stringformat:'s' %} selected{% endif %}>{{ c.name }}</option>
       {% endfor %}
     </select>
   </div>
   <div id="loadFeatures">
   </div>
   <div class="form-group">
-    <label>MSRP</label>
-    <input type="number" class="form-control" id="msrpTxt" name="msrpTxt" placeholder="Enter product MSRP value">
+    <label for="image">Imagen del producto</label>
+    <input type="file" class="form-control-file" id="image" name="image" accept="image/*">
+    <small class="form-text text-muted">Formatos recomendados: JPG, PNG, WebP.</small>
   </div>
   <div class="form-group">
-    <label>Price</label>
-    <input type="number" class="form-control" id="priceTxt" name="priceTxt" placeholder="Enter price value">
+    <label for="msrpTxt">MSRP (Precio referencial)</label>
+    <input type="number" step="0.01" class="form-control" id="msrpTxt" name="msrpTxt" value="{{ form_data.msrpTxt|default:'' }}" placeholder="Ej: 1299.99">
   </div>
   <div class="form-group">
-    <label>Brand</label>
-    <a href="javascript:newBrandModal()" class="badge badge-info">New Brand</a>
+    <label for="priceTxt">Precio de venta</label>
+    <input type="number" step="0.01" class="form-control" id="priceTxt" name="priceTxt" value="{{ form_data.priceTxt|default:'' }}" placeholder="Ej: 999.99" required>
+  </div>
+  <div class="form-group">
+    <label for="brandSelect">Marca</label>
+    <a href="javascript:newBrandModal()" class="badge badge-info">Nueva Marca</a>
     <select class="form-control" id="brandSelect" name="brandSelect">
+      <option value="">-</option>
       {% for b in brands %}
-      <option value={{ b.id }}>{{ b.name }}</option>
+      <option value={{ b.id }}{% if form_data.brandSelect == b.id|stringformat:'s' %} selected{% endif %}>{{ b.name }}</option>
       {% endfor %}
     </select>
   </div>
   <div class="form-group">
-    <label>Manufacturer</label>
-    <a href="javascript:newManufacturerModal()" class="badge badge-info">New Manufacturer</a>
+    <label for="manufacturerSelect">Fabricante</label>
+    <a href="javascript:newManufacturerModal()" class="badge badge-info">Nuevo Fabricante</a>
     <select class="form-control" id="manufacturerSelect" name="manufacturerSelect">
+      <option value="">-</option>
       {% for m in manufacturers %}
-      <option value={{ m.id }}>{{ m.name }}</option>
+      <option value={{ m.id }}{% if form_data.manufacturerSelect == m.id|stringformat:'s' %} selected{% endif %}>{{ m.name }}</option>
       {% endfor %}
     </select>
   </div>
   <div class="form-group">
-    <label>Distributor</label>
-    <a href="javascript:newDistributorModal()" class="badge badge-info">New Distributor</a>
+    <label for="distributorSelect">Distribuidor</label>
+    <a href="javascript:newDistributorModal()" class="badge badge-info">Nuevo Distribuidor</a>
     <select class="form-control" id="distributorSelect" name="distributorSelect">
+      <option value="">-</option>
       {% for d in distributors %}
-      <option value={{ d.id }}>{{ d.name }}</option>
+      <option value={{ d.id }}{% if form_data.distributorSelect == d.id|stringformat:'s' %} selected{% endif %}>{{ d.name }}</option>
       {% endfor %}
     </select>
   </div>
   <div class="form-group">
-    <label>Description</label>
-    <textarea class="form-control" id="descriptionTxtArea" name="descriptionTxtArea" rows="3"></textarea>
+    <label for="descriptionTxtArea">Descripción</label>
+    <textarea class="form-control" id="descriptionTxtArea" name="descriptionTxtArea" rows="3" placeholder="Descripción detallada del producto" required>{{ form_data.descriptionTxtArea|default:'' }}</textarea>
   </div>
   <div class="form-group">
-    <label>Release date</label>
-    <input type="date" class="form-control" id="dateTxt" name="dateTxt">
+    <label for="dateTxt">Fecha de lanzamiento</label>
+    <input type="date" class="form-control" id="dateTxt" name="dateTxt" value="{{ form_data.dateTxt|default:'' }}">
   </div>
   <div class="form-group">
-    <label>Units</label>
-    <input type="number" class="form-control" id="unitsTxt" name="unitsTxt" placeholder="Enter products number value">
+    <label for="unitsTxt">Unidades en stock</label>
+    <input type="number" class="form-control" id="unitsTxt" name="unitsTxt" value="{{ form_data.unitsTxt|default:'' }}" placeholder="Ej: 25" min="0">
   </div>
-  <button type="submit" class="btn btn-primary btn-block">Save</button>
+  <button type="submit" class="btn btn-primary btn-block btn-lg">Guardar producto</button>
 </form>
 
 <!--New Category Form -->

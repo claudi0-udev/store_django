@@ -1,0 +1,148 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent px-0">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'products' %}">Catálogo</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Archivados y Auditoría</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h2 font-weight-bold mb-1">📦 Productos Archivados y Auditoría</h1>
+    <p class="text-muted mb-0">Gestión de borrado lógico (Soft Delete), restauración y copias de respaldo de productos.</p>
+  </div>
+  <a href="{% url 'products' %}" class="btn btn-outline-primary">
+    ← Volver al catálogo
+  </a>
+</div>
+
+<div class="card shadow-sm border-0 mb-5">
+  <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+    <h5 class="font-weight-bold mb-0 text-dark">
+      🗑️ Productos Archivados ({{ archived_products.count }})
+    </h5>
+    <small class="text-muted">Los productos archivados no son visibles para los clientes en la tienda.</small>
+  </div>
+  <div class="card-body p-0">
+    {% if archived_products %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="thead-light">
+          <tr>
+            <th scope="col" style="width: 70px;">Imagen</th>
+            <th scope="col">Nombre</th>
+            <th scope="col">Categoría</th>
+            <th scope="col">Precio</th>
+            <th scope="col">Fecha Eliminación</th>
+            <th scope="col" class="text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in archived_products %}
+          <tr>
+            <td class="align-middle">
+              {% if p.image %}
+              <img src="{{ p.image.url }}" alt="{{ p.name }}" class="rounded" style="width: 45px; height: 45px; object-fit: contain;">
+              {% else %}
+              <span class="badge badge-light border text-muted">Sin foto</span>
+              {% endif %}
+            </td>
+            <td class="align-middle">
+              <strong>{{ p.name }}</strong>
+              <div class="small text-muted">{{ p.description|truncatechars:60 }}</div>
+            </td>
+            <td class="align-middle">
+              <span class="badge badge-light border">{{ p.category.name|default:'-' }}</span>
+            </td>
+            <td class="align-middle font-weight-bold text-muted">$ {{ p.price }}</td>
+            <td class="align-middle text-muted small">
+              {{ p.deleted_at|date:"d/m/Y H:i"|default:'Fecha no registrada' }}
+            </td>
+            <td class="align-middle text-right text-nowrap">
+              <a href="{% url 'productDetail' p.id %}" class="btn btn-sm btn-outline-secondary mr-1">
+                Ver detalle
+              </a>
+              <a href="{% url 'restoreProduct' p.id %}" class="btn btn-sm btn-success font-weight-bold">
+                🔄 Restaurar
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <div class="h4 mb-2">✨ Papelera vacía</div>
+      <p class="mb-0">No hay productos archivados actualmente en el sistema.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-white py-3 border-bottom">
+    <h5 class="font-weight-bold mb-0 text-dark">
+      📋 Registro de Auditoría y Respaldos (Últimas Acciones)
+    </h5>
+  </div>
+  <div class="card-body p-0">
+    {% if audit_logs %}
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0">
+        <thead class="thead-light">
+          <tr>
+            <th scope="col" style="width: 160px;">Fecha y Hora</th>
+            <th scope="col" style="width: 140px;">Acción</th>
+            <th scope="col">Producto</th>
+            <th scope="col">Usuario</th>
+            <th scope="col">Respaldo de Datos (Snapshot)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in audit_logs %}
+          <tr>
+            <td class="align-middle text-muted small">{{ log.timestamp|date:"d/m/Y H:i:s" }}</td>
+            <td class="align-middle">
+              {% if log.action == 'soft_deleted' %}
+              <span class="badge badge-warning">Archivado</span>
+              {% elif log.action == 'restored' %}
+              <span class="badge badge-success">Restaurado</span>
+              {% else %}
+              <span class="badge badge-danger">{{ log.action }}</span>
+              {% endif %}
+            </td>
+            <td class="align-middle font-weight-bold">
+              {{ log.product_name }} <small class="text-muted">(ID: {{ log.product_id }})</small>
+            </td>
+            <td class="align-middle">
+              {{ log.user.username|default:'Sistema / Admin' }}
+            </td>
+            <td class="align-middle small">
+              {% if log.backup_data %}
+              <button class="btn btn-outline-info btn-xs py-0 px-2" type="button" data-toggle="collapse" data-target="#backupLog{{ log.id }}">
+                Ver snapshot
+              </button>
+              <div class="collapse mt-2" id="backupLog{{ log.id }}">
+                <pre class="bg-light p-2 rounded small text-dark mb-0" style="max-height: 150px; overflow-y: auto;"><code>{{ log.backup_data }}</code></pre>
+              </div>
+              {% else %}
+              <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-4 text-muted">
+      No hay registros de auditoría almacenados.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

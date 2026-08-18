@@ -1,0 +1,87 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent px-0">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Mis pedidos</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h2 font-weight-bold mb-0">Historial de Mis Pedidos</h1>
+  <a href="{% url 'products' %}" class="btn btn-outline-primary btn-sm">Explorar catálogo</a>
+</div>
+
+{% if orders %}
+<div class="card shadow-sm border-0">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0 bg-white">
+      <thead class="thead-light">
+        <tr>
+          <th scope="col"># Orden</th>
+          <th scope="col">Fecha</th>
+          <th scope="col">Productos</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Total</th>
+          <th scope="col" class="text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in orders %}
+        <tr>
+          <td class="align-middle font-weight-bold">
+            #{{ order.id }}
+          </td>
+          <td class="align-middle text-muted">
+            {{ order.created_at|date:"d/m/Y H:i" }}
+          </td>
+          <td class="align-middle">
+            {% for item in order.items.all %}
+            <span class="badge badge-light border">{{ item.quantity }}x {{ item.product.name }}</span>
+            {% endfor %}
+          </td>
+          <td class="align-middle">
+            {% if order.status == 'paid' %}
+            <span class="badge badge-info px-2 py-1">💳 En Preparación</span>
+            {% elif order.status == 'shipped' %}
+            <span class="badge badge-primary px-2 py-1">🚚 En Camino</span>
+            {% if order.tracking_number %}
+            <div class="small text-muted mt-1"><small>{{ order.tracking_company }}: {{ order.tracking_number }}</small></div>
+            {% endif %}
+            {% elif order.status == 'completed' %}
+            <span class="badge badge-success px-2 py-1">✅ Entregada</span>
+            {% elif order.status == 'pending' %}
+            <span class="badge badge-warning px-2 py-1">⏳ Pendiente</span>
+            {% else %}
+            <span class="badge badge-secondary px-2 py-1">{{ order.get_status_display }}</span>
+            {% endif %}
+          </td>
+
+          <td class="align-middle font-weight-bold text-primary">
+            $ {{ order.total_amount }}
+          </td>
+          <td class="align-middle text-right">
+            <a href="{% url 'orderDetail' order.id %}" class="btn btn-sm btn-outline-primary">
+              Ver detalle
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card shadow-sm border-0 text-center py-5 my-4">
+  <div class="card-body">
+    <div class="display-3 mb-3 text-muted">📦</div>
+    <h2 class="h4 font-weight-bold mb-2">Aún no tienes pedidos registrados</h2>
+    <p class="text-muted mb-4">Cuando realices compras en la tienda, podrás consultar el estado de cada pedido aquí.</p>
+    <a href="{% url 'products' %}" class="btn btn-primary btn-lg px-4">
+      Explorar catálogo de productos
+    </a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

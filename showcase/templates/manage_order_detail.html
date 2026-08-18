@@ -1,0 +1,234 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent px-0">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'manageOrders' %}">Gestión de Pedidos</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Orden #{{ order.id }}</li>
+  </ol>
+</nav>
+
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+  <div>
+    <div class="d-flex align-items-center">
+      <h1 class="h2 font-weight-bold mb-0 mr-3">Gestión de Pedido #{{ order.id }}</h1>
+      {% if order.status == 'pending' %}
+      <span class="badge badge-warning px-3 py-2 h5 mb-0">⏳ Pendiente</span>
+      {% elif order.status == 'paid' %}
+      <span class="badge badge-info px-3 py-2 h5 mb-0">💳 Pagada / Por Preparar</span>
+      {% elif order.status == 'shipped' %}
+      <span class="badge badge-primary px-3 py-2 h5 mb-0">🚚 En Camino</span>
+      {% elif order.status == 'completed' %}
+      <span class="badge badge-success px-3 py-2 h5 mb-0">✅ Entregado</span>
+      {% elif order.status == 'cancelled' %}
+      <span class="badge badge-danger px-3 py-2 h5 mb-0">❌ Cancelado</span>
+      {% endif %}
+    </div>
+    <p class="text-muted mb-0 small">Registrado el {{ order.created_at|date:"d/m/Y H:i" }}</p>
+  </div>
+  <div class="mt-3 mt-md-0">
+    <button onclick="window.print();" class="btn btn-outline-secondary btn-sm mr-2">
+      🖨️ Imprimir Hoja de Despacho
+    </button>
+    <a href="{% url 'manageOrders' %}" class="btn btn-outline-primary btn-sm">
+      ← Volver al listado
+    </a>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Columna Izquierda: Formulario Operativo de Actualización -->
+  <div class="col-lg-5 mb-4">
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white border-bottom py-3">
+        <h5 class="font-weight-bold mb-0 text-dark">⚙️ Control de Estado y Despacho</h5>
+      </div>
+      <div class="card-body p-4">
+        <form method="post" action="{% url 'manageOrderUpdateStatus' order.id %}">
+          {% csrf_token %}
+
+          <div class="form-group mb-3">
+            <label for="id_status" class="font-weight-bold small text-muted">Estado del Pedido</label>
+            <select name="status" id="id_status" class="form-control form-control-lg font-weight-bold">
+              <option value="pending" {% if order.status == 'pending' %}selected{% endif %}>⏳ Pendiente de Pago</option>
+              <option value="paid" {% if order.status == 'paid' %}selected{% endif %}>💳 Pagada / En Preparación</option>
+              <option value="shipped" {% if order.status == 'shipped' %}selected{% endif %}>🚚 Despachado / En Camino</option>
+              <option value="completed" {% if order.status == 'completed' %}selected{% endif %}>✅ Entregado / Completado</option>
+              <option value="cancelled" {% if order.status == 'cancelled' %}selected{% endif %}>❌ Cancelado / Reembolsado</option>
+            </select>
+          </div>
+
+          <div class="form-group mb-3">
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="id_paid" name="paid" value="true" {% if order.paid %}checked{% endif %}>
+              <label class="custom-control-label font-weight-bold" for="id_paid">
+                💰 Pago recibido y confirmado
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group mb-3">
+            <label for="id_phone" class="font-weight-bold small text-muted">Teléfono de Contacto del Cliente</label>
+            <input type="text" name="phone" id="id_phone" class="form-control font-weight-bold" placeholder="Ej: +56 9 1234 5678" value="{{ order.phone }}">
+            {% if not order.phone %}
+            <small class="text-warning font-weight-bold">⚠️ Este pedido se registró sin teléfono. Puedes agregarlo aquí.</small>
+            {% endif %}
+          </div>
+
+          <hr class="my-3">
+
+          <div class="form-group mb-3">
+            <label for="id_tracking_company" class="font-weight-bold small text-muted">Empresa de Transporte / Courier</label>
+            <input type="text" name="tracking_company" id="id_tracking_company" class="form-control" placeholder="Ej: Starken, Chilexpress, Blue Express..." value="{{ order.tracking_company }}">
+          </div>
+
+          <div class="form-group mb-3">
+            <label for="id_tracking_number" class="font-weight-bold small text-muted">Número de Seguimiento (Tracking ID)</label>
+            <input type="text" name="tracking_number" id="id_tracking_number" class="form-control font-weight-bold" placeholder="Ej: 998877665544" value="{{ order.tracking_number }}">
+            <small class="form-text text-muted">El cliente podrá consultar este número en su panel de pedidos.</small>
+          </div>
+
+          <div class="form-group mb-4">
+            <label for="id_notes" class="font-weight-bold small text-muted">Notas Internas de Despacho</label>
+            <textarea name="notes" id="id_notes" rows="3" class="form-control" placeholder="Instrucciones especiales, piso, depto o notas del repartidor...">{{ order.notes }}</textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block btn-lg font-weight-bold shadow-sm">
+            💾 Guardar y Actualizar Pedido
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Columna Derecha: Datos del Cliente y Productos -->
+  <div class="col-lg-7">
+    <!-- Ficha de Contacto y Envío -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white border-bottom py-3">
+        <h5 class="font-weight-bold mb-0 text-dark">👤 Datos del Cliente y Destino</h5>
+      </div>
+      <div class="card-body p-4">
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <div class="text-muted small">Nombre del Comprador:</div>
+            <div class="font-weight-bold h5 mb-0">{{ order.first_name }} {{ order.last_name }}</div>
+            {% if order.user %}
+            <small class="text-muted">Cuenta vinculada: @{{ order.user.username }}</small>
+            {% else %}
+            <small class="badge badge-light border">Compra como invitado</small>
+            {% endif %}
+          </div>
+          <div class="col-md-6 mb-3">
+            <div class="text-muted small">Teléfono de Contacto:</div>
+            <div class="h5 font-weight-bold text-primary mb-1">
+              📞 <a href="tel:{{ order.phone }}">{{ order.phone }}</a>
+            </div>
+            <div class="text-muted small">
+              ✉️ <a href="mailto:{{ order.email }}">{{ order.email }}</a>
+            </div>
+          </div>
+        </div>
+
+        <hr class="my-2">
+
+        <div class="row mt-3">
+          <div class="col-12">
+            <div class="text-muted small">Dirección de Despacho:</div>
+            <div class="font-weight-bold">{{ order.address }}</div>
+            <div class="text-muted">{{ order.city }} {% if order.postal_code %}- Código Postal: {{ order.postal_code }}{% endif %}</div>
+
+            {% if order.latitude and order.longitude %}
+            <div class="mt-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small font-weight-bold text-dark">📍 Punto Exacto GPS: {{ order.latitude }}, {{ order.longitude }}</span>
+                <div>
+                  <a href="https://www.google.com/maps?q={{ order.latitude }},{{ order.longitude }}" target="_blank" class="btn btn-xs btn-outline-danger py-1 px-2 font-weight-bold">
+                    🗺️ Google Maps
+                  </a>
+                  <a href="https://waze.com/ul?ll={{ order.latitude }},{{ order.longitude }}&navigate=yes" target="_blank" class="btn btn-xs btn-outline-info py-1 px-2 font-weight-bold ml-1">
+                    🚗 Waze
+                  </a>
+                </div>
+              </div>
+              <div id="staff-delivery-map" style="height: 200px; border-radius: 6px;" class="border"></div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Resumen de Productos Comprados -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white border-bottom py-3">
+        <h5 class="font-weight-bold mb-0 text-dark">📦 Productos en este Pedido</h5>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-bordered mb-0 bg-white">
+            <thead class="thead-light">
+              <tr>
+                <th scope="col">Artículo</th>
+                <th scope="col" class="text-center" style="width: 100px;">Precio</th>
+                <th scope="col" class="text-center" style="width: 90px;">Cant.</th>
+                <th scope="col" class="text-right" style="width: 120px;">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in order.items.all %}
+              <tr>
+                <td class="align-middle">
+                  <div class="d-flex align-items-center">
+                    {% if item.product and item.product.image %}
+                    <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}" class="rounded mr-2" style="width: 40px; height: 40px; object-fit: contain;">
+                    {% endif %}
+                    <div>
+                      <strong>{{ item.product.name|default:'Producto retirado' }}</strong>
+                      {% if item.product and item.product.category %}
+                      <div class="small text-muted">{{ item.product.category.name }}</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </td>
+                <td class="align-middle text-center text-nowrap">$ {{ item.price }}</td>
+                <td class="align-middle text-center font-weight-bold">{{ item.quantity }}</td>
+                <td class="align-middle text-right font-weight-bold text-primary text-nowrap">$ {{ item.get_cost }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th colspan="3" class="text-right font-weight-bold">Total a Cobrar / Pagado:</th>
+                <th class="text-right font-weight-bold text-primary h5 mb-0">$ {{ order.total_amount }}</th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% if order.latitude and order.longitude %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var lat = {{ order.latitude }};
+    var lng = {{ order.longitude }};
+    var map = L.map('staff-delivery-map').setView([lat, lng], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+    var marker = L.marker([lat, lng]).addTo(map);
+    marker.bindPopup("<b>📍 Destino de Entrega</b><br>{{ order.address }}").openPopup();
+  });
+</script>
+{% endif %}
+{% endblock %}
+

@@ -1,68 +1,150 @@
 {% extends 'base_layout.html' %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    {% block body %}
-        <div class="h2 text-left py-2">Features: </div>
-        
-        <table class="table table-striped border rounded py-2">
-            <thead>
-                <tr>
-                    <th scope="col">Feature name</th>
-                    <th scope="col">Feature value</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <th scope="row">Product Name</th>
-                    <td>{{ product.name }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">Category</th>
-                    <td>{{ product.category.name }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">Price</th>
-                    <td>{{ product.price }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">Product description</th>
-                    <td>{{ product.description }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">Brand</th>
-                    <td>{{ product.brand.name }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">MSRP</th>
-                    <td>{{ product.msrp }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">Manufacturer</th>
-                    <td>{{ product.manufacturer.name }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">Distributor</th>
-                    <td>{{ product.distributor }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">Units</th>
-                    <td>{{ product.units }}</td>
-                </tr>
-                {% for f in featureValues %}
-                    <tr class="table-dark">
-                        <th scope="row">{{ f.feature.name}}</th>
-                        <td >{{ f.value}}</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
+
+{% block body %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent px-0">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'products' %}">Catálogo</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ product.name }}</li>
+  </ol>
+</nav>
+
+{% if user.is_authenticated and user.is_staff %}
+  {% if not product.is_active %}
+  <div class="alert alert-danger d-flex justify-content-between align-items-center shadow-sm border-0 mb-4">
+    <div>
+      <strong>⚠️ Producto Archivado:</strong> Este producto no es visible para los clientes en la tienda.
+    </div>
+    <div>
+      <a href="{% url 'restoreProduct' product.id %}" class="btn btn-sm btn-success font-weight-bold mr-1">
+        🔄 Restaurar al catálogo
+      </a>
+      <a href="{% url 'editProduct' product.id %}" class="btn btn-sm btn-outline-secondary font-weight-bold bg-white">
+        ✏️ Editar
+      </a>
+    </div>
+  </div>
+  {% else %}
+  <div class="alert alert-warning d-flex justify-content-between align-items-center shadow-sm border-0 mb-4">
+    <div>
+      <strong>⚙️ Modo Administrador:</strong> Gestiona este artículo en el catálogo.
+    </div>
+    <div>
+      <a href="{% url 'editProduct' product.id %}" class="btn btn-sm btn-primary font-weight-bold mr-1">
+        ✏️ Editar producto
+      </a>
+      <a href="{% url 'deleteProduct' product.id %}" class="btn btn-sm btn-outline-danger font-weight-bold bg-white">
+        🗑️ Eliminar (Archivar)
+      </a>
+    </div>
+  </div>
+  {% endif %}
+{% endif %}
+
+
+
+<div class="row my-4">
+  <div class="col-lg-5 mb-4 mb-lg-0">
+    <div class="card shadow-sm border-0 text-center p-3">
+      {% if product.image %}
+      <img src="{{ product.image.url }}" class="img-fluid rounded mx-auto" alt="{{ product.name }}" style="max-height: 380px; object-fit: contain;">
+      {% else %}
+      <div class="bg-light d-flex align-items-center justify-content-center rounded" style="height: 320px;">
+        <span class="text-muted font-weight-bold">Sin imagen disponible</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-body">
+        <span class="badge badge-info mb-2">{{ product.category.name|default:'Sin categoría' }}</span>
+        {% if product.brand %}
+        <span class="badge badge-secondary mb-2">{{ product.brand.name }}</span>
+        {% endif %}
+
+        <h1 class="h3 font-weight-bold">{{ product.name }}</h1>
+        <p class="text-muted">{{ product.description }}</p>
+
+        <div class="d-flex align-items-baseline mb-3">
+          <h2 class="h2 text-primary font-weight-bold mr-3 mb-0">$ {{ product.price }}</h2>
+          {% if product.msrp %}
+          <span class="text-muted" style="text-decoration: line-through;">MSRP: $ {{ product.msrp }}</span>
+          {% endif %}
+        </div>
+
+        <div class="mb-3">
+          {% if product.units > 0 %}
+          <span class="badge badge-success px-3 py-2">En stock ({{ product.units }} disponibles)</span>
+          {% else %}
+          <span class="badge badge-danger px-3 py-2">Agotado</span>
+          {% endif %}
+        </div>
+
+        <form method="post" action="{% url 'cartAdd' product.id %}" class="my-4">
+          {% csrf_token %}
+          <div class="form-row align-items-center">
+            <div class="col-auto">
+              <label class="sr-only" for="quantity">Cantidad</label>
+              <div class="input-group">
+                <div class="input-group-prepend">
+                  <span class="input-group-text font-weight-bold">Cantidad</span>
+                </div>
+                <input type="number" id="quantity" name="quantity" class="form-control" value="1" min="1" max="{{ product.units|default:1 }}" style="width: 80px;" {% if product.units == 0 %}disabled{% endif %}>
+              </div>
+            </div>
+            <div class="col-auto">
+              <button type="submit" class="btn btn-primary font-weight-bold px-4" {% if product.units == 0 %}disabled{% endif %}>
+                🛒 Añadir al carrito
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <hr>
+
+        <h5 class="font-weight-bold mb-3">Especificaciones y Detalles</h5>
+        <table class="table table-sm table-striped border rounded">
+          <tbody>
+            {% if product.brand %}
+            <tr>
+              <th scope="row" style="width: 40%;">Marca</th>
+              <td>{{ product.brand.name }}</td>
+            </tr>
+            {% endif %}
+            {% if product.manufacturer %}
+            <tr>
+              <th scope="row">Fabricante</th>
+              <td>{{ product.manufacturer.name }}</td>
+            </tr>
+            {% endif %}
+            {% if product.distributor %}
+            <tr>
+              <th scope="row">Distribuidor</th>
+              <td>{{ product.distributor.name }}</td>
+            </tr>
+            {% endif %}
+            {% if product.release_date %}
+            <tr>
+              <th scope="row">Fecha de lanzamiento</th>
+              <td>{{ product.release_date }}</td>
+            </tr>
+            {% endif %}
+            {% for f in featureValues %}
+            <tr>
+              <th scope="row">{{ f.feature.name }}</th>
+              <td>{{ f.value|default:'-' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
         </table>
-    {% endblock %}
-</body>
-</html>
+
+        <div class="mt-4">
+          <a href="{% url 'products' %}" class="btn btn-outline-secondary">← Volver al catálogo</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

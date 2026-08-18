@@ -1,0 +1,266 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent px-0">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'products' %}">Catálogo</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'productDetail' product.id %}">{{ product.name }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Editar</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h2 font-weight-bold mb-0">Editar Producto</h1>
+  <div>
+    <a href="{% url 'productDetail' product.id %}" class="btn btn-outline-secondary mr-2">Ver producto</a>
+    <a href="{% url 'deleteProduct' product.id %}" class="btn btn-outline-danger">🗑️ Eliminar</a>
+  </div>
+</div>
+
+<form class="needs-validation py-2" method="post" enctype="multipart/form-data" novalidate>{% csrf_token %}
+  {% if errors %}
+  <div class="alert alert-danger" role="alert">
+    <ul class="mb-0">
+      {% for error in errors %}
+      <li>{{ error }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+      <div class="form-group">
+        <label for="nameTxt" class="font-weight-bold">Nombre del producto <span class="text-danger">*</span></label>
+        <input class="form-control" id="nameTxt" name="nameTxt" value="{{ form_data.nameTxt|default:'' }}" placeholder="Ej: Laptop Pro 16" required>
+        <div class="invalid-feedback">
+          Por favor ingresa un nombre.
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="categorySelect" class="font-weight-bold">Categoría <span class="text-danger">*</span></label>
+        <a href="javascript:loadSubcategories(0)" class="badge badge-info ml-1">Reiniciar</a>
+        <a href="javascript:newCategoryModal()" class="badge badge-info ml-1">Nueva Categoría</a>
+        <a id="categoryInput"></a>
+        <div class="h6 text-muted" id="previousCategoryTxt">
+          {% if product.category %}Categoría actual: <strong>{{ product.category.name }}</strong>{% endif %}
+        </div>
+        <select class="form-control" id="categorySelect" name="categorySelect" required>
+          <option value="">-</option>
+          {% for c in categories %}
+          <option value="{{ c.id }}"{% if form_data.categorySelect == c.id|stringformat:'s' %} selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div id="loadFeatures">
+      </div>
+
+      <div class="form-group">
+        <label for="image" class="font-weight-bold">Imagen del producto</label>
+        {% if product.image %}
+        <div class="mb-2 d-flex align-items-center">
+          <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-thumbnail mr-3" style="max-height: 100px; max-width: 120px; object-fit: contain;">
+          <div>
+            <span class="text-muted small d-block">Imagen actual: <a href="{{ product.image.url }}" target="_blank">{{ product.image.name }}</a></span>
+            <small class="text-muted">Sube una nueva imagen solo si deseas reemplazar la actual.</small>
+          </div>
+        </div>
+        {% endif %}
+        <input type="file" class="form-control-file" id="image" name="image" accept="image/*">
+        <small class="form-text text-muted">Formatos recomendados: JPG, PNG, WebP.</small>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group col-md-6">
+          <label for="priceTxt" class="font-weight-bold">Precio de venta ($) <span class="text-danger">*</span></label>
+          <input type="number" step="0.01" class="form-control" id="priceTxt" name="priceTxt" value="{{ form_data.priceTxt|default:'' }}" placeholder="Ej: 999.99" required>
+        </div>
+        <div class="form-group col-md-6">
+          <label for="msrpTxt" class="font-weight-bold">MSRP (Precio referencial)</label>
+          <input type="number" step="0.01" class="form-control" id="msrpTxt" name="msrpTxt" value="{{ form_data.msrpTxt|default:'' }}" placeholder="Ej: 1299.99">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group col-md-4">
+          <label for="brandSelect" class="font-weight-bold">Marca</label>
+          <a href="javascript:newBrandModal()" class="badge badge-info ml-1">Nueva Marca</a>
+          <select class="form-control" id="brandSelect" name="brandSelect">
+            <option value="">-</option>
+            {% for b in brands %}
+            <option value="{{ b.id }}"{% if form_data.brandSelect == b.id|stringformat:'s' %} selected{% endif %}>{{ b.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group col-md-4">
+          <label for="manufacturerSelect" class="font-weight-bold">Fabricante</label>
+          <a href="javascript:newManufacturerModal()" class="badge badge-info ml-1">Nuevo</a>
+          <select class="form-control" id="manufacturerSelect" name="manufacturerSelect">
+            <option value="">-</option>
+            {% for m in manufacturers %}
+            <option value="{{ m.id }}"{% if form_data.manufacturerSelect == m.id|stringformat:'s' %} selected{% endif %}>{{ m.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group col-md-4">
+          <label for="distributorSelect" class="font-weight-bold">Distribuidor</label>
+          <a href="javascript:newDistributorModal()" class="badge badge-info ml-1">Nuevo</a>
+          <select class="form-control" id="distributorSelect" name="distributorSelect">
+            <option value="">-</option>
+            {% for d in distributors %}
+            <option value="{{ d.id }}"{% if form_data.distributorSelect == d.id|stringformat:'s' %} selected{% endif %}>{{ d.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="descriptionTxtArea" class="font-weight-bold">Descripción <span class="text-danger">*</span></label>
+        <textarea class="form-control" id="descriptionTxtArea" name="descriptionTxtArea" rows="4" placeholder="Descripción detallada del producto" required>{{ form_data.descriptionTxtArea|default:'' }}</textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group col-md-6">
+          <label for="unitsTxt" class="font-weight-bold">Unidades en stock</label>
+          <input type="number" class="form-control" id="unitsTxt" name="unitsTxt" value="{{ form_data.unitsTxt|default:'' }}" placeholder="Ej: 25" min="0">
+        </div>
+        <div class="form-group col-md-6">
+          <label for="dateTxt" class="font-weight-bold">Fecha de lanzamiento</label>
+          <input type="date" class="form-control" id="dateTxt" name="dateTxt" value="{{ form_data.dateTxt|default:'' }}">
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-end gap-2 mt-3">
+        <a href="{% url 'productDetail' product.id %}" class="btn btn-secondary px-4 mr-2">Cancelar</a>
+        <button type="submit" class="btn btn-primary btn-lg px-5 font-weight-bold">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<!--New Category Form -->
+<div id="newCategory" class="modal fade bd-example-modal-lg" tabindex="-1" role="dialog"
+  aria-labelledby="myLargeModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg m-6 p-6">
+    <div class="modal-content">
+      <div class="modal-body">
+        <form class="needs-validation py-6" method="post" novalidate>{% csrf_token %}
+          <div class="form-group">
+            <label>Category Name</label>
+            <input class="form-control" id="categoryNameTxt" name="categoryNameTxt" placeholder="Enter category name" required>
+            <div class="invalid-feedback">
+              Please insert a name.
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Category Parent</label>
+            <select class="form-control" id="categorySelectAll" name="categorySelectAll">
+              <option value="">-</option>
+            </select>
+          </div>
+          <button type="submit" id="addCategorySaveButton" class="btn btn-primary btn-block">Save</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!--New Brand Form-->
+<div id="newBrand" class="modal fade bd-example-modal-lg" tabindex="-1" role="dialog"
+  aria-labelledby="myLargeModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg m-6 p-6">
+    <div class="modal-content">
+      <div class="modal-body">
+        <form class="needs-validation py-6" method="post" novalidate>{% csrf_token %}
+          <div class="form-group">
+            <label>Brand Name</label>
+            <input class="form-control" id="brandNameTxt" name="brandNameTxt" placeholder="Enter brand name" required>
+            <div class="invalid-feedback">
+              Please insert a name.
+            </div>
+          </div>
+          <button type="submit" id="addBrandSaveButton" class="btn btn-primary btn-block">Save</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!--New Manufacturer Form-->
+<div id="newManufacturer" class="modal fade bd-example-modal-lg" tabindex="-1" role="dialog"
+  aria-labelledby="myLargeModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg m-6 p-6">
+    <div class="modal-content">
+      <div class="modal-body">
+        <form class="needs-validation py-6" method="post" novalidate>{% csrf_token %}
+          <div class="form-group">
+            <label>Manufacturer Name</label>
+            <input class="form-control" id="manufacturerNameTxt" name="manufacturerNameTxt" placeholder="Enter manufacturer name" required>
+            <div class="invalid-feedback">
+              Please insert a name.
+            </div>
+          </div>
+          <button type="submit" id="addManufacturerSaveButton" class="btn btn-primary btn-block">Save</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!--New Distributor Form-->
+<div id="newDistributor" class="modal fade bd-example-modal-lg" tabindex="-1" role="dialog"
+  aria-labelledby="myLargeModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg m-6 p-6">
+    <div class="modal-content">
+      <div class="modal-body">
+        <form class="needs-validation py-6" method="post" novalidate>{% csrf_token %}
+          <div class="form-group">
+            <label>Distributor Name</label>
+            <input class="form-control" id="distributorNameTxt" name="distributorNameTxt" placeholder="Enter distributor name" required>
+            <div class="invalid-feedback">
+              Please insert a name.
+            </div>
+          </div>
+          <button type="submit" id="addDistributorSaveButton" class="btn btn-primary btn-block">Save</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!--New Feature Form-->
+<div id="newFeature" class="modal fade bd-example-modal-lg" tabindex="-1" role="dialog"
+  aria-labelledby="myLargeModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg m-6 p-6">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 id="featureModalTitle" class="modal-title">Modal title</h6>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form class="needs-validation py-6" method="post" novalidate>{% csrf_token %}
+          <div class="form-group">
+            <label>Feature Name</label>
+            <input class="form-control" id="featureNameTxt" name="featureNameTxt" placeholder="Enter feature name" required>
+            <div class="invalid-feedback">
+              Please insert a name.
+            </div>
+          </div>
+          <button type="submit" id="addFeatureSaveButton" class="btn btn-primary btn-block">Save</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extras %}
+{% load static %}
+<script src="{% static 'js/add_product.js' %}"></script>
+{% endblock %}

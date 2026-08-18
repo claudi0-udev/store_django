@@ -1,7 +1,11 @@
 # Notas del proyecto - store_django
 
+> [!IMPORTANT]
+> **Regla de Desarrollo de Git**: Todos los cambios, nuevas funcionalidades, pruebas, commits y pushes deben realizarse **SIEMPRE en la rama `testing`**. La rama `master` o `main` solo se actualiza cuando el usuario lo solicite explícitamente.
+
 ## Contexto general
-- Proyecto Django de tienda en fase de prototipo/mi-ecommerce con la app `showcase`.
+- Proyecto Django de tienda con la app `showcase`.
+
 - El objetivo principal ha sido convertirlo en una base más realista y mantenible, con validaciones, datos de ejemplo, autenticación y una experiencia de inicio más completa.
 
 ## Cambios implementados
@@ -109,11 +113,11 @@
 - La app pasa todas las comprobaciones de Django y la suite de pruebas unitarias (`36/36 tests OK`).
 - Servidor de desarrollo activo en `http://127.0.0.1:8000/`.
 
-
 ## Próximos pasos sugeridos
 - Mejorar la navegación por categorías y filtros jerárquicos en el catálogo.
 - Permitir la personalización de branding, logo y colores de la tienda (Theme / Store settings).
 - Integración con pasarela de pagos en línea externa (Webpay / Stripe / MercadoPago).
+
 
 
 

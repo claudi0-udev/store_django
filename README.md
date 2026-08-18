@@ -25,13 +25,19 @@ Plataforma de comercio electrónico moderna, robusta y escalable desarrollada en
 - Contador dinámico en la barra de navegación visible en todas las páginas vía `context_processors.py`.
 - Descuento automático de stock al finalizar la compra.
 
-### 🗺️ 4. Checkout con Mapa Interactivo y Geolocalización GPS
+### 🗺️ 4. Checkout con Mapa Interactivo y Geolocalización GPS Completa
 - **Leaflet.js + OpenStreetMap:** Mapa interactivo integrado sin necesidad de API keys de pago.
-- **Pin Arrastrable y Clic:** Selección del punto exacto de entrega con marcador interactivo.
-- **Autocompletado Inteligente (*Reverse Geocoding*):** Al mover el pin, el sistema obtiene la calle, comuna y código postal con Nominatim y los escribe automáticamente en la casilla de texto.
-- **Casilla de Texto Editable:** El comprador puede complementar libremente su dirección (depto, torre, piso).
+- **Pin Arrastrable y Clic:** Selección del punto exacto de entrega con marcador interactivo y botón *"🎯 Mi ubicación actual"*.
+- **Autocompletado Estructurado (*Reverse Geocoding*):** Al mover el pin o hacer clic en el mapa, el sistema obtiene automáticamente y rellena de forma editable:
+  - **Dirección (Calle y número)**
+  - **Comuna / Ciudad**
+  - **Región / Estado**
+  - **País**
+  - **Código Postal**
+- **Casillas de Texto Editables:** El comprador puede complementar libremente su dirección (depto, torre, piso o villa).
 - **Seguridad en Contacto:** Teléfono de contacto obligatorio con validación numérica ($\ge 8$ dígitos).
-- **Almacenamiento de Coordenadas:** Las coordenadas GPS (`latitude`, `longitude`) quedan guardadas en la orden.
+- **Almacenamiento de Coordenadas:** Las coordenadas GPS (`latitude`, `longitude`) quedan guardadas en la orden y vinculadas a Google Maps y Waze.
+
 
 ### 📧 5. Sistema de Confirmación por Correo Electrónico
 - Envío automático de correo al comprador al completar la orden.

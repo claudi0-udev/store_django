@@ -7,7 +7,7 @@
 
 <style>
   #delivery-map {
-    height: 320px;
+    height: 330px;
     width: 100%;
     border-radius: 8px;
     z-index: 1;
@@ -16,7 +16,7 @@
     background: #f8f9fa;
     border: 1px solid #dee2e6;
     border-radius: 8px;
-    padding: 14px;
+    padding: 16px;
   }
   .highlight-pulse {
     animation: fieldHighlight 1.5s ease-out;
@@ -119,12 +119,14 @@
     <div class="col-lg-7 mb-4">
       <div class="card shadow-sm border-0 mb-4">
         <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
-          <h5 class="font-weight-bold mb-0">1. Datos de Contacto y Envío</h5>
+          <h5 class="font-weight-bold mb-0">1. Datos de Contacto y Entrega</h5>
           {% if last_order %}
           <button type="button" class="btn btn-xs btn-outline-primary py-1 px-2 font-weight-bold" id="btnUseSavedAddress"
             data-phone="{{ last_order.phone }}"
             data-address="{{ last_order.address }}"
             data-city="{{ last_order.city }}"
+            data-region="{{ last_order.region }}"
+            data-country="{{ last_order.country }}"
             data-postal="{{ last_order.postal_code }}"
             data-lat="{{ last_order.latitude|default:'' }}"
             data-lng="{{ last_order.longitude|default:'' }}">
@@ -172,8 +174,8 @@
           <div class="map-helper-box mb-4">
             <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-2">
               <div>
-                <strong class="text-dark small font-weight-bold">📍 Selecciona el Lugar de Entrega en el Mapa</strong>
-                <div class="text-muted" style="font-size: 12px;">Haz clic o arrastra el pin: la dirección se escribirá automáticamente abajo.</div>
+                <strong class="text-dark small font-weight-bold">📍 Selecciona el Lugar Exacto en el Mapa</strong>
+                <div class="text-muted" style="font-size: 12px;">Haz clic o arrastra el pin: se obtendrán <strong>calle, comuna, región y país</strong> automáticamente.</div>
               </div>
               <div class="mt-2 mt-sm-0">
                 <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 font-weight-bold" id="btnGeolocate">
@@ -186,26 +188,39 @@
             </div>
 
             <div id="delivery-map" class="shadow-sm border"></div>
-            <div id="map-status" class="small text-muted mt-2">
-              📌 Mueve el pin o haz clic en el mapa para fijar tu ubicación y autocompletar la dirección.
+            <div id="map-status" class="mt-2">
+              <div class="small text-muted">
+                📌 Mueve el pin o haz clic en el mapa para fijar tu ubicación y autocompletar la dirección completa.
+              </div>
             </div>
           </div>
 
           <div class="form-group">
             <label for="{{ form.address.id_for_label }}">
-              Dirección de entrega <span class="text-danger">*</span>
+              Dirección de entrega (Calle y número) <span class="text-danger">*</span>
               <span class="badge badge-light border text-muted ml-1" style="font-weight: normal; font-size: 11px;">Editable</span>
             </label>
             {{ form.address }}
-            <small class="form-text text-muted">Se llena desde el mapa. Puedes editarla para agregar depto, block, torre o villa.</small>
+            <small class="form-text text-muted">Se llena desde el mapa. Puedes editarla para añadir depto, block, torre o villa.</small>
           </div>
 
           <div class="form-row">
-            <div class="form-group col-md-7">
-              <label for="{{ form.city.id_for_label }}">Ciudad / Comuna <span class="text-danger">*</span></label>
+            <div class="form-group col-md-4">
+              <label for="{{ form.city.id_for_label }}">Comuna / Ciudad <span class="text-danger">*</span></label>
               {{ form.city }}
             </div>
-            <div class="form-group col-md-5">
+            <div class="form-group col-md-4">
+              <label for="{{ form.region.id_for_label }}">Región / Estado</label>
+              {{ form.region }}
+            </div>
+            <div class="form-group col-md-4">
+              <label for="{{ form.country.id_for_label }}">País</label>
+              {{ form.country }}
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-6">
               <label for="{{ form.postal_code.id_for_label }}">Código postal</label>
               {{ form.postal_code }}
             </div>
@@ -302,6 +317,8 @@
     var inputPhone = document.getElementById('id_phone');
     var inputAddress = document.getElementById('id_address');
     var inputCity = document.getElementById('id_city');
+    var inputRegion = document.getElementById('id_region');
+    var inputCountry = document.getElementById('id_country');
     var inputPostal = document.getElementById('id_postal_code');
     var statusEl = document.getElementById('map-status');
 
@@ -334,12 +351,10 @@
       if (inputLat) inputLat.value = lat.toFixed(6);
       if (inputLng) inputLng.value = lng.toFixed(6);
 
-      if (statusEl) {
-        statusEl.innerHTML = '📍 Coordenadas fijadas: <strong>' + lat.toFixed(5) + ', ' + lng.toFixed(5) + '</strong>';
-      }
-
       if (fetchAddress) {
-        if (statusEl) statusEl.innerHTML = '⌛ Obteniendo dirección de calle para (' + lat.toFixed(4) + ', ' + lng.toFixed(4) + ')...';
+        if (statusEl) {
+          statusEl.innerHTML = '<div class="alert alert-warning py-2 px-3 mb-0 small">⌛ Obteniendo dirección completa para (' + lat.toFixed(4) + ', ' + lng.toFixed(4) + ')...</div>';
+        }
 
         fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng + '&zoom=18&addressdetails=1')
           .then(function(res) { return res.json(); })
@@ -348,7 +363,9 @@
               var addrObj = data.address;
               var road = addrObj.road || addrObj.pedestrian || addrObj.footway || addrObj.street || addrObj.suburb || addrObj.neighbourhood || '';
               var houseNumber = addrObj.house_number || '';
-              var city = addrObj.city || addrObj.town || addrObj.municipality || addrObj.county || addrObj.village || addrObj.city_district || '';
+              var city = addrObj.city || addrObj.town || addrObj.municipality || addrObj.suburb || addrObj.city_district || addrObj.county || addrObj.village || '';
+              var region = addrObj.state || addrObj.region || addrObj.province || addrObj.state_district || '';
+              var country = addrObj.country || 'Chile';
               var postcode = addrObj.postcode || '';
 
               var streetAddress = road;
@@ -367,21 +384,41 @@
                 inputCity.value = city;
                 triggerHighlight(inputCity);
               }
+              if (region && inputRegion) {
+                inputRegion.value = region;
+                triggerHighlight(inputRegion);
+              }
+              if (country && inputCountry) {
+                inputCountry.value = country;
+                triggerHighlight(inputCountry);
+              }
               if (postcode && inputPostal) {
                 inputPostal.value = postcode;
                 triggerHighlight(inputPostal);
               }
 
               var label = streetAddress || (data.display_name ? data.display_name.split(',')[0] : 'Ubicación seleccionada');
+              
               if (statusEl) {
-                statusEl.innerHTML = '✅ Dirección autocompletada: <strong>' + label + '</strong>. <em>(Puedes editarla en la casilla si necesitas agregar depto/torre).</em>';
+                statusEl.innerHTML = `
+                  <div class="alert alert-success py-2 px-3 mb-0 small shadow-sm">
+                    <strong class="d-block mb-1">✅ Dirección Completa Detectada:</strong>
+                    <div>🏠 <strong>Calle:</strong> ${streetAddress || 'S/N'}</div>
+                    <div>📍 <strong>Comuna:</strong> ${city || '-'} &bull; <strong>Región:</strong> ${region || '-'} &bull; <strong>País:</strong> ${country || 'Chile'}</div>
+                    <div class="text-muted mt-1" style="font-size: 11px;">📌 Coordenadas GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)} &bull; <em>Puedes editar los campos de texto si necesitas detallar depto o torre.</em></div>
+                  </div>
+                `;
               }
-              marker.bindPopup("<b>📍 " + label + "</b><br><small>Dirección copiada al formulario. Puedes editarla en la casilla de texto.</small>").openPopup();
+              marker.bindPopup("<b>📍 " + label + "</b><br><small>" + [city, region, country].filter(Boolean).join(', ') + "</small>").openPopup();
             }
           })
           .catch(function(err) {
             console.log('Error reverse geocoding:', err);
           });
+      } else {
+        if (statusEl) {
+          statusEl.innerHTML = '<div class="small text-muted">📍 Coordenadas fijadas: <strong>' + lat.toFixed(5) + ', ' + lng.toFixed(5) + '</strong></div>';
+        }
       }
     }
 
@@ -400,7 +437,7 @@
     var btnGeo = document.getElementById('btnGeolocate');
     if (btnGeo && navigator.geolocation) {
       btnGeo.addEventListener('click', function() {
-        if (statusEl) statusEl.innerHTML = '⌛ Obteniendo tu ubicación GPS...';
+        if (statusEl) statusEl.innerHTML = '<div class="alert alert-warning py-2 px-3 mb-0 small">⌛ Obteniendo tu ubicación GPS...</div>';
         navigator.geolocation.getCurrentPosition(function(pos) {
           var userLat = pos.coords.latitude;
           var userLng = pos.coords.longitude;
@@ -419,14 +456,16 @@
       btnSearch.addEventListener('click', function() {
         var addr = inputAddress ? inputAddress.value.trim() : '';
         var city = inputCity ? inputCity.value.trim() : '';
-        var query = [addr, city, 'Chile'].filter(Boolean).join(', ');
+        var region = inputRegion ? inputRegion.value.trim() : '';
+        var country = inputCountry ? inputCountry.value.trim() : 'Chile';
+        var query = [addr, city, region, country].filter(Boolean).join(', ');
 
         if (!query || query === 'Chile') {
-          alert('Por favor escribe tu dirección o ciudad en el formulario primero.');
+          alert('Por favor escribe tu dirección o comuna en el formulario primero.');
           return;
         }
 
-        if (statusEl) statusEl.innerHTML = '⌛ Buscando "' + query + '" en el mapa...';
+        if (statusEl) statusEl.innerHTML = '<div class="alert alert-warning py-2 px-3 mb-0 small">⌛ Buscando "' + query + '" en el mapa...</div>';
 
         fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query))
           .then(function(res) { return res.json(); })
@@ -437,11 +476,7 @@
               var lon = parseFloat(first.lon);
               map.setView([lat, lon], 16);
               marker.setLatLng([lat, lon]);
-              updateCoordinates(lat, lon, false);
-              if (statusEl) {
-                statusEl.innerHTML = '✅ Ubicado en el mapa: <strong>' + first.display_name.split(',').slice(0, 2).join(',') + '</strong>';
-              }
-              marker.bindPopup("<b>📍 " + first.display_name.split(',')[0] + "</b>").openPopup();
+              updateCoordinates(lat, lon, true);
             } else {
               alert('No encontramos la dirección exacta en el mapa. Por favor haz clic directamente en tu calle.');
             }
@@ -459,6 +494,8 @@
         var phone = this.getAttribute('data-phone');
         var address = this.getAttribute('data-address');
         var city = this.getAttribute('data-city');
+        var region = this.getAttribute('data-region');
+        var country = this.getAttribute('data-country');
         var postal = this.getAttribute('data-postal');
         var lat = parseFloat(this.getAttribute('data-lat'));
         var lng = parseFloat(this.getAttribute('data-lng'));
@@ -466,13 +503,15 @@
         if (phone && inputPhone) { inputPhone.value = phone; triggerHighlight(inputPhone); }
         if (address && inputAddress) { inputAddress.value = address; triggerHighlight(inputAddress); }
         if (city && inputCity) { inputCity.value = city; triggerHighlight(inputCity); }
+        if (region && inputRegion) { inputRegion.value = region; triggerHighlight(inputRegion); }
+        if (country && inputCountry) { inputCountry.value = country; triggerHighlight(inputCountry); }
         if (postal && inputPostal) { inputPostal.value = postal; triggerHighlight(inputPostal); }
 
         if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
           map.setView([lat, lng], 16);
           marker.setLatLng([lat, lng]);
           updateCoordinates(lat, lng, false);
-          marker.bindPopup("<b>📍 Tu dirección habitual</b><br>" + address).openPopup();
+          marker.bindPopup("<b>📍 Tu dirección habitual</b><br>" + address + "<br><small>" + [city, region, country].filter(Boolean).join(', ') + "</small>").openPopup();
         }
       });
     }

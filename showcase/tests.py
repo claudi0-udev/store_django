@@ -922,6 +922,35 @@ class BuyerExperienceEnhancementsTests(TestCase):
         self.assertContains(response, 'Usar mi dirección habitual')
         self.assertContains(response, 'Av. Siempre Viva 742')
 
+    def test_complete_address_structure_saved_in_order(self):
+        self.client.post(f'/cart/add/{self.p1.id}/', {'quantity': 1})
+        self.client.login(username='shopper', password='password123')
+
+        response = self.client.post('/orders/checkout/', {
+            'first_name': 'Claudio',
+            'last_name': 'Aviles',
+            'email': 'shopper@example.com',
+            'phone': '+56912345678',
+            'address': 'Av. Libertador Bernardo O\'Higgins 1058',
+            'city': 'Santiago',
+            'region': 'Región Metropolitana de Santiago',
+            'country': 'Chile',
+            'postal_code': '8320000',
+            'latitude': '-33.448900',
+            'longitude': '-70.669300',
+        })
+        self.assertEqual(response.status_code, 302)
+
+        order = Order.objects.filter(email='shopper@example.com').latest('created_at')
+        self.assertEqual(order.address, 'Av. Libertador Bernardo O\'Higgins 1058')
+        self.assertEqual(order.city, 'Santiago')
+        self.assertEqual(order.region, 'Región Metropolitana de Santiago')
+        self.assertEqual(order.country, 'Chile')
+        self.assertEqual(order.latitude, Decimal('-33.448900'))
+        self.assertEqual(order.longitude, Decimal('-70.669300'))
+        self.assertIn('Santiago, Región Metropolitana de Santiago, Chile', order.get_full_address())
+
+
 
 
 

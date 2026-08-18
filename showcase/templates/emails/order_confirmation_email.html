@@ -153,7 +153,8 @@
       <div class="section-title">📍 Datos de Envío y Contacto</div>
       <div class="info-box">
         <strong>Destinatario:</strong> {{ order.first_name }} {{ order.last_name }}<br>
-        <strong>Dirección:</strong> {{ order.address }}, {{ order.city }} {% if order.postal_code %}(CP: {{ order.postal_code }}){% endif %}<br>
+        <strong>Dirección:</strong> {{ order.address }}<br>
+        <strong>Comuna / Ciudad:</strong> {{ order.city }}{% if order.region %}, {{ order.region }}{% endif %}{% if order.country %}, {{ order.country }}{% endif %} {% if order.postal_code %}(CP: {{ order.postal_code }}){% endif %}<br>
         <strong>Correo:</strong> {{ order.email }}<br>
         {% if order.phone %}<strong>Teléfono:</strong> {{ order.phone }}<br>{% endif %}
         <strong>Fecha del pedido:</strong> {{ order.created_at|date:"d/m/Y H:i" }}

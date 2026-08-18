@@ -93,6 +93,8 @@ class OrderCreateForm(forms.ModelForm):
             'phone',
             'address',
             'city',
+            'region',
+            'country',
             'postal_code',
             'latitude',
             'longitude',
@@ -108,7 +110,6 @@ class OrderCreateForm(forms.ModelForm):
             if not isinstance(field.widget, forms.HiddenInput):
                 field.widget.attrs.setdefault('class', 'form-control')
 
-
         self.fields['first_name'].error_messages.update({
             'required': 'Por favor ingresa tu nombre',
         })
@@ -123,7 +124,16 @@ class OrderCreateForm(forms.ModelForm):
             'required': 'Por favor ingresa tu dirección de entrega',
         })
         self.fields['city'].error_messages.update({
-            'required': 'Por favor ingresa tu ciudad o comuna',
+            'required': 'Por favor ingresa tu comuna o ciudad',
+        })
+        self.fields['city'].widget.attrs.update({
+            'placeholder': 'Ej: Santiago, Providencia, Las Condes...',
+        })
+        self.fields['region'].widget.attrs.update({
+            'placeholder': 'Ej: Región Metropolitana de Santiago',
+        })
+        self.fields['country'].widget.attrs.update({
+            'placeholder': 'Ej: Chile',
         })
         self.fields['phone'].required = True
         self.fields['phone'].widget.attrs.update({
@@ -132,6 +142,7 @@ class OrderCreateForm(forms.ModelForm):
         self.fields['phone'].error_messages.update({
             'required': 'Por favor ingresa tu número telefónico de contacto',
         })
+
 
     def clean_phone(self):
         import re

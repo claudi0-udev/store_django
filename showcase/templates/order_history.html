@@ -110,7 +110,7 @@
           </div>
           <div class="col-md-5 text-md-right">
             <div class="text-muted small">Dirección de entrega:</div>
-            <div class="font-weight-bold small mb-2">{{ order.address }}, {{ order.city }}</div>
+            <div class="font-weight-bold small mb-2">{{ order.address }}, {{ order.city }}{% if order.region %}, {{ order.region }}{% endif %}{% if order.country %}, {{ order.country }}{% endif %}</div>
             <a href="https://wa.me/56912345678?text=Hola,%20tengo%20una%20consulta%20sobre%20mi%20pedido%20%23{{ order.id }}" target="_blank" class="btn btn-sm btn-outline-success">
               💬 Ayuda por WhatsApp
             </a>

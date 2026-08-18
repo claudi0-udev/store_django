@@ -136,8 +136,8 @@
         <div class="row mt-3">
           <div class="col-12">
             <div class="text-muted small">Dirección de Despacho:</div>
-            <div class="font-weight-bold">{{ order.address }}</div>
-            <div class="text-muted">{{ order.city }} {% if order.postal_code %}- Código Postal: {{ order.postal_code }}{% endif %}</div>
+            <div class="font-weight-bold">🏠 {{ order.address }}</div>
+            <div class="text-dark small">📍 {{ order.city }}{% if order.region %}, {{ order.region }}{% endif %}{% if order.country %}, {{ order.country }}{% endif %} {% if order.postal_code %}(CP: {{ order.postal_code }}){% endif %}</div>
 
             {% if order.latitude and order.longitude %}
             <div class="mt-3">

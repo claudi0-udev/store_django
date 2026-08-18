@@ -109,19 +109,20 @@
 - `showcase/templates/base_layout.html`: layout base con live search predictivo en navbar, toasts de adición al carrito y badge reactivo.
 
 ## Estado actual
-- Suite de Experiencia del Comprador (UI/UX) 100% implementada y verificada:
+- Suite de Experiencia del Comprador (UI/UX) y Geolocalización Completa 100% implementada y verificada:
   1. Live Search con autocompletado en navbar.
   2. Compra rápida desde tarjetas con toasts flotantes y badges de urgencia/stock.
   3. Ficha de producto con selector `+`/`-`, cuotas, sellos y módulo de Cross-selling.
   4. Carrito dinámico con reactividad AJAX sin recargas de página.
-  5. Checkout inteligente con autocompletado de dirección previa en 1 clic.
+  5. Checkout inteligente con autocompletado de dirección previa en 1 clic y geocodificación estructurada completa (**calle, comuna, región, país, código postal y coordenadas GPS**).
   6. Post-venta con línea de tiempo gráfica de despacho y asistencia directa por WhatsApp.
-- La app pasa todas las comprobaciones de Django y la suite de pruebas unitarias (`41/41 tests OK`).
+- La app pasa todas las comprobaciones de Django y la suite de pruebas unitarias (`42/42 tests OK`).
 - Servidor de desarrollo activo en `http://127.0.0.1:8000/`.
 
 ## Próximos pasos sugeridos
 - Permitir la personalización de temas y colores de la tienda (Store Branding / Settings).
 - Integración directa con pasarela de pagos en línea externa (Webpay Plus / Mercado Pago / Stripe).
+
 
 
 

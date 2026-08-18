@@ -739,6 +739,8 @@ def OrderCreate(request):
                     'phone': last_order.phone,
                     'address': last_order.address,
                     'city': last_order.city,
+                    'region': last_order.region,
+                    'country': last_order.country,
                     'postal_code': last_order.postal_code,
                     'latitude': last_order.latitude,
                     'longitude': last_order.longitude,

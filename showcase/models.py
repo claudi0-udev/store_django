@@ -193,7 +193,9 @@ class Order(models.Model):
     email = models.EmailField()
     phone = models.CharField(max_length=30, blank=True)
     address = models.CharField(max_length=250, validators=[MinLengthValidator(5)])
-    city = models.CharField(max_length=100, validators=[MinLengthValidator(2)])
+    city = models.CharField(max_length=100, validators=[MinLengthValidator(2)], verbose_name='Comuna / Ciudad')
+    region = models.CharField(max_length=100, blank=True, default='', verbose_name='Región / Estado')
+    country = models.CharField(max_length=100, blank=True, default='Chile', verbose_name='País')
     postal_code = models.CharField(max_length=20, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -206,8 +208,6 @@ class Order(models.Model):
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, verbose_name='Latitud de entrega')
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, verbose_name='Longitud de entrega')
 
-
-
     def clean(self):
         super().clean()
         self.first_name = _normalize_name(self.first_name)
@@ -215,6 +215,8 @@ class Order(models.Model):
         self.phone = _normalize_name(self.phone)
         self.address = _normalize_name(self.address)
         self.city = _normalize_name(self.city)
+        self.region = _normalize_name(self.region)
+        self.country = _normalize_name(self.country) or 'Chile'
         if not self.first_name:
             raise ValidationError({'first_name': 'El nombre es obligatorio.'})
         if not self.last_name:
@@ -226,9 +228,7 @@ class Order(models.Model):
         if not self.address:
             raise ValidationError({'address': 'La dirección es obligatoria.'})
         if not self.city:
-            raise ValidationError({'city': 'La ciudad es obligatoria.'})
-
-
+            raise ValidationError({'city': 'La comuna o ciudad es obligatoria.'})
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -237,7 +237,12 @@ class Order(models.Model):
     def __str__(self):
         return f"Orden #{self.pk} - {self.first_name} {self.last_name}"
 
+    def get_full_address(self):
+        parts = [self.address, self.city, self.region, self.country]
+        return ', '.join([p for p in parts if p])
+
     def get_total_cost(self):
+
         return sum(item.get_cost() for item in self.items.all())
 
 

@@ -687,6 +687,9 @@ def CartClear(request):
     return redirect('cartDetail')
 
 
+from .payments.gateways import confirm_order_payment, get_gateway_display_info
+
+
 def OrderCreate(request):
     cart = Cart(request)
     if len(cart) == 0:
@@ -704,8 +707,8 @@ def OrderCreate(request):
             if request.user.is_authenticated:
                 order.user = request.user
             order.total_amount = cart.get_total_price()
-            order.status = 'paid'
-            order.paid = True
+            order.status = 'pending'
+            order.paid = False
             order.save()
 
             for item in cart:
@@ -723,9 +726,13 @@ def OrderCreate(request):
                 product.save()
 
             cart.clear()
-            send_order_confirmation_email(order)
-            messages.success(request, f'¡Pedido #{order.id} realizado con éxito! Te enviamos un correo de confirmación con el detalle a {order.email}.')
-            return redirect('orderConfirmation', orderId=order.id)
+
+            if order.payment_method == 'transfer':
+                send_order_confirmation_email(order)
+                messages.success(request, f'¡Pedido #{order.id} registrado con éxito! Por favor realiza la transferencia según los datos indicados.')
+                return redirect('orderConfirmation', orderId=order.id)
+            else:
+                return redirect('paymentPortal', orderId=order.id)
     else:
         initial_data = {}
         if request.user.is_authenticated:
@@ -744,6 +751,7 @@ def OrderCreate(request):
                     'postal_code': last_order.postal_code,
                     'latitude': last_order.latitude,
                     'longitude': last_order.longitude,
+                    'payment_method': last_order.payment_method,
                 })
         form = OrderCreateForm(initial=initial_data)
 
@@ -754,10 +762,101 @@ def OrderCreate(request):
     })
 
 
+def PaymentPortal(request, orderId):
+    order = get_object_or_404(Order.objects.prefetch_related('items__product'), pk=orderId)
+    if order.paid:
+        messages.info(request, f'El pedido #{order.id} ya se encuentra pagado.')
+        return redirect('orderConfirmation', orderId=order.id)
+
+    gateway_info = get_gateway_display_info(order.payment_method)
+    return render(request, 'payments/payment_portal.html', {
+        'order': order,
+        'gateway_info': gateway_info,
+    })
+
+
+def PaymentProcess(request, orderId):
+    import random
+    import uuid
+    order = get_object_or_404(Order, pk=orderId)
+    if order.paid:
+        return redirect('orderConfirmation', orderId=order.id)
+
+    if request.method == 'POST':
+        action = request.POST.get('action', 'approve')
+        card_type = request.POST.get('card_type', 'Visa Crédito')
+        card_number = request.POST.get('card_number', '4532 8765 4321 8890')
+        installments = request.POST.get('installments', '1')
+        gateway = request.POST.get('gateway', order.payment_method)
+
+        if action == 'approve':
+            card_last4 = card_number.replace(' ', '')[-4:] if card_number else '8890'
+            auth_code = str(random.randint(100000, 999999))
+            txn_id = f"TXN-{uuid.uuid4().hex[:12].upper()}"
+
+            confirm_order_payment(
+                order=order,
+                auth_code=auth_code,
+                card_last4=card_last4,
+                card_type=card_type,
+                installments=installments,
+                transaction_id=txn_id,
+                gateway_name=gateway
+            )
+            messages.success(request, f'¡Pago aprobado exitosamente! N° de Autorización: {auth_code}.')
+            return redirect('orderConfirmation', orderId=order.id)
+
+        elif action == 'reject':
+            reason = request.POST.get('reject_reason', 'Fondos insuficientes o límite excedido')
+            messages.error(request, f'Tu transacción no pudo ser autorizada: {reason}.')
+            return redirect('paymentFailure', orderId=order.id)
+
+        elif action == 'cancel':
+            messages.warning(request, 'Has cancelado el proceso de pago. Puedes reintentar cuando gustes.')
+            return redirect('paymentFailure', orderId=order.id)
+
+    return redirect('paymentPortal', orderId=order.id)
+
+
+def PaymentFailure(request, orderId):
+    order = get_object_or_404(Order.objects.prefetch_related('items__product'), pk=orderId)
+    if order.paid:
+        return redirect('orderConfirmation', orderId=order.id)
+
+    return render(request, 'payments/payment_failure.html', {
+        'order': order,
+    })
+
+
+def PaymentRetry(request, orderId):
+    from .models import PAYMENT_METHOD_CHOICES
+    order = get_object_or_404(Order, pk=orderId)
+    if order.paid:
+        return redirect('orderConfirmation', orderId=order.id)
+
+    if request.method == 'POST':
+        new_method = request.POST.get('payment_method')
+        valid_methods = [k for k, v in PAYMENT_METHOD_CHOICES]
+        if new_method in valid_methods:
+            order.payment_method = new_method
+            order.save()
+            if new_method == 'transfer':
+                send_order_confirmation_email(order)
+                messages.info(request, 'Se ha seleccionado transferencia bancaria como medio de pago.')
+                return redirect('orderConfirmation', orderId=order.id)
+            return redirect('paymentPortal', orderId=order.id)
+
+    return redirect('paymentPortal', orderId=order.id)
+
 
 def OrderConfirmation(request, orderId):
     order = get_object_or_404(Order.objects.prefetch_related('items__product'), pk=orderId)
-    return render(request, 'order_confirmation.html', {'order': order})
+    gateway_info = get_gateway_display_info(order.payment_method)
+    return render(request, 'order_confirmation.html', {
+        'order': order,
+        'gateway_info': gateway_info,
+    })
+
 
 
 @login_required(login_url='login')

@@ -172,11 +172,18 @@ class FeatureValue(models.Model):
 
 
 ORDER_STATUS_CHOICES = [
-    ('pending', 'Pendiente'),
-    ('paid', 'Pagada'),
-    ('shipped', 'Enviada'),
-    ('completed', 'Completada'),
+    ('pending', 'Pendiente de Pago'),
+    ('paid', 'Pagada / En Preparación'),
+    ('shipped', 'Enviada / En Camino'),
+    ('completed', 'Entregada / Completada'),
     ('cancelled', 'Cancelada'),
+]
+
+PAYMENT_METHOD_CHOICES = [
+    ('webpay', 'Webpay Plus (Transbank)'),
+    ('mercadopago', 'Mercado Pago'),
+    ('sandbox_card', 'Tarjeta de Crédito / Débito (Directa)'),
+    ('transfer', 'Transferencia Bancaria Manual'),
 ]
 
 
@@ -202,6 +209,13 @@ class Order(models.Model):
     status = models.CharField(max_length=20, choices=ORDER_STATUS_CHOICES, default='pending')
     paid = models.BooleanField(default=False)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    payment_method = models.CharField(max_length=30, choices=PAYMENT_METHOD_CHOICES, default='webpay', verbose_name='Método de pago')
+    payment_transaction_id = models.CharField(max_length=150, blank=True, verbose_name='ID de transacción')
+    payment_auth_code = models.CharField(max_length=50, blank=True, verbose_name='Código de autorización')
+    payment_card_last4 = models.CharField(max_length=10, blank=True, verbose_name='Últimos 4 dígitos')
+    payment_card_type = models.CharField(max_length=50, blank=True, verbose_name='Tipo de tarjeta')
+    payment_installments = models.IntegerField(default=1, verbose_name='Número de cuotas')
+    payment_date = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de confirmación de pago')
     tracking_company = models.CharField(max_length=100, blank=True, verbose_name='Empresa de transporte')
     tracking_number = models.CharField(max_length=100, blank=True, verbose_name='Número de seguimiento')
     notes = models.TextField(blank=True, verbose_name='Notas de despacho')

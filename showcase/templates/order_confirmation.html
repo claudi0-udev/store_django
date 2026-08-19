@@ -105,10 +105,13 @@
               <span class="text-muted small">Estado de Pago:</span>
               <div>
                 {% if order.paid %}
-                <span class="badge badge-success px-3 py-1">💰 Pago Confirmado</span>
+                <span class="badge badge-success px-3 py-1 font-weight-bold">💰 Pago Confirmado</span>
                 {% else %}
-                <span class="badge badge-warning px-3 py-1">⏳ Pendiente de Pago</span>
+                <span class="badge badge-warning px-3 py-1 font-weight-bold">⏳ Pendiente de Pago</span>
                 {% endif %}
+              </div>
+              <div class="small font-weight-bold text-muted mt-1">
+                {{ gateway_info.icon }} {{ gateway_info.name }}
               </div>
               <div class="mt-2">
                 <a href="https://wa.me/56912345678?text=Hola,%20tengo%20una%20consulta%20sobre%20mi%20pedido%20%23{{ order.id }}" target="_blank" class="btn btn-sm btn-outline-success">
@@ -118,6 +121,60 @@
             </div>
           </div>
         </div>
+
+        {% if order.paid and order.payment_auth_code %}
+        <!-- Voucher Bancario Oficial -->
+        <div class="card border-success shadow-sm mb-4 text-left">
+          <div class="card-header bg-success text-white py-2 px-3 d-flex justify-content-between align-items-center">
+            <span class="font-weight-bold small">🧾 Comprobante / Voucher Bancario de Pago</span>
+            <span class="badge badge-light text-success font-weight-bold">Aprobado</span>
+          </div>
+          <div class="card-body p-3 bg-light small">
+            <div class="row">
+              <div class="col-sm-6 mb-2 mb-sm-0">
+                <div><strong>Pasarela:</strong> {{ gateway_info.name }}</div>
+                <div><strong>Tarjeta:</strong> {{ order.payment_card_type }} (**** {{ order.payment_card_last4 }})</div>
+                <div><strong>Cuotas:</strong> {{ order.payment_installments }} cuota(s)</div>
+              </div>
+              <div class="col-sm-6">
+                <div><strong>Código Autorización:</strong> <code class="text-success font-weight-bold">{{ order.payment_auth_code }}</code></div>
+                <div><strong>N° Transacción:</strong> <code>{{ order.payment_transaction_id }}</code></div>
+                <div><strong>Fecha de Pago:</strong> {{ order.payment_date|date:"d/m/Y H:i:s" }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% elif not order.paid and order.payment_method == 'transfer' %}
+        <!-- Datos de Transferencia Bancaria -->
+        <div class="card border-warning shadow-sm mb-4 text-left">
+          <div class="card-header bg-warning text-dark py-2 px-3 font-weight-bold small">
+            🏦 Datos para Transferencia Bancaria
+          </div>
+          <div class="card-body p-3 bg-light small">
+            <p class="mb-2">Por favor realiza la transferencia por el total de <strong>$ {{ order.total_amount }}</strong> con los siguientes datos:</p>
+            <ul class="mb-2 pl-3">
+              <li><strong>Banco:</strong> Banco de Chile / Edwards</li>
+              <li><strong>Tipo de Cuenta:</strong> Cuenta Corriente</li>
+              <li><strong>Número de Cuenta:</strong> 00-123-45678-90</li>
+              <li><strong>RUT Beneficiario:</strong> 76.123.456-K</li>
+              <li><strong>Titular:</strong> Store Django SpA</li>
+              <li><strong>Correo para comprobante:</strong> pagos@tiendadjango.cl</li>
+              <li><strong>Asunto:</strong> Pedido #{{ order.id }} - {{ order.first_name }} {{ order.last_name }}</li>
+            </ul>
+            <div class="text-muted" style="font-size: 11px;">Una vez que verifiquemos el pago, tu orden cambiará automáticamente a estado "En Preparación".</div>
+          </div>
+        </div>
+        {% elif not order.paid %}
+        <div class="alert alert-info text-left d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <strong>💳 Pago pendiente de confirmación:</strong> Puedes completar el pago en línea ahora.
+          </div>
+          <a href="{% url 'paymentPortal' order.id %}" class="btn btn-sm btn-primary font-weight-bold">
+            Pagar Ahora →
+          </a>
+        </div>
+        {% endif %}
+
 
         <h5 class="font-weight-bold text-left mb-3">Productos Comprados</h5>
         <div class="table-responsive mb-4">

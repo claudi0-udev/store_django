@@ -233,19 +233,50 @@
           <h5 class="font-weight-bold mb-0">2. Método de Pago</h5>
         </div>
         <div class="card-body pt-0">
-          <div class="custom-control custom-radio mb-2">
-            <input type="radio" id="paymentOnline" name="payment_method" class="custom-control-input" checked>
-            <label class="custom-control-label font-weight-bold" for="paymentOnline">
-              💳 Pago con Tarjeta (Crédito / Débito / Webpay)
+          <div class="list-group">
+            <label class="list-group-item list-group-item-action d-flex align-items-center justify-content-between cursor-pointer border rounded mb-2">
+              <div class="custom-control custom-radio">
+                <input type="radio" id="payWebpay" name="payment_method" value="webpay" class="custom-control-input" {% if not form.payment_method.value or form.payment_method.value == 'webpay' %}checked{% endif %}>
+                <label class="custom-control-label font-weight-bold" for="payWebpay">
+                  💳 Webpay Plus (Transbank)
+                </label>
+                <div class="small text-muted ml-4">Crédito, Débito (Redcompra) y Prepago en Chile.</div>
+              </div>
+              <span class="badge badge-danger">Transbank</span>
             </label>
-            <div class="small text-muted ml-4">Transacción protegida con cifrado bancario seguro.</div>
-          </div>
-          <div class="custom-control custom-radio">
-            <input type="radio" id="paymentTransfer" name="payment_method" class="custom-control-input">
-            <label class="custom-control-label font-weight-bold" for="paymentTransfer">
-              🏦 Transferencia Bancaria
+
+            <label class="list-group-item list-group-item-action d-flex align-items-center justify-content-between cursor-pointer border rounded mb-2">
+              <div class="custom-control custom-radio">
+                <input type="radio" id="payMP" name="payment_method" value="mercadopago" class="custom-control-input" {% if form.payment_method.value == 'mercadopago' %}checked{% endif %}>
+                <label class="custom-control-label font-weight-bold" for="payMP">
+                  🤝 Mercado Pago
+                </label>
+                <div class="small text-muted ml-4">Saldo en cuenta, tarjetas bancarias y cuotas.</div>
+              </div>
+              <span class="badge badge-info">Mercado Pago</span>
             </label>
-            <div class="small text-muted ml-4">Envío tras validación del comprobante.</div>
+
+            <label class="list-group-item list-group-item-action d-flex align-items-center justify-content-between cursor-pointer border rounded mb-2">
+              <div class="custom-control custom-radio">
+                <input type="radio" id="payCard" name="payment_method" value="sandbox_card" class="custom-control-input" {% if form.payment_method.value == 'sandbox_card' %}checked{% endif %}>
+                <label class="custom-control-label font-weight-bold" for="payCard">
+                  🔒 Tarjeta Directa (Pago Seguro)
+                </label>
+                <div class="small text-muted ml-4">Procesamiento instantáneo con cifrado SSL.</div>
+              </div>
+              <span class="badge badge-primary">Directo</span>
+            </label>
+
+            <label class="list-group-item list-group-item-action d-flex align-items-center justify-content-between cursor-pointer border rounded mb-0">
+              <div class="custom-control custom-radio">
+                <input type="radio" id="payTransfer" name="payment_method" value="transfer" class="custom-control-input" {% if form.payment_method.value == 'transfer' %}checked{% endif %}>
+                <label class="custom-control-label font-weight-bold" for="payTransfer">
+                  🏦 Transferencia Bancaria Manual
+                </label>
+                <div class="small text-muted ml-4">Envío tras validación manual del comprobante.</div>
+              </div>
+              <span class="badge badge-secondary">Transferencia</span>
+            </label>
           </div>
         </div>
       </div>

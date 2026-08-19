@@ -160,6 +160,39 @@
       </div>
     </div>
 
+    <!-- Ficha de Información de Pago y Voucher -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+        <h5 class="font-weight-bold mb-0 text-dark">💳 Información de Pago</h5>
+        {% if order.paid %}
+        <span class="badge badge-success px-3 py-1 font-weight-bold">Pagado</span>
+        {% else %}
+        <span class="badge badge-warning px-3 py-1 font-weight-bold">Pendiente</span>
+        {% endif %}
+      </div>
+      <div class="card-body p-4 small">
+        <div class="row">
+          <div class="col-md-6 mb-2">
+            <div><span class="text-muted">Método de Pago:</span> <strong>{{ order.get_payment_method_display }}</strong></div>
+            <div><span class="text-muted">Monto Total:</span> <strong class="text-primary font-weight-bold">$ {{ order.total_amount }}</strong></div>
+            {% if order.payment_card_last4 %}
+            <div><span class="text-muted">Tarjeta:</span> {{ order.payment_card_type }} (**** {{ order.payment_card_last4 }})</div>
+            {% endif %}
+          </div>
+          <div class="col-md-6 mb-2">
+            {% if order.payment_auth_code %}
+            <div><span class="text-muted">Cód. Autorización:</span> <code class="text-success font-weight-bold">{{ order.payment_auth_code }}</code></div>
+            {% endif %}
+            {% if order.payment_transaction_id %}
+            <div><span class="text-muted">ID Transacción:</span> <code>{{ order.payment_transaction_id }}</code></div>
+            {% endif %}
+            {% if order.payment_date %}
+            <div><span class="text-muted">Fecha de Pago:</span> {{ order.payment_date|date:"d/m/Y H:i:s" }}</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Resumen de Productos Comprados -->
     <div class="card shadow-sm border-0 mb-4">

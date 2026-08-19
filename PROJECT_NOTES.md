@@ -109,19 +109,20 @@
 - `showcase/templates/base_layout.html`: layout base con live search predictivo en navbar, toasts de adición al carrito y badge reactivo.
 
 ## Estado actual
-- Suite de Experiencia del Comprador (UI/UX) y Geolocalización Completa 100% implementada y verificada:
-  1. Live Search con autocompletado en navbar.
-  2. Compra rápida desde tarjetas con toasts flotantes y badges de urgencia/stock.
-  3. Ficha de producto con selector `+`/`-`, cuotas, sellos y módulo de Cross-selling.
-  4. Carrito dinámico con reactividad AJAX sin recargas de página.
-  5. Checkout inteligente con autocompletado de dirección previa en 1 clic y geocodificación estructurada completa (**calle, comuna, región, país, código postal y coordenadas GPS**).
-  6. Post-venta con línea de tiempo gráfica de despacho y asistencia directa por WhatsApp.
-- La app pasa todas las comprobaciones de Django y la suite de pruebas unitarias (`42/42 tests OK`).
+- Suite de Pasarelas de Pago y Experiencia del Comprador 100% implementada y verificada:
+  1. **Pasarelas de Pago en Línea:** Integración de **Webpay Plus (Transbank)**, **Mercado Pago**, **Tarjeta Directa (Pago Seguro)** y **Transferencia Bancaria Manual**.
+  2. **Portal Seguro y Simulador Interactivo (`/payments/portal/<order_id>/`):** Procesamiento de tarjetas con selector de cuotas, aprobación con código de autorización y voucher oficial.
+  3. **Manejo de Transacciones Fallidas y Reintentos (`/payments/failure/<order_id>/`):** Pantalla amigable para reintentar el pago o cambiar el medio de pago a transferencia.
+  4. **Geolocalización GPS Completa:** Captura estructurada de calle, comuna, región, país, código postal y coordenadas GPS con selector interactivo en Leaflet.js.
+  5. **Voucher Bancario Oficial:** Código de autorización, tipo de tarjeta, últimos 4 dígitos y número de cuotas en confirmación y dashboard de despacho.
+- La app pasa todas las comprobaciones de Django y la suite de pruebas unitarias (`46/46 tests OK`).
 - Servidor de desarrollo activo en `http://127.0.0.1:8000/`.
 
 ## Próximos pasos sugeridos
-- Permitir la personalización de temas y colores de la tienda (Store Branding / Settings).
-- Integración directa con pasarela de pagos en línea externa (Webpay Plus / Mercado Pago / Stripe).
+- Cupones y Descuentos promocionales aplicables en el carrito o checkout.
+- Sistema de Calificaciones y Reseñas de productos por compradores (★ 1-5 estrellas).
+- Personalización de temas y colores de la tienda (Store Branding / Settings).
+
 
 
 

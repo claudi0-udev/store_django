@@ -96,6 +96,7 @@ class OrderCreateForm(forms.ModelForm):
             'region',
             'country',
             'postal_code',
+            'payment_method',
             'latitude',
             'longitude',
         ]
@@ -103,6 +104,7 @@ class OrderCreateForm(forms.ModelForm):
             'latitude': forms.HiddenInput(attrs={'id': 'id_latitude'}),
             'longitude': forms.HiddenInput(attrs={'id': 'id_longitude'}),
         }
+
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -142,6 +144,13 @@ class OrderCreateForm(forms.ModelForm):
         self.fields['phone'].error_messages.update({
             'required': 'Por favor ingresa tu número telefónico de contacto',
         })
+        if 'payment_method' in self.fields:
+            self.fields['payment_method'].required = False
+
+    def clean_payment_method(self):
+        method = (self.cleaned_data.get('payment_method') or '').strip()
+        return method if method else 'webpay'
+
 
 
     def clean_phone(self):

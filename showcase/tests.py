@@ -264,7 +264,7 @@ class TestOrdersAndCheckout(TestCase):
         # 1. Add product to cart
         self.client.post(f'/cart/add/{self.product.id}/', {'quantity': '2'})
 
-        # 2. Submit checkout
+        # 2. Submit checkout with transfer
         self.client.login(username='buyer', password='buyerpassword')
         response = self.client.post('/orders/checkout/', {
             'first_name': 'Juan',
@@ -274,14 +274,17 @@ class TestOrdersAndCheckout(TestCase):
             'address': 'Av. Libertador 1234',
             'city': 'Santiago',
             'postal_code': '8320000',
+            'payment_method': 'transfer',
         })
 
         self.assertEqual(response.status_code, 302)
         order = Order.objects.get(email='juan@example.com')
         self.assertEqual(order.user, self.user)
         self.assertEqual(order.total_amount, Decimal('300.00'))
-        self.assertTrue(order.paid)
-        self.assertEqual(order.status, 'paid')
+        self.assertFalse(order.paid)
+        self.assertEqual(order.status, 'pending')
+        self.assertEqual(order.payment_method, 'transfer')
+
 
         # Verify order items
         self.assertEqual(order.items.count(), 1)
@@ -616,8 +619,10 @@ class TestOrderConfirmationEmail(TestCase):
             'address': 'Av. Providencia 1234',
             'city': 'Santiago',
             'postal_code': '7500000',
+            'payment_method': 'transfer',
         })
         self.assertEqual(response.status_code, 302)
+
 
         # 3. Verify email sent
         self.assertEqual(len(mail.outbox), 1)
@@ -949,6 +954,147 @@ class BuyerExperienceEnhancementsTests(TestCase):
         self.assertEqual(order.latitude, Decimal('-33.448900'))
         self.assertEqual(order.longitude, Decimal('-70.669300'))
         self.assertIn('Santiago, Región Metropolitana de Santiago, Chile', order.get_full_address())
+
+
+class PaymentGatewaysSuiteTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username='payuser', password='password123')
+        self.category = Category.objects.create(name='Smartphones')
+        self.product = Product.objects.create(
+            name='Galaxy S24 Ultra',
+            description='Smartphone de alta gama con IA avanzada',
+            category=self.category,
+            price=Decimal('1200.00'),
+            units=10,
+            is_active=True,
+        )
+
+
+    def test_online_gateway_checkout_creates_pending_order_and_redirects_to_portal(self):
+        self.client.post(f'/cart/add/{self.product.id}/', {'quantity': 1})
+        self.client.login(username='payuser', password='password123')
+
+        response = self.client.post('/orders/checkout/', {
+            'first_name': 'Carlos',
+            'last_name': 'Mendoza',
+            'email': 'carlos@example.com',
+            'phone': '+56987654321',
+            'address': 'Av. Apoquindo 4500',
+            'city': 'Las Condes',
+            'region': 'Región Metropolitana',
+            'country': 'Chile',
+            'payment_method': 'webpay',
+        })
+        self.assertEqual(response.status_code, 302)
+
+        order = Order.objects.get(email='carlos@example.com')
+        self.assertRedirects(response, f'/payments/portal/{order.id}/')
+        self.assertFalse(order.paid)
+        self.assertEqual(order.status, 'pending')
+        self.assertEqual(order.payment_method, 'webpay')
+
+        # Portal view renders correctly
+        portal_response = self.client.get(f'/payments/portal/{order.id}/')
+        self.assertEqual(portal_response.status_code, 200)
+        self.assertContains(portal_response, 'Webpay Plus (Transbank)')
+        self.assertContains(portal_response, '1200')
+
+
+    def test_payment_process_approval_sets_paid_and_voucher(self):
+        order = Order.objects.create(
+            user=self.user,
+            first_name='Carlos',
+            last_name='Mendoza',
+            email='carlos@example.com',
+            phone='+56987654321',
+            address='Av. Apoquindo 4500',
+            city='Las Condes',
+            total_amount=Decimal('1200.00'),
+            payment_method='webpay',
+            status='pending',
+            paid=False,
+        )
+
+        response = self.client.post(f'/payments/process/{order.id}/', {
+            'action': 'approve',
+            'card_type': 'Visa Crédito',
+            'card_number': '4532 8765 4321 9999',
+            'installments': '3',
+            'gateway': 'webpay',
+        })
+        self.assertRedirects(response, f'/orders/confirmation/{order.id}/')
+
+        order.refresh_from_db()
+        self.assertTrue(order.paid)
+        self.assertEqual(order.status, 'paid')
+        self.assertEqual(order.payment_card_last4, '9999')
+        self.assertEqual(order.payment_card_type, 'Visa Crédito')
+        self.assertEqual(order.payment_installments, 3)
+        self.assertTrue(len(order.payment_auth_code) >= 6)
+        self.assertIsNotNone(order.payment_date)
+
+        # Voucher is rendered in confirmation
+        conf_response = self.client.get(f'/orders/confirmation/{order.id}/')
+        self.assertEqual(conf_response.status_code, 200)
+        self.assertContains(conf_response, 'Voucher Bancario de Pago')
+        self.assertContains(conf_response, '9999')
+
+    def test_payment_process_rejection_redirects_to_failure(self):
+        order = Order.objects.create(
+            user=self.user,
+            first_name='Carlos',
+            last_name='Mendoza',
+            email='carlos@example.com',
+            phone='+56987654321',
+            address='Av. Apoquindo 4500',
+            city='Las Condes',
+            total_amount=Decimal('1200.00'),
+            payment_method='webpay',
+            status='pending',
+            paid=False,
+        )
+
+        response = self.client.post(f'/payments/process/{order.id}/', {
+            'action': 'reject',
+            'reject_reason': 'Fondos insuficientes',
+        })
+        self.assertRedirects(response, f'/payments/failure/{order.id}/')
+
+        order.refresh_from_db()
+        self.assertFalse(order.paid)
+        self.assertEqual(order.status, 'pending')
+
+        # Failure page renders with retry options
+        fail_response = self.client.get(f'/payments/failure/{order.id}/')
+        self.assertEqual(fail_response.status_code, 200)
+        self.assertContains(fail_response, 'No pudimos procesar tu pago')
+        self.assertContains(fail_response, 'Continuar con el pago')
+
+    def test_payment_retry_switches_to_transfer(self):
+        order = Order.objects.create(
+            user=self.user,
+            first_name='Carlos',
+            last_name='Mendoza',
+            email='carlos@example.com',
+            phone='+56987654321',
+            address='Av. Apoquindo 4500',
+            city='Las Condes',
+            total_amount=Decimal('1200.00'),
+            payment_method='webpay',
+            status='pending',
+            paid=False,
+        )
+
+        response = self.client.post(f'/payments/retry/{order.id}/', {
+            'payment_method': 'transfer',
+        })
+        self.assertRedirects(response, f'/orders/confirmation/{order.id}/')
+
+        order.refresh_from_db()
+        self.assertEqual(order.payment_method, 'transfer')
+        self.assertFalse(order.paid)
+
 
 
 

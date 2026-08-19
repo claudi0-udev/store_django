@@ -1108,3 +1108,106 @@ class PaymentGatewaysSuiteTests(TestCase):
 
 
 
+
+
+class AnalyticsDashboardTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(
+            username='staffuser', password='testpass123', is_staff=True
+        )
+        self.regular_user = User.objects.create_user(
+            username='regularuser', password='testpass123', is_staff=False
+        )
+        self.category = Category.objects.create(name='Electrónica')
+        self.product = Product.objects.create(
+            name='Laptop Pro', description='Laptop de prueba', price=Decimal('500000.00'),
+            units=10, category=self.category,
+        )
+        # Create a paid order with an item
+        self.paid_order = Order.objects.create(
+            user=self.staff_user, first_name='Admin', last_name='Prueba',
+            email='admin@test.com', phone='+56912345678',
+            address='Av. Las Condes 100', city='Las Condes',
+            total_amount=Decimal('500000.00'), status='completed',
+            paid=True, payment_method='webpay',
+        )
+        OrderItem.objects.create(
+            order=self.paid_order, product=self.product,
+            price=Decimal('500000.00'), quantity=1,
+        )
+        # Create a pending order
+        Order.objects.create(
+            user=self.regular_user, first_name='Cliente', last_name='Test',
+            email='cliente@test.com', phone='+56987654321',
+            address='Calle Falsa 123', city='Santiago',
+            total_amount=Decimal('200000.00'), status='pending',
+            paid=False, payment_method='transfer',
+        )
+
+    def test_dashboard_redirects_unauthenticated(self):
+        response = self.client.get('/manage/dashboard/')
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login', response['Location'])
+
+    def test_dashboard_redirects_non_staff(self):
+        self.client.login(username='regularuser', password='testpass123')
+        response = self.client.get('/manage/dashboard/')
+        self.assertEqual(response.status_code, 302)
+
+    def test_dashboard_accessible_for_staff(self):
+        self.client.login(username='staffuser', password='testpass123')
+        response = self.client.get('/manage/dashboard/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_dashboard_contains_kpi_elements(self):
+        self.client.login(username='staffuser', password='testpass123')
+        response = self.client.get('/manage/dashboard/')
+        self.assertContains(response, 'Dashboard Analytics')
+        self.assertContains(response, 'Ingresos')
+        self.assertContains(response, 'Stock')
+
+    def test_dashboard_contains_chart_canvases(self):
+        self.client.login(username='staffuser', password='testpass123')
+        response = self.client.get('/manage/dashboard/')
+        self.assertContains(response, 'chartMonthlySales')
+        self.assertContains(response, 'chartStatusDoughnut')
+        self.assertContains(response, 'chartDailyOrders')
+        self.assertContains(response, 'chartPaymentMethods')
+        self.assertContains(response, 'chartTopProducts')
+        self.assertContains(response, 'chartCategoryRevenue')
+
+    def test_dashboard_context_has_correct_kpis(self):
+        self.client.login(username='staffuser', password='testpass123')
+        response = self.client.get('/manage/dashboard/')
+        self.assertEqual(response.context['total_orders'], 2)
+        self.assertEqual(response.context['completed_count'], 1)
+        self.assertEqual(response.context['pending_count'], 1)
+        self.assertEqual(response.context['total_revenue'], Decimal('500000.00'))
+
+    def test_export_csv_redirects_unauthenticated(self):
+        response = self.client.get('/manage/dashboard/export-csv/')
+        self.assertEqual(response.status_code, 302)
+
+    def test_export_csv_returns_csv_for_staff(self):
+        self.client.login(username='staffuser', password='testpass123')
+        response = self.client.get('/manage/dashboard/export-csv/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv')
+        self.assertIn('ventas_mensuales.csv', response['Content-Disposition'])
+
+    def test_low_stock_products_appear_in_context(self):
+        # Create a low-stock product
+        low = Product.objects.create(
+            name='Producto Escaso', description='Stock bajo', price=Decimal('100.00'),
+            units=2, category=self.category,
+        )
+        self.client.login(username='staffuser', password='testpass123')
+        response = self.client.get('/manage/dashboard/')
+        low_stock_ids = [p.id for p in response.context['low_stock_products']]
+        self.assertIn(low.id, low_stock_ids)
+
+    def test_recent_orders_appear_in_context(self):
+        self.client.login(username='staffuser', password='testpass123')
+        response = self.client.get('/manage/dashboard/')
+        recent_ids = [o.id for o in response.context['recent_orders']]
+        self.assertIn(self.paid_order.id, recent_ids)

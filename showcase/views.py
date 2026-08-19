@@ -1,3 +1,6 @@
+import csv
+import json
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib import messages
@@ -6,7 +9,8 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Q, Sum
+from django.db.models import Avg, Count, Q, Sum
+from django.db.models.functions import TruncDate, TruncMonth
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -971,3 +975,171 @@ def ManageOrderUpdateStatus(request, orderId):
 
 
 
+
+
+@user_passes_test(lambda u: u.is_staff, login_url="login")
+def ManageAnalyticsDashboard(request):
+    now = timezone.now()
+    today = now.date()
+    twelve_months_ago = now - timedelta(days=365)
+    thirty_days_ago = now - timedelta(days=30)
+
+    # KPIs
+    total_orders = Order.objects.count()
+    paid_orders = Order.objects.filter(paid=True)
+    total_revenue = paid_orders.aggregate(t=Sum("total_amount"))["t"] or Decimal("0.00")
+    completed_count = Order.objects.filter(status="completed").count()
+    pending_count = Order.objects.filter(status="pending").count()
+    orders_today = Order.objects.filter(created_at__date=today).count()
+    paid_count = paid_orders.count()
+    avg_ticket = (total_revenue / paid_count) if paid_count > 0 else Decimal("0.00")
+
+    # Ventas mensuales (últimos 12 meses)
+    monthly_qs = (
+        Order.objects
+        .filter(paid=True, created_at__gte=twelve_months_ago)
+        .annotate(month=TruncMonth("created_at"))
+        .values("month")
+        .annotate(total=Sum("total_amount"), count=Count("id"))
+        .order_by("month")
+    )
+    monthly_labels = [item["month"].strftime("%b %Y") for item in monthly_qs]
+    monthly_revenue = [float(item["total"]) for item in monthly_qs]
+    monthly_counts = [item["count"] for item in monthly_qs]
+
+    # Pedidos diarios (últimos 30 días)
+    daily_qs = (
+        Order.objects
+        .filter(created_at__date__gte=thirty_days_ago)
+        .annotate(day=TruncDate("created_at"))
+        .values("day")
+        .annotate(count=Count("id"))
+        .order_by("day")
+    )
+    daily_labels = [item["day"].strftime("%d/%m") for item in daily_qs]
+    daily_counts = [item["count"] for item in daily_qs]
+
+    # Distribución de estados
+    status_qs = (
+        Order.objects
+        .values("status")
+        .annotate(count=Count("id"))
+        .order_by("-count")
+    )
+    status_display = {
+        "pending": "Pendiente",
+        "paid": "Pagada/Preparación",
+        "shipped": "En Camino",
+        "completed": "Completada",
+        "cancelled": "Cancelada",
+    }
+    status_labels = [status_display.get(s["status"], s["status"]) for s in status_qs]
+    status_counts = [s["count"] for s in status_qs]
+
+    # Métodos de pago
+    payment_qs = (
+        Order.objects
+        .filter(paid=True)
+        .values("payment_method")
+        .annotate(count=Count("id"))
+        .order_by("-count")
+    )
+    payment_display = {
+        "webpay": "Webpay Plus",
+        "mercadopago": "Mercado Pago",
+        "sandbox_card": "Tarjeta Directa",
+        "transfer": "Transferencia",
+    }
+    payment_labels = [payment_display.get(p["payment_method"], p["payment_method"]) for p in payment_qs]
+    payment_counts = [p["count"] for p in payment_qs]
+
+    # Top 5 productos más vendidos
+    top_products_qs = (
+        OrderItem.objects
+        .values("product__name")
+        .annotate(total_qty=Sum("quantity"), total_revenue=Sum("price"))
+        .order_by("-total_qty")[:5]
+    )
+    top_product_labels = [p["product__name"] or "Producto retirado" for p in top_products_qs]
+    top_product_qty = [p["total_qty"] for p in top_products_qs]
+
+    # Ingresos por categoría
+    category_qs = (
+        OrderItem.objects
+        .filter(order__paid=True)
+        .values("product__category__name")
+        .annotate(revenue=Sum("price"))
+        .order_by("-revenue")[:6]
+    )
+    category_labels = [c["product__category__name"] or "Sin categoría" for c in category_qs]
+    category_revenue = [float(c["revenue"]) for c in category_qs]
+
+    # Stock crítico
+    low_stock_products = (
+        Product.objects
+        .filter(is_active=True, units__lte=5)
+        .select_related("category")
+        .order_by("units")[:10]
+    )
+
+    # Últimas 5 órdenes
+    recent_orders = (
+        Order.objects
+        .prefetch_related("items")
+        .order_by("-created_at")[:5]
+    )
+
+    context = {
+        "total_orders": total_orders,
+        "total_revenue": total_revenue,
+        "completed_count": completed_count,
+        "pending_count": pending_count,
+        "orders_today": orders_today,
+        "avg_ticket": avg_ticket,
+        "monthly_labels_json": json.dumps(monthly_labels),
+        "monthly_revenue_json": json.dumps(monthly_revenue),
+        "monthly_counts_json": json.dumps(monthly_counts),
+        "daily_labels_json": json.dumps(daily_labels),
+        "daily_counts_json": json.dumps(daily_counts),
+        "status_labels_json": json.dumps(status_labels),
+        "status_counts_json": json.dumps(status_counts),
+        "payment_labels_json": json.dumps(payment_labels),
+        "payment_counts_json": json.dumps(payment_counts),
+        "top_product_labels_json": json.dumps(top_product_labels),
+        "top_product_qty_json": json.dumps(top_product_qty),
+        "category_labels_json": json.dumps(category_labels),
+        "category_revenue_json": json.dumps(category_revenue),
+        "low_stock_products": low_stock_products,
+        "recent_orders": recent_orders,
+        "now": now,
+    }
+    return render(request, "analytics_dashboard.html", context)
+
+
+@user_passes_test(lambda u: u.is_staff, login_url="login")
+def ManageAnalyticsExportCSV(request):
+    now = timezone.now()
+    twelve_months_ago = now - timedelta(days=365)
+
+    monthly_qs = (
+        Order.objects
+        .filter(paid=True, created_at__gte=twelve_months_ago)
+        .annotate(month=TruncMonth("created_at"))
+        .values("month")
+        .annotate(total=Sum("total_amount"), count=Count("id"))
+        .order_by("month")
+    )
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = "attachment; filename=ventas_mensuales.csv"
+
+    writer = csv.writer(response)
+    writer.writerow(["Mes", "Ingresos (CLP)", "Numero de Pedidos"])
+    for row in monthly_qs:
+        writer.writerow([
+            row["month"].strftime("%B %Y"),
+            "{:.2f}".format(float(row["total"])),
+            row["count"],
+        ])
+
+    return response

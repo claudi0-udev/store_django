@@ -280,7 +280,8 @@ class TestOrdersAndCheckout(TestCase):
         self.assertEqual(response.status_code, 302)
         order = Order.objects.get(email='juan@example.com')
         self.assertEqual(order.user, self.user)
-        self.assertEqual(order.total_amount, Decimal('300.00'))
+        self.assertEqual(order.total_amount, Decimal('6290.00'))
+        self.assertEqual(order.shipping_cost, Decimal('5990.00'))
         self.assertFalse(order.paid)
         self.assertEqual(order.status, 'pending')
         self.assertEqual(order.payment_method, 'transfer')
@@ -998,7 +999,7 @@ class PaymentGatewaysSuiteTests(TestCase):
         portal_response = self.client.get(f'/payments/portal/{order.id}/')
         self.assertEqual(portal_response.status_code, 200)
         self.assertContains(portal_response, 'Webpay Plus (Transbank)')
-        self.assertContains(portal_response, '1200')
+        self.assertContains(portal_response, '4690')
 
 
     def test_payment_process_approval_sets_paid_and_voucher(self):
@@ -1211,3 +1212,132 @@ class AnalyticsDashboardTests(TestCase):
         response = self.client.get('/manage/dashboard/')
         recent_ids = [o.id for o in response.context['recent_orders']]
         self.assertIn(self.paid_order.id, recent_ids)
+
+
+class ShippingCalculatorTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(
+            username='shippingstaff', password='testpass123', is_staff=True
+        )
+        self.pay_user = User.objects.create_user(
+            username='shippingpayuser', password='testpass123'
+        )
+        self.category = Category.objects.create(name='Test Cat Shipping')
+        self.product = Product.objects.create(
+            name='Producto Envio Test', description='Test producto envio',
+            price=Decimal('10000.00'), units=50, category=self.category,
+            weight_kg=Decimal('2.000'),
+        )
+        self.client.login(username='shippingpayuser', password='testpass123')
+        # Add product to cart
+        self.client.post(f'/cart/add/{self.product.id}/', {'quantity': 1, 'override': 'False'})
+
+    def test_store_settings_singleton(self):
+        from showcase.models import StoreSettings
+        s1 = StoreSettings.get_solo()
+        s2 = StoreSettings.get_solo()
+        self.assertEqual(s1.pk, s2.pk)
+        self.assertEqual(StoreSettings.objects.count(), 1)
+
+    def test_store_settings_default_origin(self):
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        self.assertEqual(settings.origin_commune, 'Pichidegua')
+
+    def test_free_shipping_threshold_default(self):
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        self.assertEqual(settings.free_shipping_threshold, Decimal('59990.00'))
+
+    def test_calculator_returns_internal_rate_for_rm(self):
+        from showcase.shipping.calculator import calculate_shipping, normalize_region
+        from showcase.cart import Cart
+        # normalize_region should map RM strings correctly
+        self.assertEqual(normalize_region('Región Metropolitana de Santiago'), 'Región Metropolitana')
+        self.assertEqual(normalize_region('Metropolitana'), 'Región Metropolitana')
+
+    def test_normalize_region_ohiggins(self):
+        from showcase.shipping.calculator import normalize_region
+        self.assertEqual(normalize_region("Libertador General Bernardo O'Higgins"), "O'Higgins")
+        self.assertEqual(normalize_region('Rancagua'), "O'Higgins")
+
+    def test_normalize_region_default(self):
+        from showcase.shipping.calculator import normalize_region
+        self.assertEqual(normalize_region('Alguna Region Desconocida'), 'default')
+        self.assertEqual(normalize_region(''), 'default')
+
+    def test_shipping_quote_ajax_endpoint_empty_cart(self):
+        self.client.post('/cart/clear/')
+        response = self.client.get('/shipping/quote/?region=Regi%C3%B3n+Metropolitana')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('price', data)
+
+    def test_shipping_quote_ajax_returns_json(self):
+        response = self.client.get('/shipping/quote/?region=Regi%C3%B3n+Metropolitana')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('price', data)
+        self.assertIn('courier', data)
+        self.assertIn('days', data)
+        self.assertIn('is_free', data)
+
+    def test_shipping_quote_free_for_large_order(self):
+        # Add many units to exceed free shipping threshold
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        settings.free_shipping_threshold = Decimal('5000.00')
+        settings.save()
+        response = self.client.get('/shipping/quote/?region=Regi%C3%B3n+Metropolitana')
+        data = response.json()
+        self.assertTrue(data['is_free'])
+
+    def test_manage_settings_accessible_for_staff(self):
+        self.client.logout()
+        self.client.login(username='shippingstaff', password='testpass123')
+        response = self.client.get('/manage/settings/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Configuración de la Tienda')
+
+    def test_manage_settings_redirects_non_staff(self):
+        response = self.client.get('/manage/settings/')
+        self.assertEqual(response.status_code, 302)
+
+    def test_manage_settings_saves_origin_commune(self):
+        self.client.logout()
+        self.client.login(username='shippingstaff', password='testpass123')
+        response = self.client.post('/manage/settings/', {
+            'action': 'settings',
+            'store_name': 'Mi Tienda',
+            'origin_commune': 'Rancagua',
+            'free_shipping_threshold': '49990',
+        })
+        self.assertEqual(response.status_code, 302)
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        self.assertEqual(settings.origin_commune, 'Rancagua')
+        self.assertEqual(settings.free_shipping_threshold, Decimal('49990'))
+
+    def test_shipping_rate_creation_and_deletion(self):
+        self.client.logout()
+        self.client.login(username='shippingstaff', password='testpass123')
+        # Add a rate
+        self.client.post('/manage/settings/', {
+            'action': 'add_rate',
+            'region': 'Test Region',
+            'weight_min_kg': '0',
+            'weight_max_kg': '5',
+            'price': '3990',
+            'courier_name': 'Starken',
+            'estimated_days': '3-5 días hábiles',
+        })
+        from showcase.models import ShippingRate
+        rate = ShippingRate.objects.filter(region='Test Region').first()
+        self.assertIsNotNone(rate)
+        self.assertEqual(rate.price, Decimal('3990'))
+        # Delete it
+        self.client.post('/manage/settings/', {
+            'action': 'delete_rate',
+            'rate_id': rate.id,
+        })
+        self.assertFalse(ShippingRate.objects.filter(region='Test Region').exists())

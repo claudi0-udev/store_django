@@ -309,15 +309,30 @@
             <span class="text-muted">Subtotal</span>
             <span class="font-weight-bold">$ {{ cart.get_total_price }}</span>
           </div>
-          <div class="d-flex justify-content-between mb-2">
+
+          <!-- Envío dinámico -->
+          <div class="d-flex justify-content-between mb-1 align-items-center">
             <span class="text-muted">Envío</span>
-            <span class="text-success font-weight-bold">Gratis</span>
+            <span id="shippingDisplay" class="font-weight-bold text-muted small">
+              <span class="spinner-border spinner-border-sm" role="status"></span> Calculando...
+            </span>
           </div>
+          <div id="shippingInfo" class="text-muted small mb-2" style="display:none;"></div>
+
+          {% if free_shipping_threshold %}
+          <div class="text-muted small mb-2">
+            <span id="freeShippingNote">
+              🎁 Envío gratis en compras sobre <strong>$ {{ free_shipping_threshold|floatformat:0 }}</strong>
+            </span>
+          </div>
+          {% endif %}
+
           <hr>
           <div class="d-flex justify-content-between align-items-baseline mb-4">
             <span class="h5 font-weight-bold mb-0">Total a Pagar</span>
-            <span class="h4 text-primary font-weight-bold mb-0">$ {{ cart.get_total_price }}</span>
+            <span id="totalDisplay" class="h4 text-primary font-weight-bold mb-0">$ {{ cart.get_total_price }}</span>
           </div>
+
 
           <button type="submit" class="btn btn-primary btn-block btn-lg font-weight-bold py-3 shadow-sm">
             Confirmar y Realizar Pedido
@@ -552,5 +567,63 @@
       updateCoordinates(currentLat, currentLng, false);
     }
   });
+</script>
+
+<script>
+  // ── Shipping Quote AJAX ─────────────────────────────────────────────────
+  var subtotal = parseFloat("{{ cart.get_total_price }}") || 0;
+  var shippingDisplay = document.getElementById('shippingDisplay');
+  var shippingInfo = document.getElementById('shippingInfo');
+  var totalDisplay = document.getElementById('totalDisplay');
+  var regionInput = document.getElementById('id_region');
+  var shippingTimeout = null;
+
+  function formatCLP(amount) {
+    return '$ ' + Math.round(amount).toLocaleString('es-CL');
+  }
+
+  function fetchShippingQuote(region) {
+    if (!shippingDisplay) return;
+    shippingDisplay.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Calculando...';
+    if (shippingInfo) shippingInfo.style.display = 'none';
+
+    fetch('/shipping/quote/?region=' + encodeURIComponent(region || ''))
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (data.is_free) {
+          shippingDisplay.innerHTML = '<span class="text-success font-weight-bold">🎁 ¡Gratis!</span>';
+          if (shippingInfo) { shippingInfo.textContent = ''; shippingInfo.style.display = 'none'; }
+          if (totalDisplay) totalDisplay.textContent = formatCLP(subtotal);
+        } else if (data.price > 0) {
+          shippingDisplay.innerHTML = '<span class="font-weight-bold text-dark">' + formatCLP(data.price) + '</span>';
+          if (shippingInfo && data.courier) {
+            shippingInfo.textContent = data.courier + (data.days ? ' · ' + data.days : '');
+            shippingInfo.style.display = 'block';
+          }
+          if (totalDisplay) totalDisplay.textContent = formatCLP(subtotal + data.price);
+        } else {
+          shippingDisplay.innerHTML = '<span class="text-muted small">Ingresa tu región para calcular</span>';
+        }
+      })
+      .catch(function() {
+        if (shippingDisplay) shippingDisplay.innerHTML = '<span class="text-muted small">No disponible</span>';
+      });
+  }
+
+  // Trigger on region change
+  if (regionInput) {
+    regionInput.addEventListener('input', function() {
+      clearTimeout(shippingTimeout);
+      shippingTimeout = setTimeout(function() {
+        fetchShippingQuote(regionInput.value.trim());
+      }, 600);
+    });
+    // Initial load
+    if (regionInput.value.trim()) {
+      fetchShippingQuote(regionInput.value.trim());
+    } else {
+      if (shippingDisplay) shippingDisplay.innerHTML = '<span class="text-muted small">Ingresa tu región</span>';
+    }
+  }
 </script>
 {% endblock %}

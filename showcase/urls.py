@@ -29,6 +29,7 @@ from .views import (
     ManageOrderDetail,
     ManageOrdersList,
     ManageOrderUpdateStatus,
+    ManageSettings,
     OrderConfirmation,
     OrderCreate,
     OrderDetail,
@@ -40,6 +41,7 @@ from .views import (
     ProductDetail,
     Register,
     RestoreProduct,
+    ShippingQuote,
 )
 
 urlpatterns = [
@@ -84,4 +86,6 @@ urlpatterns = [
     path('manage/orders/<int:orderId>/update/', ManageOrderUpdateStatus, name='manageOrderUpdateStatus'),
     path('manage/dashboard/', ManageAnalyticsDashboard, name='manageAnalyticsDashboard'),
     path('manage/dashboard/export-csv/', ManageAnalyticsExportCSV, name='manageAnalyticsExportCSV'),
+    path('manage/settings/', ManageSettings, name='manageSettings'),
+    path('shipping/quote/', ShippingQuote, name='shippingQuote'),
 ]

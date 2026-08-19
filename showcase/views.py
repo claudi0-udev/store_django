@@ -32,6 +32,8 @@ from .models import (
     OrderItem,
     Product,
     ProductAuditLog,
+    ShippingRate,
+    StoreSettings,
 )
 
 
@@ -710,7 +712,15 @@ def OrderCreate(request):
             order = form.save(commit=False)
             if request.user.is_authenticated:
                 order.user = request.user
-            order.total_amount = cart.get_total_price()
+
+            # Calculate shipping cost based on destination region
+            from showcase.shipping.calculator import calculate_shipping
+            shipping = calculate_shipping(cart, form.cleaned_data.get('region', ''))
+            order.shipping_cost = shipping.price
+            order.shipping_courier = shipping.courier
+            order.shipping_estimated_days = shipping.days
+            order.total_amount = cart.get_total_price() + shipping.price
+
             order.status = 'pending'
             order.paid = False
             order.save()
@@ -759,11 +769,14 @@ def OrderCreate(request):
                 })
         form = OrderCreateForm(initial=initial_data)
 
+    store_settings = StoreSettings.get_solo()
     return render(request, 'order_create.html', {
         'cart': cart,
         'form': form,
         'last_order': last_order,
+        'free_shipping_threshold': store_settings.free_shipping_threshold,
     })
+
 
 
 def PaymentPortal(request, orderId):
@@ -1143,3 +1156,71 @@ def ManageAnalyticsExportCSV(request):
         ])
 
     return response
+
+
+def ShippingQuote(request):
+    """AJAX endpoint — returns shipping cost JSON for a given region and cart."""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    region = request.GET.get('region', '')
+    cart = Cart(request)
+    if not cart:
+        return JsonResponse({'price': 0, 'courier': '', 'days': '', 'is_free': False})
+    from showcase.shipping.calculator import calculate_shipping
+    result = calculate_shipping(cart, region)
+    return JsonResponse(result.to_dict())
+
+
+@user_passes_test(lambda u: u.is_staff, login_url='login')
+def ManageSettings(request):
+    """Admin panel to configure global store settings and shipping rates."""
+    settings = StoreSettings.get_solo()
+    shipping_rates = ShippingRate.objects.all()
+
+    if request.method == 'POST':
+        action = request.POST.get('action', 'settings')
+
+        if action == 'settings':
+            settings.store_name = request.POST.get('store_name', settings.store_name).strip() or settings.store_name
+            settings.store_email = request.POST.get('store_email', '').strip()
+            settings.store_phone = request.POST.get('store_phone', '').strip()
+            settings.origin_commune = request.POST.get('origin_commune', settings.origin_commune).strip() or settings.origin_commune
+            settings.origin_address = request.POST.get('origin_address', '').strip()
+            threshold_raw = request.POST.get('free_shipping_threshold', '').strip()
+            if threshold_raw:
+                try:
+                    settings.free_shipping_threshold = Decimal(threshold_raw.replace(',', '.'))
+                except Exception:
+                    pass
+            settings.shipit_email = request.POST.get('shipit_email', '').strip()
+            settings.shipit_token = request.POST.get('shipit_token', '').strip()
+            settings.shipit_enabled = request.POST.get('shipit_enabled') == 'on'
+            settings.save()
+            messages.success(request, 'Configuración guardada exitosamente.')
+
+        elif action == 'add_rate':
+            try:
+                ShippingRate.objects.create(
+                    region=request.POST.get('region', '').strip(),
+                    weight_min_kg=Decimal(request.POST.get('weight_min_kg', '0').replace(',', '.')),
+                    weight_max_kg=Decimal(request.POST.get('weight_max_kg', '5').replace(',', '.')),
+                    price=Decimal(request.POST.get('price', '0').replace(',', '.')),
+                    courier_name=request.POST.get('courier_name', 'Starken').strip(),
+                    estimated_days=request.POST.get('estimated_days', '3-5 días hábiles').strip(),
+                    is_active=request.POST.get('is_active') != 'off',
+                )
+                messages.success(request, 'Tarifa de envío añadida.')
+            except Exception as e:
+                messages.error(request, f'Error al añadir tarifa: {e}')
+
+        elif action == 'delete_rate':
+            rate_id = request.POST.get('rate_id')
+            ShippingRate.objects.filter(pk=rate_id).delete()
+            messages.success(request, 'Tarifa eliminada.')
+
+        return redirect('manageSettings')
+
+    return render(request, 'manage_settings.html', {
+        'store_settings': settings,
+        'shipping_rates': shipping_rates,
+    })

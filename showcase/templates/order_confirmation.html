@@ -200,11 +200,25 @@
               {% endfor %}
             </tbody>
             <tfoot>
+              {% if order.shipping_cost > 0 %}
               <tr>
-                <th colspan="3" class="text-right font-weight-bold">Total Pagado:</th>
+                <th colspan="3" class="text-right font-weight-bold text-muted small">
+                  Costo de Envío ({% if order.shipping_courier %}{{ order.shipping_courier }}{% else %}Despacho{% endif %}{% if order.shipping_estimated_days %} · {{ order.shipping_estimated_days }}{% endif %}):
+                </th>
+                <th class="text-right font-weight-bold text-muted small">$ {{ order.shipping_cost|floatformat:0 }}</th>
+              </tr>
+              {% else %}
+              <tr>
+                <th colspan="3" class="text-right font-weight-bold text-success small">Costo de Envío:</th>
+                <th class="text-right font-weight-bold text-success small">🎁 Gratis</th>
+              </tr>
+              {% endif %}
+              <tr>
+                <th colspan="3" class="text-right font-weight-bold">Total:</th>
                 <th class="text-right font-weight-bold text-primary h5 mb-0">$ {{ order.total_amount }}</th>
               </tr>
             </tfoot>
+
           </table>
         </div>
 

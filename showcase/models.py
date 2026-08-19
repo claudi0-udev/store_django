@@ -121,6 +121,11 @@ class Product(models.Model):
     image = models.ImageField(upload_to='product_images/', null=True, blank=True)
     is_active = models.BooleanField(default=True, db_index=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
+    # Shipping dimensions — used to calculate shipping cost
+    weight_kg = models.DecimalField(max_digits=6, decimal_places=3, default=Decimal('1.000'), verbose_name='Peso (kg)')
+    height_cm = models.DecimalField(max_digits=6, decimal_places=1, default=Decimal('10.0'), verbose_name='Alto (cm)')
+    width_cm = models.DecimalField(max_digits=6, decimal_places=1, default=Decimal('10.0'), verbose_name='Ancho (cm)')
+    length_cm = models.DecimalField(max_digits=6, decimal_places=1, default=Decimal('10.0'), verbose_name='Largo (cm)')
 
 
     def clean(self):
@@ -169,6 +174,59 @@ class FeatureValue(models.Model):
     def __str__(self):
         value_text = self.value or 'Sin valor'
         return value_text + ' - Feature : ' + self.feature.name + ' - Product : ' + self.product.name
+
+
+
+class StoreSettings(models.Model):
+    """Singleton model — only one record should exist. Stores global store configuration."""
+    store_name = models.CharField(max_length=200, default='Store Django', verbose_name='Nombre de la tienda')
+    store_email = models.EmailField(blank=True, default='', verbose_name='Email de la tienda')
+    store_phone = models.CharField(max_length=30, blank=True, default='', verbose_name='Teléfono de la tienda')
+    origin_commune = models.CharField(max_length=100, default='Pichidegua', verbose_name='Comuna de despacho')
+    origin_address = models.CharField(max_length=250, blank=True, default='', verbose_name='Dirección de bodega')
+    free_shipping_threshold = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal('59990.00'),
+        verbose_name='Monto mínimo para envío gratis (CLP)',
+    )
+    # Shipit integration (future)
+    shipit_email = models.EmailField(blank=True, default='', verbose_name='Email cuenta Shipit')
+    shipit_token = models.CharField(max_length=200, blank=True, default='', verbose_name='Token API Shipit')
+    shipit_enabled = models.BooleanField(default=False, verbose_name='Activar integración Shipit')
+
+    class Meta:
+        verbose_name = 'Configuración de la Tienda'
+
+    def __str__(self):
+        return f'Configuración: {self.store_name}'
+
+    @classmethod
+    def get_solo(cls):
+        """Always returns the single settings record, creating it if it doesn't exist."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def save(self, *args, **kwargs):
+        self.pk = 1  # Enforce singleton
+        super().save(*args, **kwargs)
+
+
+class ShippingRate(models.Model):
+    """Internal shipping rate table — fallback when Shipit is not configured."""
+    region = models.CharField(max_length=150, verbose_name='Región destino')
+    weight_min_kg = models.DecimalField(max_digits=6, decimal_places=3, default=Decimal('0.000'), verbose_name='Peso mínimo (kg)')
+    weight_max_kg = models.DecimalField(max_digits=6, decimal_places=3, default=Decimal('5.000'), verbose_name='Peso máximo (kg)')
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Precio del envío (CLP)')
+    courier_name = models.CharField(max_length=100, default='Starken', verbose_name='Courier')
+    estimated_days = models.CharField(max_length=50, default='3-5 días hábiles', verbose_name='Días estimados')
+    is_active = models.BooleanField(default=True, verbose_name='Activa')
+
+    class Meta:
+        verbose_name = 'Tarifa de Envío'
+        verbose_name_plural = 'Tarifas de Envío'
+        ordering = ['region', 'weight_min_kg']
+
+    def __str__(self):
+        return f'{self.region} | {self.weight_min_kg}–{self.weight_max_kg} kg → ${self.price:,.0f} ({self.courier_name})'
 
 
 ORDER_STATUS_CHOICES = [
@@ -221,6 +279,11 @@ class Order(models.Model):
     notes = models.TextField(blank=True, verbose_name='Notas de despacho')
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, verbose_name='Latitud de entrega')
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, verbose_name='Longitud de entrega')
+    # Shipping cost snapshot
+    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name='Costo de envío (CLP)')
+    shipping_courier = models.CharField(max_length=100, blank=True, default='', verbose_name='Courier de envío')
+    shipping_estimated_days = models.CharField(max_length=50, blank=True, default='', verbose_name='Días estimados de entrega')
+
 
     def clean(self):
         super().clean()

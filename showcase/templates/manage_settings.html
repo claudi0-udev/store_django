@@ -1,0 +1,174 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent px-0">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'manageOrders' %}">Panel de Gestión</a></li>
+    <li class="breadcrumb-item active">⚙️ Configuración</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h2 font-weight-bold mb-1">⚙️ Configuración de la Tienda</h1>
+    <p class="text-muted mb-0 small">Administra los datos de tu tienda, tarifas de envío e integración Shipit.</p>
+  </div>
+  <div>
+    <a href="{% url 'manageAnalyticsDashboard' %}" class="btn btn-outline-info btn-sm mr-2">📊 Analytics</a>
+    <a href="{% url 'manageOrders' %}" class="btn btn-outline-secondary btn-sm">🚚 Pedidos</a>
+  </div>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}{{ msg.tags }}{% endif %} alert-dismissible fade show" role="alert">
+  {{ msg }} <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="row">
+  <!-- Configuración General + Shipit -->
+  <div class="col-lg-6 mb-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white border-bottom py-3">
+        <span class="font-weight-bold">🏪 Datos de la Tienda y Despacho</span>
+      </div>
+      <div class="card-body">
+        <form method="post" action="{% url 'manageSettings' %}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="settings">
+
+          <div class="form-group">
+            <label class="small font-weight-bold">Nombre de la tienda</label>
+            <input type="text" name="store_name" class="form-control" value="{{ store_settings.store_name }}">
+          </div>
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label class="small font-weight-bold">Email de la tienda</label>
+              <input type="email" name="store_email" class="form-control" value="{{ store_settings.store_email }}">
+            </div>
+            <div class="form-group col-md-6">
+              <label class="small font-weight-bold">Teléfono</label>
+              <input type="text" name="store_phone" class="form-control" value="{{ store_settings.store_phone }}">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="small font-weight-bold">🚚 Comuna de despacho (origen)</label>
+            <input type="text" name="origin_commune" class="form-control" value="{{ store_settings.origin_commune }}" placeholder="Ej: Pichidegua">
+            <small class="text-muted">Ciudad desde donde se despachan los pedidos.</small>
+          </div>
+          <div class="form-group">
+            <label class="small font-weight-bold">Dirección de bodega</label>
+            <input type="text" name="origin_address" class="form-control" value="{{ store_settings.origin_address }}" placeholder="Ej: Calle Los Robles 123">
+          </div>
+          <div class="form-group">
+            <label class="small font-weight-bold">🎁 Monto mínimo para envío gratis (CLP)</label>
+            <div class="input-group">
+              <div class="input-group-prepend"><span class="input-group-text">$</span></div>
+              <input type="number" name="free_shipping_threshold" class="form-control" value="{{ store_settings.free_shipping_threshold|floatformat:0 }}" min="0">
+            </div>
+            <small class="text-muted">Si el subtotal supera este monto, el envío es gratis.</small>
+          </div>
+
+          <hr>
+          <p class="font-weight-bold small text-muted text-uppercase mb-2">🔌 Integración Shipit (Futuro)</p>
+          <div class="form-group">
+            <label class="small font-weight-bold">Email cuenta Shipit</label>
+            <input type="email" name="shipit_email" class="form-control" value="{{ store_settings.shipit_email }}" placeholder="tu@correo.com">
+          </div>
+          <div class="form-group">
+            <label class="small font-weight-bold">Token API Shipit</label>
+            <input type="text" name="shipit_token" class="form-control" value="{{ store_settings.shipit_token }}" placeholder="Token de acceso">
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="shipit_enabled" id="shipitEnabled" {% if store_settings.shipit_enabled %}checked{% endif %}>
+            <label class="form-check-label" for="shipitEnabled">
+              Activar cotización en tiempo real con Shipit
+              <span class="badge {% if store_settings.shipit_enabled %}badge-success{% else %}badge-secondary{% endif %} ml-1">
+                {% if store_settings.shipit_enabled %}🟢 Activo{% else %}🔴 Inactivo{% endif %}
+              </span>
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block font-weight-bold">💾 Guardar Configuración</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tarifas de Envío -->
+  <div class="col-lg-6 mb-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+        <span class="font-weight-bold">📦 Tarifas de Envío Internas</span>
+        <span class="badge badge-info badge-pill">{{ shipping_rates.count }} tarifas</span>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive" style="max-height:320px;overflow-y:auto;">
+          <table class="table table-sm table-hover mb-0 small">
+            <thead class="thead-light sticky-top">
+              <tr>
+                <th class="pl-3">Región</th>
+                <th>Peso (kg)</th>
+                <th>Precio</th>
+                <th>Courier</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for rate in shipping_rates %}
+              <tr class="{% if not rate.is_active %}text-muted{% endif %}">
+                <td class="pl-3 small">{{ rate.region }}</td>
+                <td class="small">{{ rate.weight_min_kg }}–{{ rate.weight_max_kg }}</td>
+                <td class="text-success font-weight-bold">$ {{ rate.price|floatformat:0 }}</td>
+                <td class="small">{{ rate.courier_name }}</td>
+                <td>
+                  <form method="post" action="{% url 'manageSettings' %}" style="display:inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_rate">
+                    <input type="hidden" name="rate_id" value="{{ rate.id }}">
+                    <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1" onclick="return confirm('¿Eliminar esta tarifa?')">✕</button>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-center text-muted py-3 small">Sin tarifas. Usa el formulario para añadir.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer bg-light py-3">
+        <p class="font-weight-bold small mb-2">+ Añadir Tarifa</p>
+        <form method="post" action="{% url 'manageSettings' %}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="add_rate">
+          <div class="form-row">
+            <div class="form-group col-12 mb-2">
+              <input type="text" name="region" class="form-control form-control-sm" placeholder="Región (ej: Región Metropolitana)" required>
+            </div>
+            <div class="form-group col-4 mb-2">
+              <input type="number" name="weight_min_kg" class="form-control form-control-sm" placeholder="Kg min" step="0.1" value="0" required>
+            </div>
+            <div class="form-group col-4 mb-2">
+              <input type="number" name="weight_max_kg" class="form-control form-control-sm" placeholder="Kg max" step="0.1" value="5" required>
+            </div>
+            <div class="form-group col-4 mb-2">
+              <input type="number" name="price" class="form-control form-control-sm" placeholder="$ CLP" step="1" required>
+            </div>
+            <div class="form-group col-6 mb-2">
+              <input type="text" name="courier_name" class="form-control form-control-sm" placeholder="Courier" value="Starken">
+            </div>
+            <div class="form-group col-6 mb-2">
+              <input type="text" name="estimated_days" class="form-control form-control-sm" placeholder="Días estimados" value="3-5 días hábiles">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-outline-primary btn-sm btn-block">+ Añadir Tarifa</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

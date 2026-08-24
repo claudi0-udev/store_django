@@ -6,6 +6,8 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinLengthValidator, MinValueValidator
 
 from django.db import models
+from django.utils import timezone
+
 
 
 
@@ -369,6 +371,9 @@ class Order(models.Model):
     shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name='Costo de envío (CLP)')
     shipping_courier = models.CharField(max_length=100, blank=True, default='', verbose_name='Courier de envío')
     shipping_estimated_days = models.CharField(max_length=50, blank=True, default='', verbose_name='Días estimados de entrega')
+    coupon = models.ForeignKey('Coupon', null=True, blank=True, on_delete=models.SET_NULL, related_name='orders', verbose_name='Cupón Aplicado')
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name='Monto Descontado')
+
 
 
     def clean(self):
@@ -445,3 +450,60 @@ class ProductAuditLog(models.Model):
 
     def __str__(self):
         return f"[{self.timestamp.strftime('%Y-%m-%d %H:%M')}] {self.get_action_display()} - {self.product_name} (ID: {self.product_id})"
+
+
+class Coupon(models.Model):
+    DISCOUNT_TYPE_CHOICES = [
+        ('percentage', 'Porcentaje (%)'),
+        ('fixed', 'Monto Fijo ($ CLP)'),
+    ]
+
+    code = models.CharField(max_length=50, unique=True, verbose_name='Código del Cupón')
+    discount_type = models.CharField(max_length=15, choices=DISCOUNT_TYPE_CHOICES, default='percentage', verbose_name='Tipo de Descuento')
+    discount_value = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))], verbose_name='Valor del Descuento')
+    min_purchase_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name='Monto Mínimo de Compra')
+    max_uses = models.PositiveIntegerField(null=True, blank=True, verbose_name='Límite de Usos Totales')
+    used_count = models.PositiveIntegerField(default=0, verbose_name='Usos Realizados')
+    valid_from = models.DateTimeField(default=timezone.now, verbose_name='Válido Desde')
+    valid_until = models.DateTimeField(null=True, blank=True, verbose_name='Válido Hasta')
+    is_active = models.BooleanField(default=True, verbose_name='Activo')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Cupón'
+        verbose_name_plural = 'Cupones'
+        ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        if self.code:
+            self.code = self.code.strip().upper()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        if self.discount_type == 'percentage':
+            return f"{self.code} ({int(self.discount_value)}% OFF)"
+        return f"{self.code} (${self.discount_value:,.0f} OFF)"
+
+    def is_valid(self, order_total=Decimal('0.00')):
+        now = timezone.now()
+        if not self.is_active:
+            return False, "El cupón no está activo."
+        if self.valid_from and now < self.valid_from:
+            return False, "El cupón aún no es válido."
+        if self.valid_until and now > self.valid_until:
+            return False, "El cupón ha expirado."
+        if self.max_uses is not None and self.used_count >= self.max_uses:
+            return False, "El cupón ha alcanzado el límite máximo de usos."
+        if order_total > 0 and order_total < self.min_purchase_amount:
+            return False, f"El monto mínimo de compra para este cupón es $ {self.min_purchase_amount:,.0f} CLP."
+        return True, "Cupón válido."
+
+    def calculate_discount(self, order_total):
+        valid, _ = self.is_valid(order_total)
+        if not valid:
+            return Decimal('0.00')
+        if self.discount_type == 'percentage':
+            discount = (order_total * self.discount_value) / Decimal('100.00')
+        else:
+            discount = self.discount_value
+        return min(discount, order_total)

@@ -26,8 +26,10 @@ from .forms import OrderCreateForm, ProductForm, UserLoginForm, UserRegistration
 from .models import (
     Brand,
     Category,
+    Coupon,
     Distributor,
     Feature,
+
     FeatureValue,
     Manufacturer,
     Order,
@@ -812,6 +814,29 @@ def CartClear(request):
     return redirect('cartDetail')
 
 
+def ApplyCoupon(request):
+    if request.method == 'POST':
+        code = request.POST.get('code', '').strip()
+        cart = Cart(request)
+        success, message = cart.apply_coupon(code)
+        if success:
+            messages.success(request, message)
+        else:
+            messages.error(request, message)
+    next_url = request.POST.get('next') or request.META.get('HTTP_REFERER') or 'cartDetail'
+    return redirect(next_url)
+
+
+def RemoveCoupon(request):
+    if request.method == 'POST':
+        cart = Cart(request)
+        cart.remove_coupon()
+        messages.info(request, 'Cupón removido del carrito.')
+    next_url = request.POST.get('next') or request.META.get('HTTP_REFERER') or 'cartDetail'
+    return redirect(next_url)
+
+
+
 from .payments.gateways import confirm_order_payment, get_gateway_display_info
 
 
@@ -838,11 +863,22 @@ def OrderCreate(request):
             order.shipping_cost = shipping.price
             order.shipping_courier = shipping.courier
             order.shipping_estimated_days = shipping.days
-            order.total_amount = cart.get_total_price() + shipping.price
+
+            # Aplicar cupón de descuento si está activo en el carrito
+            coupon = cart.get_coupon()
+            discount_amount = cart.get_discount()
+            if coupon and discount_amount > Decimal('0.00'):
+                order.coupon = coupon
+                order.discount_amount = discount_amount
+                coupon.used_count += 1
+                coupon.save()
+
+            order.total_amount = max(Decimal('0.00'), cart.get_total_price() - discount_amount) + shipping.price
 
             order.status = 'pending'
             order.paid = False
             order.save()
+
 
             for item in cart:
                 OrderItem.objects.create(
@@ -1378,3 +1414,56 @@ def ManageSettings(request):
         'store_settings': settings,
         'shipping_rates': shipping_rates,
     })
+
+
+@user_passes_test(lambda u: u.is_staff, login_url='login')
+def ManageCoupons(request):
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'create':
+            code = request.POST.get('code', '').strip().upper()
+            discount_type = request.POST.get('discount_type', 'percentage')
+            discount_value = Decimal(request.POST.get('discount_value', '0.00') or '0.00')
+            min_purchase_amount = Decimal(request.POST.get('min_purchase_amount', '0.00') or '0.00')
+            max_uses_raw = request.POST.get('max_uses', '').strip()
+            max_uses = int(max_uses_raw) if max_uses_raw.isdigit() else None
+            is_active = request.POST.get('is_active') == 'on'
+
+            if not code or discount_value <= Decimal('0.00'):
+                messages.error(request, 'El código y el valor del descuento deben ser válidos.')
+            else:
+                try:
+                    Coupon.objects.create(
+                        code=code,
+                        discount_type=discount_type,
+                        discount_value=discount_value,
+                        min_purchase_amount=min_purchase_amount,
+                        max_uses=max_uses,
+                        is_active=is_active,
+                    )
+                    messages.success(request, f'Cupón "{code}" creado exitosamente.')
+                except Exception as e:
+                    messages.error(request, f'Error al crear el cupón: {e}')
+
+        elif action == 'toggle_active':
+            coupon_id = request.POST.get('coupon_id')
+            coupon = get_object_or_404(Coupon, pk=coupon_id)
+            coupon.is_active = not coupon.is_active
+            coupon.save()
+            state_str = 'activado' if coupon.is_active else 'desactivado'
+            messages.info(request, f'Cupón "{coupon.code}" {state_str}.')
+
+        elif action == 'delete':
+            coupon_id = request.POST.get('coupon_id')
+            coupon = get_object_or_404(Coupon, pk=coupon_id)
+            code_str = coupon.code
+            coupon.delete()
+            messages.success(request, f'Cupón "{code_str}" eliminado exitosamente.')
+
+        return redirect('manageCoupons')
+
+    coupons = Coupon.objects.all()
+    return render(request, 'manage_coupons.html', {
+        'coupons': coupons,
+    })
+

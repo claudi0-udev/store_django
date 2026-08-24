@@ -309,6 +309,13 @@
             <span class="text-muted">Subtotal</span>
             <span class="font-weight-bold">$ {{ cart.get_total_price }}</span>
           </div>
+          {% if cart.get_coupon %}
+          <div class="d-flex justify-content-between mb-2 text-success">
+            <span>Descuento ({{ cart.get_coupon.code }})</span>
+            <span class="font-weight-bold">-$ {{ cart.get_discount }}</span>
+          </div>
+          {% endif %}
+
 
           <!-- Envío dinámico -->
           <div class="d-flex justify-content-between mb-1 align-items-center">

@@ -109,10 +109,49 @@
       <div class="card shadow-sm border-0 mb-4 sticky-top" style="top: 20px;">
         <div class="card-body">
           <h5 class="card-title font-weight-bold mb-3">Resumen de la orden</h5>
+          <!-- Caja de Cupón de Descuento -->
+          <div class="mb-3 p-3 bg-light rounded">
+            <label class="font-weight-bold small text-dark mb-2">🎫 ¿Tienes un cupón de descuento?</label>
+            {% if cart.get_coupon %}
+            <div class="d-flex justify-content-between align-items-center bg-white p-2 border rounded">
+              <div>
+                <strong class="text-success small">✓ {{ cart.get_coupon.code }}</strong>
+                <div class="text-muted small">
+                  {% if cart.get_coupon.discount_type == 'percentage' %}
+                  {{ cart.get_coupon.discount_value|floatformat:0 }}% OFF
+                  {% else %}
+                  $ {{ cart.get_coupon.discount_value }} OFF
+                  {% endif %}
+                </div>
+              </div>
+              <form method="post" action="{% url 'removeCoupon' %}" class="m-0">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2" title="Quitar cupón">&times;</button>
+              </form>
+            </div>
+            {% else %}
+            <form method="post" action="{% url 'applyCoupon' %}">
+              {% csrf_token %}
+              <div class="input-group input-group-sm">
+                <input type="text" name="code" class="form-control text-uppercase" placeholder="Código (ej: DESCUENTO10)" required>
+                <div class="input-group-append">
+                  <button type="submit" class="btn btn-outline-primary font-weight-bold">Aplicar</button>
+                </div>
+              </div>
+            </form>
+            {% endif %}
+          </div>
+
           <div class="d-flex justify-content-between mb-2">
             <span class="text-muted">Subtotal</span>
             <span class="font-weight-bold">$ <span id="cart-summary-subtotal">{{ cart.get_total_price }}</span></span>
           </div>
+          {% if cart.get_coupon %}
+          <div class="d-flex justify-content-between mb-2 text-success">
+            <span>Descuento ({{ cart.get_coupon.code }})</span>
+            <span class="font-weight-bold">-$ {{ cart.get_discount }}</span>
+          </div>
+          {% endif %}
           <div class="d-flex justify-content-between mb-2">
             <span class="text-muted">Envío estimado</span>
             <span class="text-success font-weight-bold">Gratis</span>
@@ -120,8 +159,9 @@
           <hr>
           <div class="d-flex justify-content-between align-items-baseline mb-4">
             <span class="h5 font-weight-bold mb-0">Total a Pagar</span>
-            <span class="h4 text-primary font-weight-bold mb-0">$ <span id="cart-summary-total">{{ cart.get_total_price }}</span></span>
+            <span class="h4 text-primary font-weight-bold mb-0">$ <span id="cart-summary-total">{{ cart.get_total_price_after_discount }}</span></span>
           </div>
+
 
           <a href="{% url 'orderCreate' %}" class="btn btn-primary btn-block btn-lg mb-3 font-weight-bold shadow-sm">
             Proceder al Pago (Checkout) →

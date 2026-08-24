@@ -56,6 +56,7 @@ class Cart:
         self.cart = {}
         if self.session is not None and CART_SESSION_ID in self.session:
             self.session[CART_SESSION_ID] = {}
+        self.remove_coupon()
         self.save()
 
     def save(self):
@@ -82,4 +83,56 @@ class Cart:
 
     def get_total_quantity(self):
         return sum(item['quantity'] for item in self.cart.values())
+
+    @property
+    def coupon_id(self):
+        if self.session is not None:
+            return self.session.get('coupon_id')
+        return None
+
+    def get_coupon(self):
+        if self.coupon_id:
+            from .models import Coupon
+            try:
+                coupon = Coupon.objects.get(id=self.coupon_id, is_active=True)
+                valid, _ = coupon.is_valid(self.get_total_price())
+                if valid:
+                    return coupon
+                else:
+                    self.remove_coupon()
+            except Coupon.DoesNotExist:
+                self.remove_coupon()
+        return None
+
+    def apply_coupon(self, coupon_code):
+        from .models import Coupon
+        code = (coupon_code or '').strip().upper()
+        if not code:
+            return False, "Por favor ingresa un código de cupón."
+        try:
+            coupon = Coupon.objects.get(code=code)
+            valid, msg = coupon.is_valid(self.get_total_price())
+            if not valid:
+                return False, msg
+            if self.session is not None:
+                self.session['coupon_id'] = coupon.id
+                self.save()
+            return True, f"¡Cupón '{coupon.code}' aplicado con éxito!"
+        except Coupon.DoesNotExist:
+            return False, f"El código de cupón '{code}' no existe."
+
+    def remove_coupon(self):
+        if self.session is not None and 'coupon_id' in self.session:
+            del self.session['coupon_id']
+            self.save()
+
+    def get_discount(self):
+        coupon = self.get_coupon()
+        if coupon:
+            return coupon.calculate_discount(self.get_total_price())
+        return Decimal('0.00')
+
+    def get_total_price_after_discount(self):
+        return max(Decimal('0.00'), self.get_total_price() - self.get_discount())
+
 

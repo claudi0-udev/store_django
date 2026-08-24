@@ -249,11 +249,18 @@
               {% endfor %}
             </tbody>
             <tfoot>
+              {% if order.discount_amount > 0 %}
+              <tr>
+                <th colspan="3" class="text-right text-success small">Descuento Cupón ({% if order.coupon %}{{ order.coupon.code }}{% else %}Promocional{% endif %}):</th>
+                <th class="text-right text-success font-weight-bold">-$ {{ order.discount_amount }}</th>
+              </tr>
+              {% endif %}
               <tr>
                 <th colspan="3" class="text-right font-weight-bold">Total a Cobrar / Pagado:</th>
                 <th class="text-right font-weight-bold text-primary h5 mb-0">$ {{ order.total_amount }}</th>
               </tr>
             </tfoot>
+
           </table>
         </div>
       </div>

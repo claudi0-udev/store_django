@@ -1572,3 +1572,88 @@ class DispatchNotificationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Notificar por WhatsApp')
         self.assertContains(response, 'wa.me/56912345678')
+
+
+class CouponTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(username='couponstaff', password='testpass123', is_staff=True)
+        self.category = Category.objects.create(name='Gadgets')
+        self.product = Product.objects.create(
+            name='Reloj Smart', description='Smartwatch deportivo',
+            price=Decimal('100000.00'), units=10, category=self.category,
+        )
+        from showcase.models import Coupon
+        self.percentage_coupon = Coupon.objects.create(
+            code='OFERTA20', discount_type='percentage',
+            discount_value=Decimal('20.00'), min_purchase_amount=Decimal('50000.00'),
+            is_active=True,
+        )
+        self.fixed_coupon = Coupon.objects.create(
+            code='DESCUENTO10K', discount_type='fixed',
+            discount_value=Decimal('10000.00'), min_purchase_amount=Decimal('30000.00'),
+            is_active=True,
+        )
+
+    def test_coupon_validation_and_calculations(self):
+        valid, msg = self.percentage_coupon.is_valid(Decimal('60000.00'))
+        self.assertTrue(valid)
+        self.assertEqual(self.percentage_coupon.calculate_discount(Decimal('100000.00')), Decimal('20000.00'))
+
+        valid, msg = self.percentage_coupon.is_valid(Decimal('10000.00'))
+        self.assertFalse(valid)
+        self.assertIn('monto mínimo', msg)
+
+    def test_apply_and_remove_coupon_in_cart(self):
+        self.client.post(f'/cart/add/{self.product.id}/', {'quantity': 1})
+        response = self.client.post('/cart/coupon/apply/', {'code': 'OFERTA20'})
+        self.assertEqual(response.status_code, 302)
+
+        # Check cart detail has discount line
+        cart_resp = self.client.get('/cart/')
+        self.assertContains(cart_resp, 'OFERTA20')
+        self.assertContains(cart_resp, 'Descuento (OFERTA20)')
+
+        # Remove coupon
+        rem_resp = self.client.post('/cart/coupon/remove/')
+        self.assertEqual(rem_resp.status_code, 302)
+
+    def test_checkout_with_coupon_applies_discount(self):
+        self.client.post(f'/cart/add/{self.product.id}/', {'quantity': 1})
+        self.client.post('/cart/coupon/apply/', {'code': 'OFERTA20'})
+
+        response = self.client.post('/orders/checkout/', {
+            'first_name': 'Carlos', 'last_name': 'Vidal',
+            'email': 'carlos@example.com', 'phone': '+56911223344',
+            'address': 'Av Providencia 500', 'city': 'Pichidegua',
+            'region': "Región de O'Higgins", 'payment_method': 'transfer',
+
+        })
+        self.assertEqual(response.status_code, 302)
+        order = Order.objects.get(email='carlos@example.com')
+        self.assertEqual(order.coupon, self.percentage_coupon)
+        self.assertEqual(order.discount_amount, Decimal('20000.00'))
+        self.percentage_coupon.refresh_from_db()
+        self.assertEqual(self.percentage_coupon.used_count, 1)
+
+
+    def test_manage_coupons_view_staff_crud(self):
+        self.client.login(username='couponstaff', password='testpass123')
+        # Create coupon
+        res = self.client.post('/manage/coupons/', {
+            'action': 'create', 'code': 'SUPER50',
+            'discount_type': 'percentage', 'discount_value': '50',
+            'min_purchase_amount': '0', 'is_active': 'on',
+        })
+        self.assertEqual(res.status_code, 302)
+        from showcase.models import Coupon
+        coupon = Coupon.objects.get(code='SUPER50')
+        self.assertEqual(coupon.discount_value, Decimal('50.00'))
+
+        # Toggle active
+        self.client.post('/manage/coupons/', {'action': 'toggle_active', 'coupon_id': coupon.id})
+        coupon.refresh_from_db()
+        self.assertFalse(coupon.is_active)
+
+        # Delete coupon
+        self.client.post('/manage/coupons/', {'action': 'delete', 'coupon_id': coupon.id})
+        self.assertFalse(Coupon.objects.filter(code='SUPER50').exists())

@@ -1113,7 +1113,9 @@ class PaymentGatewaysSuiteTests(TestCase):
 
 class AnalyticsDashboardTests(TestCase):
     def setUp(self):
+        Order.objects.all().delete()
         self.staff_user = User.objects.create_user(
+
             username='staffuser', password='testpass123', is_staff=True
         )
         self.regular_user = User.objects.create_user(
@@ -1518,3 +1520,54 @@ class ProductReviewTests(TestCase):
         response = self.client.get(f'/products/detail/{self.product.id}/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Opiniones de Clientes')
+
+
+class DispatchNotificationTests(TestCase):
+    def setUp(self):
+        from django.core import mail
+        self.mail = mail
+        self.staff_user = User.objects.create_user(
+            username='dispatchstaff', password='testpass123', is_staff=True
+        )
+        self.order = Order.objects.create(
+            first_name='María', last_name='Gómez', email='maria@example.com',
+            phone='+56912345678', address='Calle Flor 45', city='Pichidegua',
+            total_amount=Decimal('49990.00'), status='paid', paid=True,
+        )
+
+    def test_send_dispatch_notification_email(self):
+        from showcase.emails import send_dispatch_notification_email
+        self.order.tracking_number = 'STK-123456'
+        self.order.shipping_courier = 'Starken'
+        self.order.save()
+
+        sent = send_dispatch_notification_email(self.order)
+        self.assertTrue(sent)
+        self.assertEqual(len(self.mail.outbox), 1)
+        email = self.mail.outbox[0]
+        self.assertIn('STK-123456', email.body)
+        self.assertIn('maria@example.com', email.to)
+
+    def test_order_status_update_triggers_email_when_shipped(self):
+        self.client.login(username='dispatchstaff', password='testpass123')
+        response = self.client.post(f'/manage/orders/{self.order.id}/update/', {
+
+            'status': 'shipped',
+            'paid': 'true',
+            'phone': '+56912345678',
+            'tracking_company': 'Starken',
+            'tracking_number': 'STK-999',
+            'notify_email': 'on',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'shipped')
+        self.assertEqual(self.order.tracking_number, 'STK-999')
+        self.assertEqual(len(self.mail.outbox), 1)
+
+    def test_whatsapp_link_in_manage_order_detail(self):
+        self.client.login(username='dispatchstaff', password='testpass123')
+        response = self.client.get(f'/manage/orders/{self.order.id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Notificar por WhatsApp')
+        self.assertContains(response, 'wa.me/56912345678')

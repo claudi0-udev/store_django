@@ -18,7 +18,8 @@ from django.utils import timezone
 
 
 from .cart import Cart
-from .emails import send_order_confirmation_email
+from .emails import send_dispatch_notification_email, send_order_confirmation_email
+
 from .forms import OrderCreateForm, ProductForm, UserLoginForm, UserRegistrationForm
 
 
@@ -1078,6 +1079,7 @@ def ManageOrderDetail(request, orderId):
 def ManageOrderUpdateStatus(request, orderId):
     order = get_object_or_404(Order, pk=orderId)
     if request.method == 'POST':
+        old_status = order.status
         new_status = request.POST.get('status')
         if new_status in dict(Order._meta.get_field('status').choices):
             order.status = new_status
@@ -1092,6 +1094,16 @@ def ManageOrderUpdateStatus(request, orderId):
         try:
             order.save()
             messages.success(request, f'Orden #{order.id} actualizada exitosamente a "{order.get_status_display()}".')
+
+            # Enviar correo si el estado cambió a despachado/entregado o si se solicitó explícitamente
+            should_notify = request.POST.get('notify_email') == 'on' or (
+                old_status != new_status and new_status in ('shipped', 'delivered')
+            )
+            if should_notify:
+                sent = send_dispatch_notification_email(order)
+                if sent:
+                    messages.info(request, f'📧 Notificación de despacho enviada a {order.email}.')
+
         except ValidationError as e:
             error_msg = '; '.join(sum(e.message_dict.values(), [])) if hasattr(e, 'message_dict') else str(e)
             messages.error(request, f'No se pudo actualizar la orden #{order.id}: {error_msg}')
@@ -1102,6 +1114,7 @@ def ManageOrderUpdateStatus(request, orderId):
         return redirect('manageOrderDetail', orderId=order.id)
 
     return redirect('manageOrderDetail', orderId=order.id)
+
 
 
 

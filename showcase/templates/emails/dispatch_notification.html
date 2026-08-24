@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Tu Pedido #{{ order.id }} ha sido despachado</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .header { text-align: center; border-bottom: 2px solid #007bff; padding-bottom: 20px; margin-bottom: 20px; }
+        .header h1 { color: #007bff; margin: 0; font-size: 24px; }
+        .tracking-box { background: #eef6ff; border: 1px solid #b8daff; border-radius: 6px; padding: 20px; text-align: center; margin: 20px 0; }
+        .tracking-code { font-size: 22px; font-weight: bold; color: #004085; letter-spacing: 1px; margin: 10px 0; }
+        .badge { display: inline-block; padding: 6px 12px; font-size: 14px; font-weight: bold; color: #fff; background-color: #28a745; border-radius: 4px; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .table th, .table td { padding: 10px; border-bottom: 1px solid #dee2e6; text-align: left; }
+        .footer { text-align: center; font-size: 12px; color: #6c757d; margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚚 ¡Tu pedido está en camino!</h1>
+            <p>Hola <strong>{{ order.first_name }} {{ order.last_name }}</strong>, tu paquete ha sido despachado exitosamente.</p>
+        </div>
+
+        <div class="tracking-box">
+            <span class="badge">Estado: {{ order.get_status_display }}</span>
+            <p class="mb-1" style="margin-top: 15px;">Número de Seguimiento / Guía:</p>
+            <div class="tracking-code">{{ order.tracking_number|default:'Por asignar' }}</div>
+            {% if order.shipping_courier %}
+            <p style="margin: 5px 0 0 0; color: #555;">Transportista / Courier: <strong>{{ order.shipping_courier }}</strong></p>
+            {% endif %}
+            {% if order.shipping_estimated_days %}
+            <p style="margin: 5px 0 0 0; color: #555;">Plazo estimado: <strong>{{ order.shipping_estimated_days }}</strong></p>
+            {% endif %}
+        </div>
+
+        <h3>📦 Resumen del envío:</h3>
+        <p><strong>Dirección de entrega:</strong> {{ order.address }}, {{ order.city }}</p>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Cant.</th>
+                    <th>Precio</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.product.name|default:'Producto' }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>$ {{ item.price }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="footer">
+            <p>Si tienes alguna consulta sobre tu envío, puedes responder a este correo o escribirnos a nuestro soporte.</p>
+            <p>© 2026 Store Django - Todos los derechos reservados.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -47,16 +47,36 @@
 <div class="row my-4">
   <!-- Foto de Producto con Galería -->
   <div class="col-lg-5 mb-4 mb-lg-0">
-    <div class="card shadow-sm border-0 text-center p-3 h-100 bg-white d-flex align-items-center justify-content-center">
-      {% if product.image %}
-      <img src="{{ product.image.url }}" class="img-fluid rounded mx-auto" alt="{{ product.name }}" style="max-height: 420px; object-fit: contain;">
+    <div class="card shadow-sm border-0 text-center p-3 bg-white h-100 d-flex flex-column justify-content-between">
+      {% with all_images=product.get_all_images %}
+      {% if all_images %}
+      <!-- Imagen Principal -->
+      <div class="main-image-wrapper flex-grow-1 d-flex align-items-center justify-content-center p-2 mb-3" style="min-height: 340px;">
+        <img id="mainProductImage" src="{{ all_images.0.url }}" class="img-fluid rounded mx-auto" alt="{{ product.name }}" style="max-height: 380px; object-fit: contain; transition: opacity 0.2s ease-in-out;">
+      </div>
+
+      {% if all_images|length > 1 %}
+      <!-- Tira de Miniaturas -->
+      <div class="d-flex flex-wrap justify-content-center pt-2 border-top">
+        {% for img in all_images %}
+        <button type="button" class="gallery-thumb-btn border rounded p-1 m-1 {% if forloop.first %}active-thumb border-primary{% else %}border-light{% endif %}" 
+                onclick="switchProductImage('{{ img.url }}', this)" 
+                style="width: 60px; height: 60px; background: #fff; cursor: pointer; transition: all 0.2s ease-in-out;">
+          <img src="{{ img.url }}" alt="{{ product.name }}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;">
+        </button>
+        {% endfor %}
+      </div>
+      {% endif %}
+
       {% else %}
       <div class="bg-light d-flex align-items-center justify-content-center rounded w-100" style="height: 350px;">
         <span class="text-muted font-weight-bold">📷 Sin imagen disponible</span>
       </div>
       {% endif %}
+      {% endwith %}
     </div>
   </div>
+
 
   <!-- Detalles de Compra -->
   <div class="col-lg-7">
@@ -224,6 +244,26 @@
 {% endif %}
 
 <script>
+  function switchProductImage(url, btn) {
+    var mainImg = document.getElementById('mainProductImage');
+    if (mainImg) {
+      mainImg.style.opacity = '0.3';
+      setTimeout(function() {
+        mainImg.src = url;
+        mainImg.style.opacity = '1';
+      }, 120);
+    }
+    var thumbs = document.querySelectorAll('.gallery-thumb-btn');
+    thumbs.forEach(function(t) {
+      t.classList.remove('active-thumb', 'border-primary');
+      t.classList.add('border-light');
+    });
+    if (btn) {
+      btn.classList.add('active-thumb', 'border-primary');
+      btn.classList.remove('border-light');
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function() {
     var qtyInput = document.getElementById('quantity');
     var btnMinus = document.getElementById('btnQtyMinus');

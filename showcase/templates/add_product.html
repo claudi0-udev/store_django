@@ -39,10 +39,16 @@
   <div id="loadFeatures">
   </div>
   <div class="form-group">
-    <label for="image">Imagen del producto</label>
+    <label for="image">Imagen principal del producto</label>
     <input type="file" class="form-control-file" id="image" name="image" accept="image/*">
     <small class="form-text text-muted">Formatos recomendados: JPG, PNG, WebP.</small>
   </div>
+  <div class="form-group">
+    <label for="extra_images">🖼️ Imágenes adicionales (Galería)</label>
+    <input type="file" class="form-control-file" id="extra_images" name="extra_images" accept="image/*" multiple>
+    <small class="form-text text-muted">Puedes seleccionar múltiples imágenes a la vez.</small>
+  </div>
+
   <div class="form-group">
     <label for="msrpTxt">MSRP (Precio referencial)</label>
     <input type="number" step="0.01" class="form-control" id="msrpTxt" name="msrpTxt" value="{{ form_data.msrpTxt|default:'' }}" placeholder="Ej: 1299.99">

@@ -32,9 +32,11 @@ from .models import (
     OrderItem,
     Product,
     ProductAuditLog,
+    ProductImage,
     ShippingRate,
     StoreSettings,
 )
+
 
 
 
@@ -222,6 +224,9 @@ def AddNewProduct(request):
 
     if form.is_valid():
         product = form.save()
+        extra_files = request.FILES.getlist('extra_images')
+        for f in extra_files:
+            ProductImage.objects.create(product=product, image=f)
         if product.category_id is not None:
             features_found = Feature.objects.filter(category_id=product.category_id)
             for feature in features_found:
@@ -234,6 +239,7 @@ def AddNewProduct(request):
                     )
         messages.success(request, 'Producto creado exitosamente.')
         return redirect('products')
+
 
     errors = []
     for field_errors in form.errors.values():
@@ -313,6 +319,9 @@ def EditProduct(request, productId):
 
     if form.is_valid():
         product = form.save()
+        extra_files = request.FILES.getlist('extra_images')
+        for f in extra_files:
+            ProductImage.objects.create(product=product, image=f)
         if product.category_id is not None:
             features_found = Feature.objects.filter(category_id=product.category_id)
             for feature in features_found:
@@ -341,6 +350,16 @@ def EditProduct(request, productId):
         'form_data': form_data,
         'form': form,
     })
+
+
+@user_passes_test(lambda u: u.is_staff, login_url='login')
+def DeleteProductImage(request, imageId):
+    image = get_object_or_404(ProductImage, pk=imageId)
+    product_id = image.product_id
+    image.delete()
+    messages.success(request, 'Imagen secundaria eliminada exitosamente.')
+    return redirect('editProduct', productId=product_id)
+
 
 
 @user_passes_test(lambda u: u.is_staff, login_url='login')

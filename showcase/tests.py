@@ -1341,3 +1341,49 @@ class ShippingCalculatorTests(TestCase):
             'rate_id': rate.id,
         })
         self.assertFalse(ShippingRate.objects.filter(region='Test Region').exists())
+
+
+class ProductGalleryTests(TestCase):
+    def setUp(self):
+        from showcase.models import ProductImage
+        self.staff_user = User.objects.create_user(
+            username='gallerystaff', password='testpass123', is_staff=True
+        )
+        self.category = Category.objects.create(name='Camaras')
+        self.product = Product.objects.create(
+            name='Camara DSLR Pro', description='Camara profesional',
+            price=Decimal('450000.00'), units=5, category=self.category,
+        )
+        self.img1 = ProductImage.objects.create(
+            product=self.product,
+            image=SimpleUploadedFile('test1.jpg', b'fake_image_bytes', content_type='image/jpeg')
+        )
+        self.img2 = ProductImage.objects.create(
+            product=self.product,
+            image=SimpleUploadedFile('test2.jpg', b'fake_image_bytes', content_type='image/jpeg')
+        )
+
+    def test_get_all_images_returns_main_and_extra_images(self):
+        imgs = self.product.get_all_images()
+        # No main image set, but 2 extra images
+        self.assertEqual(len(imgs), 2)
+        self.assertFalse(imgs[0]['is_main'])
+
+    def test_product_detail_renders_gallery_thumbnails(self):
+        response = self.client.get(f'/products/detail/{self.product.id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'gallery-thumb-btn')
+        self.assertContains(response, 'mainProductImage')
+
+    def test_delete_product_image_staff(self):
+        from showcase.models import ProductImage
+        self.client.login(username='gallerystaff', password='testpass123')
+        response = self.client.get(f'/products/images/{self.img1.id}/delete/')
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(ProductImage.objects.filter(pk=self.img1.id).exists())
+
+    def test_delete_product_image_unauthenticated_redirects(self):
+        from showcase.models import ProductImage
+        response = self.client.get(f'/products/images/{self.img2.id}/delete/')
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(ProductImage.objects.filter(pk=self.img2.id).exists())

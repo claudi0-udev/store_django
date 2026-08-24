@@ -59,19 +59,39 @@
       </div>
 
       <div class="form-group">
-        <label for="image" class="font-weight-bold">Imagen del producto</label>
+        <label for="image" class="font-weight-bold">Imagen principal del producto</label>
         {% if product.image %}
         <div class="mb-2 d-flex align-items-center">
           <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-thumbnail mr-3" style="max-height: 100px; max-width: 120px; object-fit: contain;">
           <div>
             <span class="text-muted small d-block">Imagen actual: <a href="{{ product.image.url }}" target="_blank">{{ product.image.name }}</a></span>
-            <small class="text-muted">Sube una nueva imagen solo si deseas reemplazar la actual.</small>
+            <small class="text-muted">Sube una nueva imagen solo si deseas reemplazar la principal.</small>
           </div>
         </div>
         {% endif %}
         <input type="file" class="form-control-file" id="image" name="image" accept="image/*">
         <small class="form-text text-muted">Formatos recomendados: JPG, PNG, WebP.</small>
       </div>
+
+      <!-- Galería de imágenes secundarias -->
+      <div class="form-group border-top pt-3">
+        <label for="extra_images" class="font-weight-bold">🖼️ Imágenes Adicionales (Galería)</label>
+        {% if product.images.all %}
+        <div class="d-flex flex-wrap mb-3">
+          {% for extra in product.images.all %}
+          <div class="card p-2 text-center mr-2 mb-2 bg-light" style="width: 110px;">
+            <img src="{{ extra.image.url }}" alt="{{ product.name }}" class="rounded mb-2" style="height: 75px; object-fit: contain;">
+            <a href="{% url 'deleteProductImage' extra.id %}" class="btn btn-outline-danger btn-sm py-0 px-2" onclick="return confirm('¿Eliminar esta imagen secundaria?');">
+              🗑️ Eliminar
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        <input type="file" class="form-control-file" id="extra_images" name="extra_images" accept="image/*" multiple>
+        <small class="form-text text-muted">Sube nuevas imágenes secundarias para agregarlas a la galería (puedes seleccionar varias a la vez).</small>
+      </div>
+
 
       <div class="form-row">
         <div class="form-group col-md-6">

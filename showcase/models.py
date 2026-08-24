@@ -150,9 +150,34 @@ class Product(models.Model):
         self.full_clean()
         return super().save(*args, **kwargs)
 
+    def get_all_images(self):
+        """Devuelve una lista de dicts con url, is_main, id para la imagen principal y las secundarias."""
+        all_imgs = []
+        if self.image:
+            all_imgs.append({'url': self.image.url, 'is_main': True, 'id': None})
+        for img in self.images.all():
+            all_imgs.append({'url': img.image.url, 'is_main': False, 'id': img.id})
+        return all_imgs
+
     def __str__(self):
         category_name = self.category.name if self.category else 'Sin categoría'
         return self.name + ' - Category : ' + category_name
+
+
+class ProductImage(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(upload_to='product_images/extra/', verbose_name='Imagen adicional')
+    alt_text = models.CharField(max_length=200, blank=True, default='', verbose_name='Texto alternativo')
+    order = models.PositiveIntegerField(default=0, verbose_name='Orden')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'id']
+        verbose_name = 'Imagen de Producto'
+        verbose_name_plural = 'Imágenes de Productos'
+
+    def __str__(self):
+        return f"Imagen de {self.product.name} (#{self.id})"
 
 
 class FeatureValue(models.Model):

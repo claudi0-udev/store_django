@@ -13,7 +13,9 @@ from .views import (
     CartRemove,
     CartUpdate,
     DeleteProduct,
+    DeleteProductImage,
     EditProduct,
+
     GetBrands,
     GetCategories,
     GetDistributors,
@@ -54,7 +56,9 @@ urlpatterns = [
     path('products/new/', AddNewProduct, name='addProduct'),
     path('products/edit/<int:productId>/', EditProduct, name='editProduct'),
     path('products/delete/<int:productId>/', DeleteProduct, name='deleteProduct'),
+    path('products/images/<int:imageId>/delete/', DeleteProductImage, name='deleteProductImage'),
     path('products/restore/<int:productId>/', RestoreProduct, name='restoreProduct'),
+
     path('products/archived/', ArchivedProductsList, name='archivedProducts'),
     path('products/get_categories/', GetCategories, name='getCategories'),
     path('products/get_brands/', GetBrands, name='getBrands'),

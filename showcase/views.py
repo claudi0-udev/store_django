@@ -1384,8 +1384,11 @@ def ManageSettings(request):
             settings.banner3_subtitle = request.POST.get('banner3_subtitle', settings.banner3_subtitle).strip()
             settings.banner3_bg_color = request.POST.get('banner3_bg_color', settings.banner3_bg_color).strip()
 
+            settings.enable_live_sales_notifications = request.POST.get('enable_live_sales_notifications') == 'on'
+
             settings.save()
             messages.success(request, 'Configuración y personalización de marca guardadas exitosamente.')
+
 
 
         elif action == 'add_rate':
@@ -1466,4 +1469,62 @@ def ManageCoupons(request):
     return render(request, 'manage_coupons.html', {
         'coupons': coupons,
     })
+
+
+def RecentSalesNotificationAPI(request):
+    """
+    API endpoint que retorna un listado en JSON de las compras recientes
+    realizadas en la tienda para alimentar los avisos emergentes (toasts).
+    """
+    settings = StoreSettings.get_solo()
+    if not settings.enable_live_sales_notifications:
+        return JsonResponse({'enabled': False, 'notifications': []})
+
+    from django.urls import reverse
+
+    recent_items = (
+        OrderItem.objects
+        .select_related('order', 'product')
+        .filter(order__paid=True, product__is_active=True, product__deleted_at__isnull=True)
+        .order_by('-order__created_at')[:10]
+    )
+
+    notifications = []
+    now = timezone.now()
+
+    for item in recent_items:
+        order = item.order
+        product = item.product
+        if not product:
+            continue
+
+        first_name = (order.first_name or 'Cliente').strip()
+        last_initial = order.last_name[0].upper() + '.' if order.last_name else ''
+        buyer_display = f"{first_name} {last_initial}".strip()
+        city_display = order.city or 'Pichidegua'
+
+        diff = now - order.created_at
+        if diff.total_seconds() < 3600:
+            mins = max(1, int(diff.total_seconds() // 60))
+            time_ago = f"hace {mins} min"
+        elif diff.total_seconds() < 86400:
+            hours = int(diff.total_seconds() // 3600)
+            time_ago = f"hace {hours} h"
+        else:
+            days = int(diff.total_seconds() // 86400)
+            time_ago = f"hace {days} d"
+
+        image_url = product.image.url if product.image else None
+
+        notifications.append({
+            'buyer_name': buyer_display,
+            'city': city_display,
+            'product_name': product.name,
+            'product_url': reverse('productDetail', kwargs={'productId': product.id}),
+            'product_image': image_url,
+            'time_ago': time_ago,
+        })
+
+    return JsonResponse({'enabled': True, 'notifications': notifications})
+
 

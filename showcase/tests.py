@@ -1657,3 +1657,52 @@ class CouponTests(TestCase):
         # Delete coupon
         self.client.post('/manage/coupons/', {'action': 'delete', 'coupon_id': coupon.id})
         self.assertFalse(Coupon.objects.filter(code='SUPER50').exists())
+
+
+class LiveSalesNotificationTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(username='livesalesstaff', password='testpass123', is_staff=True)
+        self.category = Category.objects.create(name='Audio')
+        self.product = Product.objects.create(
+            name='Parlante Bluetooth Pro', description='Sonido envolvente 360',
+            price=Decimal('49990.00'), units=15, category=self.category,
+        )
+        self.order = Order.objects.create(
+            first_name='Gabriel', last_name='Navarro',
+            email='gabriel@example.com', phone='+56988776655',
+            address='Calle Los Andes 88', city='Pichidegua',
+            total_amount=Decimal('49990.00'), status='completed', paid=True,
+        )
+        OrderItem.objects.create(order=self.order, product=self.product, price=self.product.price, quantity=1)
+
+    def test_recent_sales_api_returns_json(self):
+        response = self.client.get('/api/recent-sales/')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['enabled'])
+        self.assertGreaterEqual(len(data['notifications']), 1)
+        item = data['notifications'][0]
+        self.assertEqual(item['buyer_name'], 'Gabriel N.')
+        self.assertEqual(item['city'], 'Pichidegua')
+        self.assertEqual(item['product_name'], 'Parlante Bluetooth Pro')
+
+    def test_toggle_live_sales_notifications_settings(self):
+        self.client.login(username='livesalesstaff', password='testpass123')
+        # Disable live sales notifications
+        self.client.post('/manage/settings/', {
+            'action': 'settings',
+            'store_name': 'Store Django',
+            'origin_commune': 'Pichidegua',
+            'free_shipping_threshold': '59990',
+            # enable_live_sales_notifications not in POST means False
+        })
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        self.assertFalse(settings.enable_live_sales_notifications)
+
+        # Verify API returns enabled=False
+        response = self.client.get('/api/recent-sales/')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertFalse(data['enabled'])
+        self.assertEqual(len(data['notifications']), 0)

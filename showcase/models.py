@@ -280,6 +280,9 @@ class StoreSettings(models.Model):
     banner3_subtitle = models.CharField(max_length=300, default='Descubre la colección más reciente para esta temporada.', verbose_name='Banner 3 Subtítulo')
     banner3_bg_color = models.CharField(max_length=30, default='bg-warning text-dark', verbose_name='Banner 3 Estilo/Color')
 
+    enable_live_sales_notifications = models.BooleanField(default=True, verbose_name='Habilitar avisos de compras recientes en vivo')
+
+
 
     class Meta:
         verbose_name = 'Configuración de la Tienda'

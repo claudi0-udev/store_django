@@ -45,6 +45,7 @@ from .views import (
     ApplyCoupon,
     RemoveCoupon,
     ManageCoupons,
+    RecentSalesNotificationAPI,
     Register,
     RestoreProduct,
     ShippingQuote,
@@ -100,5 +101,6 @@ urlpatterns = [
     path('manage/dashboard/export-csv/', ManageAnalyticsExportCSV, name='manageAnalyticsExportCSV'),
     path('manage/settings/', ManageSettings, name='manageSettings'),
     path('manage/coupons/', ManageCoupons, name='manageCoupons'),
+    path('api/recent-sales/', RecentSalesNotificationAPI, name='recentSalesAPI'),
     path('shipping/quote/', ShippingQuote, name='shippingQuote'),
 ]

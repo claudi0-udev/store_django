@@ -347,10 +347,80 @@
             if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
               searchDropdown.style.display = 'none';
             }
+    <!-- Contenedor de Notificaciones en Vivo (Social Proof Sales Toast) -->
+    <div id="live-sales-container" style="position: fixed; bottom: 25px; left: 25px; z-index: 1060; max-width: 330px; pointer-events: none;"></div>
+
+    <script>
+      // 4. Avisos en Vivo de Compras Recientes (Sales Activity Toasts)
+      document.addEventListener('DOMContentLoaded', function() {
+        if (sessionStorage.getItem('live_sales_dismissed') === 'true') return;
+
+        fetch("{% url 'recentSalesAPI' %}")
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            if (!data.enabled || !data.notifications || data.notifications.length === 0) return;
+
+            var notifications = data.notifications;
+            var idx = 0;
+
+            function showNextToast() {
+              var container = document.getElementById('live-sales-container');
+              if (!container || sessionStorage.getItem('live_sales_dismissed') === 'true') return;
+
+              var n = notifications[idx];
+              idx = (idx + 1) % notifications.length;
+
+              var toast = document.createElement('div');
+              toast.className = 'card shadow-lg border-0 mb-2 p-3 bg-white text-dark';
+              toast.style.pointerEvents = 'auto';
+              toast.style.borderRadius = '10px';
+              toast.style.transition = 'all 0.5s ease-in-out';
+              toast.style.opacity = '0';
+              toast.style.transform = 'translateY(20px)';
+
+              toast.innerHTML = `
+                <div class="d-flex align-items-center">
+                  ${n.product_image ? `<img src="${n.product_image}" alt="${n.product_name}" class="rounded mr-3" style="width: 48px; height: 48px; object-fit: contain; background: #f8f9fa;">` : '<div class="rounded mr-3 bg-light d-flex align-items-center justify-content-center" style="width:48px; height:48px;">🛍️</div>'}
+                  <div class="flex-grow-1 mr-2" style="line-height: 1.2;">
+                    <div class="small text-muted mb-1">
+                      <strong class="text-dark">${n.buyer_name}</strong> de <span>${n.city}</span>
+                    </div>
+                    <a href="${n.product_url}" class="font-weight-bold text-primary small text-decoration-none d-block text-truncate" style="max-width: 190px;" title="${n.product_name}">
+                      Compró ${n.product_name}
+                    </a>
+                    <div class="text-muted" style="font-size: 11px;">${n.time_ago} · 🛒 Compra verificada</div>
+                  </div>
+                  <button type="button" class="close text-muted align-self-start" style="font-size: 16px; outline: none;" onclick="sessionStorage.setItem('live_sales_dismissed', 'true'); this.closest('.card').remove();">&times;</button>
+                </div>
+              `;
+
+              container.appendChild(toast);
+
+              setTimeout(function() {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+              }, 50);
+
+              // Auto ocultar después de 5.5 segundos
+              setTimeout(function() {
+                if (toast.parentNode) {
+                  toast.style.opacity = '0';
+                  toast.style.transform = 'translateY(20px)';
+                  setTimeout(function() { toast.remove(); }, 500);
+                }
+              }, 5500);
+            }
+
+            // Primer disparo a los 4 segundos, luego cada 18 segundos
+            setTimeout(showNextToast, 4000);
+            setInterval(showNextToast, 18000);
+          })
+          .catch(function(err) {
+            console.error('Error al cargar notificaciones en vivo:', err);
           });
-        }
       });
     </script>
+
     {% block extras %}
     {% endblock %}
 </body>

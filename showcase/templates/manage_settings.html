@@ -71,7 +71,17 @@
             </div>
           </div>
 
+          <div class="form-group mb-3">
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="id_enable_live_sales" name="enable_live_sales_notifications" {% if store_settings.enable_live_sales_notifications %}checked{% endif %}>
+              <label class="custom-control-label font-weight-bold text-dark small" for="id_enable_live_sales">
+                🔔 Mostrar avisos emergentes de compras en vivo en la tienda (Social Proof Toasts)
+              </label>
+            </div>
+          </div>
+
           <hr>
+
           <p class="font-weight-bold small text-primary text-uppercase mb-3">🎨 Personalización de Marca (Branding)</p>
           <div class="form-row">
             <div class="form-group col-md-6">

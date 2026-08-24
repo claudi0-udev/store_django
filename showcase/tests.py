@@ -1387,3 +1387,53 @@ class ProductGalleryTests(TestCase):
         response = self.client.get(f'/products/images/{self.img2.id}/delete/')
         self.assertEqual(response.status_code, 302)
         self.assertTrue(ProductImage.objects.filter(pk=self.img2.id).exists())
+
+
+class PopularCategoriesTests(TestCase):
+    def setUp(self):
+        self.cat1 = Category.objects.create(name='Smartphones')
+        self.cat2 = Category.objects.create(name='Laptops')
+        self.product1 = Product.objects.create(
+            name='Teléfono X', description='Descripción teléfono',
+            price=Decimal('200000.00'), units=10, category=self.cat1,
+        )
+        self.product2 = Product.objects.create(
+            name='Laptop Z', description='Descripción laptop',
+            price=Decimal('500000.00'), units=5, category=self.cat2,
+        )
+
+    def test_product_detail_increments_views_count(self):
+        self.assertEqual(self.product1.views_count, 0)
+        self.assertEqual(self.cat1.views_count, 0)
+        
+        response = self.client.get(f'/products/detail/{self.product1.id}/')
+        self.assertEqual(response.status_code, 200)
+        
+        self.product1.refresh_from_db()
+        self.cat1.refresh_from_db()
+        self.assertEqual(self.product1.views_count, 1)
+        self.assertEqual(self.cat1.views_count, 1)
+
+    def test_home_page_popular_categories_context(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('popular_categories', response.context)
+        pop_cats = response.context['popular_categories']
+        cat_ids = [c.id for c in pop_cats]
+        self.assertIn(self.cat1.id, cat_ids)
+        self.assertIn(self.cat2.id, cat_ids)
+
+    def test_home_page_category_filtering(self):
+        response = self.client.get(f'/?category={self.cat1.id}')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['category_id'], str(self.cat1.id))
+        
+        filtered_products = list(response.context['products'])
+        filtered_ids = [p.id for p in filtered_products]
+        self.assertIn(self.product1.id, filtered_ids)
+        self.assertNotIn(self.product2.id, filtered_ids)
+        
+        # Verify category view incremented when filtered
+        self.cat1.refresh_from_db()
+        self.assertEqual(self.cat1.views_count, 1)
+

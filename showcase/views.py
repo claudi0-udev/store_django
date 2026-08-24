@@ -9,8 +9,9 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, Q, Sum
-from django.db.models.functions import TruncDate, TruncMonth
+from django.db.models import Avg, Count, F, Q, Sum
+from django.db.models.functions import Coalesce, TruncDate, TruncMonth
+
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -49,7 +50,20 @@ def HomePage(request):
     featured_products = Product.objects.filter(is_active=True).select_related('category', 'brand', 'manufacturer', 'distributor').order_by('-id')[:6]
     best_selling_products = Product.objects.filter(is_active=True).select_related('category').order_by('-units')[:4]
     new_products = Product.objects.filter(is_active=True).select_related('category').order_by('-id')[:4]
-    categories = Category.objects.order_by('name')[:8]
+
+    # Categorías Populares dinámicas con métricas de ventas y visitas
+    categories_qs = Category.objects.filter(Q(parent_category_id=0) | Q(parent_category_id__isnull=True)).annotate(
+        product_count=Count('product', filter=Q(product__is_active=True)),
+        total_sold=Coalesce(Sum('product__order_items__quantity', filter=Q(product__is_active=True, product__order_items__order__paid=True)), 0),
+        product_views=Coalesce(Sum('product__views_count', filter=Q(product__is_active=True)), 0),
+    ).annotate(
+        total_views=F('views_count') + F('product_views')
+    )
+
+
+
+    popular_categories = categories_qs.order_by('-total_sold', '-total_views', '-product_count', 'name')[:8]
+    all_categories = Category.objects.order_by('name')
 
     search_query = (request.GET.get('q') or request.GET.get('search') or '').strip()
     category_id = request.GET.get('category')
@@ -67,6 +81,7 @@ def HomePage(request):
 
     if category_id:
         products_query = products_query.filter(category_id=category_id)
+        Category.objects.filter(pk=category_id).update(views_count=F('views_count') + 1)
 
     if ordering in {'-id', 'id', '-price', 'price', '-units', 'units'}:
         products_query = products_query.order_by(ordering)
@@ -79,12 +94,14 @@ def HomePage(request):
         'featured_products': featured_products,
         'best_selling_products': best_selling_products,
         'new_products': new_products,
-        'categories': categories,
+        'popular_categories': popular_categories,
+        'categories': all_categories,
         'search_query': search_query,
         'category_id': category_id,
         'ordering': ordering,
         'products': products,
     })
+
 
 
 def staff_required(view_func):
@@ -157,7 +174,13 @@ def ProductDetail(request, productId):
         messages.error(request, 'El producto solicitado no se encuentra disponible en el catálogo.')
         return redirect('products')
 
+    # Incrementar vistas de producto y categoría
+    Product.objects.filter(pk=productId).update(views_count=F('views_count') + 1)
+    if product.category_id:
+        Category.objects.filter(pk=product.category_id).update(views_count=F('views_count') + 1)
+
     category = Category.objects.filter(id=product.category_id)
+
     feature_values = FeatureValue.objects.filter(product_id=productId).select_related('feature')
 
     # Productos relacionados (Cross-selling)

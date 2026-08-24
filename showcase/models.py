@@ -16,6 +16,8 @@ def _normalize_name(value):
 class Category(models.Model):
     name = models.CharField(max_length=200, validators=[MinLengthValidator(2)])
     parent_category_id = models.IntegerField(null=True, blank=True)
+    views_count = models.PositiveIntegerField(default=0, verbose_name='Conteo de visitas')
+
 
     def clean(self):
         # Normalize category names so blanks and extra spaces are rejected consistently.
@@ -126,6 +128,8 @@ class Product(models.Model):
     height_cm = models.DecimalField(max_digits=6, decimal_places=1, default=Decimal('10.0'), verbose_name='Alto (cm)')
     width_cm = models.DecimalField(max_digits=6, decimal_places=1, default=Decimal('10.0'), verbose_name='Ancho (cm)')
     length_cm = models.DecimalField(max_digits=6, decimal_places=1, default=Decimal('10.0'), verbose_name='Largo (cm)')
+    views_count = models.PositiveIntegerField(default=0, verbose_name='Conteo de visitas')
+
 
 
     def clean(self):

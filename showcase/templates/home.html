@@ -99,16 +99,42 @@
 
 <section class="row mb-4">
   <div class="col-12">
-    <h2 class="h5 font-weight-bold mb-3">Categorías populares</h2>
-    <div class="d-flex flex-wrap gap-2">
-      {% for category in categories %}
-      <span class="badge badge-pill badge-light border px-3 py-2">{{ category.name }}</span>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2 class="h5 font-weight-bold mb-0">🔥 Categorías Populares</h2>
+      <a href="{% url 'products' %}" class="small font-weight-bold text-primary">Ver catálogo completo →</a>
+    </div>
+    <div class="d-flex flex-wrap align-items-center">
+      {% for cat in popular_categories %}
+      <a href="{% url 'home' %}?category={{ cat.id }}" 
+         class="btn btn-sm {% if category_id == cat.id|stringformat:'s' %}btn-primary font-weight-bold shadow-sm{% else %}btn-outline-secondary bg-white text-dark{% endif %} m-1 rounded-pill px-3 py-2">
+        <span>{{ cat.name }}</span>
+        {% if cat.total_sold > 0 %}
+        <span class="badge badge-pill {% if category_id == cat.id|stringformat:'s' %}badge-light text-primary{% else %}badge-success{% endif %} ml-1">
+          🔥 {{ cat.total_sold }} comprados
+        </span>
+        {% elif cat.total_views > 0 %}
+        <span class="badge badge-pill {% if category_id == cat.id|stringformat:'s' %}badge-light text-primary{% else %}badge-info{% endif %} ml-1">
+          👁️ {{ cat.total_views }} vistas
+        </span>
+        {% elif cat.product_count > 0 %}
+        <span class="badge badge-pill {% if category_id == cat.id|stringformat:'s' %}badge-light text-primary{% else %}badge-light border text-muted{% endif %} ml-1">
+          {{ cat.product_count }} prod.
+        </span>
+        {% endif %}
+      </a>
       {% empty %}
-      <span class="text-muted">Pronto añadiremos más categorías.</span>
+      <span class="text-muted small">Pronto añadiremos más categorías.</span>
       {% endfor %}
+
+      {% if category_id %}
+      <a href="{% url 'home' %}" class="btn btn-sm btn-outline-danger m-1 rounded-pill px-3 py-2 font-weight-bold">
+        ✕ Limpiar filtro
+      </a>
+      {% endif %}
     </div>
   </div>
 </section>
+
 
 <section class="row mb-4">
   <div class="col-12">

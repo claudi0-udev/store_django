@@ -222,6 +222,29 @@ class StoreSettings(models.Model):
     shipit_token = models.CharField(max_length=200, blank=True, default='', verbose_name='Token API Shipit')
     shipit_enabled = models.BooleanField(default=False, verbose_name='Activar integración Shipit')
 
+    # Personalización de Marca y Branding
+    site_logo = models.ImageField(upload_to='store_branding/', null=True, blank=True, verbose_name='Logo de la tienda')
+    site_favicon = models.ImageField(upload_to='store_branding/', null=True, blank=True, verbose_name='Favicon')
+    footer_text = models.CharField(
+        max_length=300,
+        default='Plataforma de comercio electrónico con despacho y seguimiento en línea.',
+        verbose_name='Texto de pie de página',
+    )
+
+    # Banners Promocionales del Carrusel
+    banner1_title = models.CharField(max_length=150, default='Promoción del mes', verbose_name='Banner 1 Título')
+    banner1_subtitle = models.CharField(max_length=300, default='Aprovecha descuentos especiales en productos seleccionados.', verbose_name='Banner 1 Subtítulo')
+    banner1_bg_color = models.CharField(max_length=30, default='bg-primary text-white', verbose_name='Banner 1 Estilo/Color')
+
+    banner2_title = models.CharField(max_length=150, default='Envío gratis', verbose_name='Banner 2 Título')
+    banner2_subtitle = models.CharField(max_length=300, default='Disfruta de envío gratis en pedidos sobre el monto mínimo.', verbose_name='Banner 2 Subtítulo')
+    banner2_bg_color = models.CharField(max_length=30, default='bg-success text-white', verbose_name='Banner 2 Estilo/Color')
+
+    banner3_title = models.CharField(max_length=150, default='Nuevos lanzamientos', verbose_name='Banner 3 Título')
+    banner3_subtitle = models.CharField(max_length=300, default='Descubre la colección más reciente para esta temporada.', verbose_name='Banner 3 Subtítulo')
+    banner3_bg_color = models.CharField(max_length=30, default='bg-warning text-dark', verbose_name='Banner 3 Estilo/Color')
+
+
     class Meta:
         verbose_name = 'Configuración de la Tienda'
 

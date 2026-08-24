@@ -1237,8 +1237,31 @@ def ManageSettings(request):
             settings.shipit_email = request.POST.get('shipit_email', '').strip()
             settings.shipit_token = request.POST.get('shipit_token', '').strip()
             settings.shipit_enabled = request.POST.get('shipit_enabled') == 'on'
+
+            # Branding y Personalización de Marca
+            if 'site_logo' in request.FILES:
+                settings.site_logo = request.FILES['site_logo']
+            if 'site_favicon' in request.FILES:
+                settings.site_favicon = request.FILES['site_favicon']
+            if 'footer_text' in request.POST:
+                settings.footer_text = request.POST.get('footer_text', settings.footer_text).strip()
+
+            # Banners del Carrusel
+            settings.banner1_title = request.POST.get('banner1_title', settings.banner1_title).strip()
+            settings.banner1_subtitle = request.POST.get('banner1_subtitle', settings.banner1_subtitle).strip()
+            settings.banner1_bg_color = request.POST.get('banner1_bg_color', settings.banner1_bg_color).strip()
+
+            settings.banner2_title = request.POST.get('banner2_title', settings.banner2_title).strip()
+            settings.banner2_subtitle = request.POST.get('banner2_subtitle', settings.banner2_subtitle).strip()
+            settings.banner2_bg_color = request.POST.get('banner2_bg_color', settings.banner2_bg_color).strip()
+
+            settings.banner3_title = request.POST.get('banner3_title', settings.banner3_title).strip()
+            settings.banner3_subtitle = request.POST.get('banner3_subtitle', settings.banner3_subtitle).strip()
+            settings.banner3_bg_color = request.POST.get('banner3_bg_color', settings.banner3_bg_color).strip()
+
             settings.save()
-            messages.success(request, 'Configuración guardada exitosamente.')
+            messages.success(request, 'Configuración y personalización de marca guardadas exitosamente.')
+
 
         elif action == 'add_rate':
             try:

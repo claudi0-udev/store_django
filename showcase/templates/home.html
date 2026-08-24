@@ -28,7 +28,7 @@
 
 <section class="row mb-4">
   <div class="col-12">
-    <div id="promoCarousel" class="carousel slide shadow-sm rounded" data-ride="carousel">
+    <div id="promoCarousel" class="carousel slide shadow-sm rounded overflow-hidden" data-ride="carousel">
       <ol class="carousel-indicators">
         <li data-target="#promoCarousel" data-slide-to="0" class="active"></li>
         <li data-target="#promoCarousel" data-slide-to="1"></li>
@@ -36,27 +36,28 @@
       </ol>
       <div class="carousel-inner">
         <div class="carousel-item active">
-          <div class="d-block w-100 p-5 rounded bg-primary text-white">
-            <h3>Promoción del mes</h3>
-            <p class="mb-0">Aprovecha descuentos especiales en productos seleccionados.</p>
+          <div class="d-block w-100 p-5 rounded {{ store_settings.banner1_bg_color|default:'bg-primary text-white' }}">
+            <h3 class="font-weight-bold">{{ store_settings.banner1_title|default:'Promoción del mes' }}</h3>
+            <p class="mb-0">{{ store_settings.banner1_subtitle|default:'Aprovecha descuentos especiales en productos seleccionados.' }}</p>
           </div>
         </div>
         <div class="carousel-item">
-          <div class="d-block w-100 p-5 rounded bg-success text-white">
-            <h3>Envío gratis</h3>
-            <p class="mb-0">Disfruta de envío gratis en pedidos por encima de un valor mínimo.</p>
+          <div class="d-block w-100 p-5 rounded {{ store_settings.banner2_bg_color|default:'bg-success text-white' }}">
+            <h3 class="font-weight-bold">{{ store_settings.banner2_title|default:'Envío gratis' }}</h3>
+            <p class="mb-0">{{ store_settings.banner2_subtitle|default:'Disfruta de envío gratis en pedidos por encima de un valor mínimo.' }}</p>
           </div>
         </div>
         <div class="carousel-item">
-          <div class="d-block w-100 p-5 rounded bg-warning text-dark">
-            <h3>Nuevos lanzamientos</h3>
-            <p class="mb-0">Descubre la colección más reciente para esta temporada.</p>
+          <div class="d-block w-100 p-5 rounded {{ store_settings.banner3_bg_color|default:'bg-warning text-dark' }}">
+            <h3 class="font-weight-bold">{{ store_settings.banner3_title|default:'Nuevos lanzamientos' }}</h3>
+            <p class="mb-0">{{ store_settings.banner3_subtitle|default:'Descubre la colección más reciente para esta temporada.' }}</p>
           </div>
         </div>
       </div>
     </div>
   </div>
 </section>
+
 
 <section class="row mb-4">
   <div class="col-12">

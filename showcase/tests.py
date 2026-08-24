@@ -1437,3 +1437,34 @@ class PopularCategoriesTests(TestCase):
         self.cat1.refresh_from_db()
         self.assertEqual(self.cat1.views_count, 1)
 
+
+
+class StoreBrandingTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(
+            username='brandingstaff', password='testpass123', is_staff=True
+        )
+
+    def test_store_settings_context_processor_injected(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('store_settings', response.context)
+        self.assertEqual(response.context['store_settings'].store_name, 'Store Django')
+
+    def test_manage_settings_updates_branding_and_banners(self):
+        self.client.login(username='brandingstaff', password='testpass123')
+        response = self.client.post('/manage/settings/', {
+            'action': 'settings',
+            'store_name': 'Mi Tienda Personalizada',
+            'footer_text': 'Derechos reservados 2026.',
+            'banner1_title': 'Super Ofertas',
+            'banner1_subtitle': 'Descuentos de hasta 50%',
+            'banner1_bg_color': 'bg-dark text-white',
+        })
+        self.assertEqual(response.status_code, 302)
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        self.assertEqual(settings.store_name, 'Mi Tienda Personalizada')
+        self.assertEqual(settings.footer_text, 'Derechos reservados 2026.')
+        self.assertEqual(settings.banner1_title, 'Super Ofertas')
+        self.assertEqual(settings.banner1_bg_color, 'bg-dark text-white')

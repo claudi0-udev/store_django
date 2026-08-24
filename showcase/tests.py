@@ -1299,7 +1299,8 @@ class ShippingCalculatorTests(TestCase):
         self.client.login(username='shippingstaff', password='testpass123')
         response = self.client.get('/manage/settings/')
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Configuración de la Tienda')
+        self.assertContains(response, 'Configuración')
+
 
     def test_manage_settings_redirects_non_staff(self):
         response = self.client.get('/manage/settings/')

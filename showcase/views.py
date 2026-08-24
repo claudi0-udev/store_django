@@ -34,7 +34,9 @@ from .models import (
     Product,
     ProductAuditLog,
     ProductImage,
+    ProductReview,
     ShippingRate,
+
     StoreSettings,
 )
 
@@ -180,8 +182,35 @@ def ProductDetail(request, productId):
         Category.objects.filter(pk=product.category_id).update(views_count=F('views_count') + 1)
 
     category = Category.objects.filter(id=product.category_id)
-
     feature_values = FeatureValue.objects.filter(product_id=productId).select_related('feature')
+
+    # Reseñas y Calificaciones
+    reviews = list(product.reviews.select_related('user').all())
+    review_count = len(reviews)
+    avg_rating = product.get_average_rating()
+
+    # Comprobar si el usuario actual ya opinó y si tiene compra verificada
+    user_review = None
+    is_verified_buyer = False
+    if user and user.is_authenticated:
+        user_review = next((r for r in reviews if r.user_id == user.id), None)
+        is_verified_buyer = Order.objects.filter(user=user, paid=True, items__product=product).exists()
+
+    # Desglose de estrellas (porcentajes de 1 a 5)
+    rating_counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    for r in reviews:
+        if 1 <= r.rating <= 5:
+            rating_counts[r.rating] += 1
+
+    rating_breakdown = []
+    for star in range(5, 0, -1):
+        count = rating_counts[star]
+        percent = int((count / review_count * 100)) if review_count > 0 else 0
+        rating_breakdown.append({
+            'star': star,
+            'count': count,
+            'percent': percent,
+        })
 
     # Productos relacionados (Cross-selling)
     related_qs = Product.objects.filter(is_active=True, category=product.category).exclude(id=product.id)[:4]
@@ -197,7 +226,54 @@ def ProductDetail(request, productId):
         'category': category,
         'featureValues': feature_values,
         'related_products': related_products,
+        'reviews': reviews,
+        'review_count': review_count,
+        'avg_rating': avg_rating,
+        'user_review': user_review,
+        'is_verified_buyer': is_verified_buyer,
+        'rating_breakdown': rating_breakdown,
     })
+
+
+@login_required(login_url='login')
+def AddProductReview(request, productId):
+    """Permite a un usuario autenticado calificar y opinar sobre un producto."""
+    if request.method != 'POST':
+        return redirect('productDetail', productId=productId)
+
+    product = get_object_or_404(Product, pk=productId, is_active=True)
+    rating_raw = request.POST.get('rating', '5')
+    title = request.POST.get('title', '').strip()
+    comment = request.POST.get('comment', '').strip()
+
+    try:
+        rating = int(rating_raw)
+        if rating < 1 or rating > 5:
+            rating = 5
+    except ValueError:
+        rating = 5
+
+    if not title or not comment:
+        messages.error(request, 'Por favor completa el título y el comentario de tu opinión.')
+        return redirect('productDetail', productId=productId)
+
+    # Verificar si el usuario compró el producto
+    is_verified = Order.objects.filter(user=request.user, paid=True, items__product=product).exists()
+
+    ProductReview.objects.update_or_create(
+        product=product,
+        user=request.user,
+        defaults={
+            'rating': rating,
+            'title': title,
+            'comment': comment,
+            'is_verified_purchase': is_verified,
+        }
+    )
+
+    messages.success(request, '¡Gracias! Tu opinión ha sido publicada exitosamente.')
+    return redirect('productDetail', productId=productId)
+
 
 
 

@@ -3,7 +3,8 @@ import re
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import MinLengthValidator, MinValueValidator
+from django.core.validators import MaxValueValidator, MinLengthValidator, MinValueValidator
+
 from django.db import models
 
 
@@ -163,6 +164,15 @@ class Product(models.Model):
             all_imgs.append({'url': img.image.url, 'is_main': False, 'id': img.id})
         return all_imgs
 
+    def get_average_rating(self):
+        """Calcula el promedio de estrellas (1.0 a 5.0)."""
+        avg = self.reviews.aggregate(models.Avg('rating'))['rating__avg']
+        return round(float(avg), 1) if avg is not None else 0.0
+
+    def get_review_count(self):
+        """Devuelve el total de opiniones recibidas."""
+        return self.reviews.count()
+
     def __str__(self):
         category_name = self.category.name if self.category else 'Sin categoría'
         return self.name + ' - Category : ' + category_name
@@ -182,6 +192,30 @@ class ProductImage(models.Model):
 
     def __str__(self):
         return f"Imagen de {self.product.name} (#{self.id})"
+
+
+class ProductReview(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reviews')
+    rating = models.PositiveIntegerField(
+        default=5,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        verbose_name='Calificación (1-5 estrellas)'
+    )
+    title = models.CharField(max_length=150, verbose_name='Título de la opinión')
+    comment = models.TextField(verbose_name='Comentario u opinión')
+    is_verified_purchase = models.BooleanField(default=False, verbose_name='Compra verificada')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ('product', 'user')
+        verbose_name = 'Reseña de Producto'
+        verbose_name_plural = 'Reseñas de Productos'
+
+    def __str__(self):
+        return f"{self.rating}★ - {self.title} ({self.user.username})"
+
 
 
 class FeatureValue(models.Model):

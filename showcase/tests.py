@@ -1468,3 +1468,53 @@ class StoreBrandingTests(TestCase):
         self.assertEqual(settings.footer_text, 'Derechos reservados 2026.')
         self.assertEqual(settings.banner1_title, 'Super Ofertas')
         self.assertEqual(settings.banner1_bg_color, 'bg-dark text-white')
+
+
+class ProductReviewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='buyer1', password='testpass123')
+        self.category = Category.objects.create(name='Audio')
+        self.product = Product.objects.create(
+            name='Audífonos Hi-Fi', description='Excelente sonido studio',
+            price=Decimal('79990.00'), units=10, category=self.category,
+        )
+
+    def test_add_review_authenticated_user(self):
+        self.client.login(username='buyer1', password='testpass123')
+        response = self.client.post(f'/products/detail/{self.product.id}/review/', {
+            'rating': '5',
+            'title': 'Increíble calidad',
+            'comment': 'Los mejores audífonos que he tenido.',
+        })
+        self.assertEqual(response.status_code, 302)
+        from showcase.models import ProductReview
+        review = ProductReview.objects.get(product=self.product, user=self.user)
+        self.assertEqual(review.rating, 5)
+        self.assertEqual(review.title, 'Increíble calidad')
+        self.assertFalse(review.is_verified_purchase)
+        self.assertEqual(self.product.get_average_rating(), 5.0)
+        self.assertEqual(self.product.get_review_count(), 1)
+
+    def test_verified_purchase_flag_when_order_paid(self):
+        # Create a paid order for buyer1
+        order = Order.objects.create(
+            user=self.user, first_name='Juan', last_name='Pérez',
+            email='juan@test.com', address='Av 123', city='Pichidegua',
+            total_amount=Decimal('79990.00'), paid=True,
+        )
+        from showcase.models import OrderItem, ProductReview
+        OrderItem.objects.create(order=order, product=self.product, price=self.product.price, quantity=1)
+
+        self.client.login(username='buyer1', password='testpass123')
+        self.client.post(f'/products/detail/{self.product.id}/review/', {
+            'rating': '4',
+            'title': 'Muy buen sonido',
+            'comment': 'Sonido claro y graves potentes.',
+        })
+        review = ProductReview.objects.get(product=self.product, user=self.user)
+        self.assertTrue(review.is_verified_purchase)
+
+    def test_product_detail_renders_reviews_and_form(self):
+        response = self.client.get(f'/products/detail/{self.product.id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Opiniones de Clientes')

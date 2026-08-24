@@ -161,7 +161,13 @@
               <span class="small text-muted">{{ product.category.name|default:'' }}</span>
             </div>
             <h5 class="card-title h6 font-weight-bold mb-1">{{ product.name }}</h5>
+            {% if product.get_review_count > 0 %}
+            <div class="small text-warning mb-1">
+              ★ <strong>{{ product.get_average_rating }}</strong> <span class="text-muted">({{ product.get_review_count }})</span>
+            </div>
+            {% endif %}
             <p class="card-text text-muted small">{{ product.description|truncatechars:70 }}</p>
+
             <p class="font-weight-bold text-primary mb-0">$ {{ product.price }}</p>
           </div>
           <div class="card-footer bg-white border-0 pt-0 d-flex justify-content-between">
@@ -204,7 +210,13 @@
               {% endif %}
             </div>
             <h5 class="card-title h6 font-weight-bold mb-1">{{ product.name }}</h5>
+            {% if product.get_review_count > 0 %}
+            <div class="small text-warning mb-1">
+              ★ <strong>{{ product.get_average_rating }}</strong> <span class="text-muted">({{ product.get_review_count }})</span>
+            </div>
+            {% endif %}
             <p class="card-text text-muted small">{{ product.description|truncatechars:70 }}</p>
+
             <p class="font-weight-bold text-primary mb-0">$ {{ product.price }}</p>
           </div>
           <div class="card-footer bg-white border-0 pt-0 d-flex justify-content-between">

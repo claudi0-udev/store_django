@@ -41,6 +41,7 @@ from .views import (
     PaymentProcess,
     PaymentRetry,
     ProductDetail,
+    AddProductReview,
     Register,
     RestoreProduct,
     ShippingQuote,
@@ -52,6 +53,8 @@ urlpatterns = [
     path('products/', ListProducts, name='products'),
     path('products/live-search/', LiveProductSearch, name='liveProductSearch'),
     path('products/detail/<int:productId>/', ProductDetail, name='productDetail'),
+    path('products/detail/<int:productId>/review/', AddProductReview, name='addProductReview'),
+
 
     path('products/new/', AddNewProduct, name='addProduct'),
     path('products/edit/<int:productId>/', EditProduct, name='editProduct'),

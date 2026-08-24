@@ -101,7 +101,23 @@
         </div>
 
         <h1 class="h3 font-weight-bold mb-2">{{ product.name }}</h1>
+
+        <!-- Puntuación por Estrellas Summary Badge -->
+        <div class="d-flex align-items-center mb-3">
+          <div class="text-warning mr-2" style="font-size: 1.1rem;">
+            {% if avg_rating >= 4.5 %}⭐⭐⭐⭐⭐
+            {% elif avg_rating >= 3.5 %}⭐⭐⭐⭐☆
+            {% elif avg_rating >= 2.5 %}⭐⭐⭐☆☆
+            {% elif avg_rating >= 1.5 %}⭐⭐☆☆☆
+            {% elif avg_rating >= 0.5 %}⭐☆☆☆☆
+            {% else %}☆☆☆☆☆{% endif %}
+          </div>
+          <span class="font-weight-bold mr-2">{{ avg_rating }}</span>
+          <a href="#reviews-section" class="small text-muted text-underline">({{ review_count }} {% if review_count == 1 %}opinión{% else %}opiniones{% endif %})</a>
+        </div>
+
         <p class="text-muted mb-3">{{ product.description }}</p>
+
 
         <!-- Precios y Cuotas -->
         <div class="p-3 bg-light rounded mb-4 border">
@@ -243,7 +259,123 @@
 </section>
 {% endif %}
 
+<!-- Seccion de Reseñas y Calificaciones -->
+<div class="card border-0 shadow-sm mt-5" id="reviews-section">
+  <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+    <h3 class="h5 font-weight-bold mb-0">⭐ Opiniones de Clientes</h3>
+    <span class="badge badge-pill badge-primary px-3 py-2 font-weight-bold">{{ avg_rating }} / 5.0 ({{ review_count }} opiniones)</span>
+  </div>
+  <div class="card-body">
+    <div class="row align-items-center mb-4">
+      <!-- Promedio General -->
+      <div class="col-md-4 text-center border-right py-3">
+        <h1 class="display-4 font-weight-bold text-primary mb-0">{{ avg_rating }}</h1>
+        <div class="text-warning h4 mb-1">
+          {% if avg_rating >= 4.5 %}⭐⭐⭐⭐⭐
+          {% elif avg_rating >= 3.5 %}⭐⭐⭐⭐☆
+          {% elif avg_rating >= 2.5 %}⭐⭐⭐☆☆
+          {% elif avg_rating >= 1.5 %}⭐⭐☆☆☆
+          {% elif avg_rating >= 0.5 %}⭐☆☆☆☆
+          {% else %}☆☆☆☆☆{% endif %}
+        </div>
+        <p class="text-muted small mb-0">Basado en {{ review_count }} calificaciones</p>
+      </div>
+
+      <!-- Desglose de Estrellas (5 a 1) -->
+      <div class="col-md-8 py-3">
+        {% for item in rating_breakdown %}
+        <div class="d-flex align-items-center mb-1 small">
+          <span class="mr-2 font-weight-bold" style="width: 30px;">{{ item.star }} ★</span>
+          <div class="progress flex-grow-1 mr-2" style="height: 10px;">
+            <div class="progress-bar bg-warning" role="progressbar" style="width: {{ item.percent }}%;" aria-valuenow="{{ item.percent }}" aria-valuemin="0" aria-valuemax="100"></div>
+          </div>
+          <span class="text-muted" style="width: 45px;">{{ item.count }} ({{ item.percent }}%)</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <hr class="my-4">
+
+    <!-- Formulario para dejar o editar Opinión -->
+    <div class="card bg-light border-0 mb-4">
+      <div class="card-body">
+        {% if user.is_authenticated %}
+        <h5 class="card-title font-weight-bold mb-2">
+          {% if user_review %}✏️ Editar tu opinión{% else %}✍️ Dejar una opinión{% endif %}
+        </h5>
+        {% if is_verified_buyer %}
+        <p class="small text-success font-weight-bold mb-3">✅ Eres un comprador verificado de este producto.</p>
+        {% else %}
+        <p class="small text-muted mb-3">Comparte tu experiencia para ayudar a otros compradores.</p>
+        {% endif %}
+
+        <form method="post" action="{% url 'addProductReview' product.id %}">
+          {% csrf_token %}
+          <div class="form-group">
+            <label class="small font-weight-bold">Calificación con Estrellas</label>
+            <select name="rating" class="form-control form-control-sm font-weight-bold text-warning" style="max-width: 220px;">
+              <option value="5" {% if user_review and user_review.rating == 5 %}selected{% endif %}>⭐⭐⭐⭐⭐ (5 - Excelente)</option>
+              <option value="4" {% if user_review and user_review.rating == 4 %}selected{% endif %}>⭐⭐⭐⭐☆ (4 - Muy Bueno)</option>
+              <option value="3" {% if user_review and user_review.rating == 3 %}selected{% endif %}>⭐⭐⭐☆☆ (3 - Bueno)</option>
+              <option value="2" {% if user_review and user_review.rating == 2 %}selected{% endif %}>⭐⭐☆☆☆ (2 - Regular)</option>
+              <option value="1" {% if user_review and user_review.rating == 1 %}selected{% endif %}>⭐☆☆☆☆ (1 - Malo)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="small font-weight-bold">Título de tu opinión</label>
+            <input type="text" name="title" class="form-control" placeholder="Ej: Excelente calidad y rápida entrega" value="{{ user_review.title|default:'' }}" required maxlength="150">
+          </div>
+          <div class="form-group">
+            <label class="small font-weight-bold">Comentario u Opinión detallada</label>
+            <textarea name="comment" class="form-control" rows="3" placeholder="¿Qué te pareció el producto? Cuéntanos detalles sobre el uso, acabados y funcionamiento..." required>{{ user_review.comment|default:'' }}</textarea>
+          </div>
+          <button type="submit" class="btn btn-primary font-weight-bold shadow-sm">
+            {% if user_review %}💾 Actualizar Opinión{% else %}🚀 Publicar Opinión{% endif %}
+          </button>
+        </form>
+        {% else %}
+        <div class="text-center py-3">
+          <p class="mb-2 font-weight-bold">¿Has probado este producto?</p>
+          <a href="{% url 'login' %}?next={{ request.path }}" class="btn btn-outline-primary btn-sm font-weight-bold">Inicia sesión para dejar tu calificación y opinión</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Lista de Opiniones de Clientes -->
+    <h5 class="font-weight-bold mb-3">Comentarios de los clientes ({{ review_count }})</h5>
+    <div class="reviews-list">
+      {% for review in reviews %}
+      <div class="border-bottom py-3">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+          <div>
+            <span class="font-weight-bold text-dark mr-2">{{ review.user.username }}</span>
+            {% if review.is_verified_purchase %}
+            <span class="badge badge-success px-2 py-1 small">✅ Compra Verificada</span>
+            {% endif %}
+          </div>
+          <span class="small text-muted">{{ review.created_at|date:"d M Y, H:i" }}</span>
+        </div>
+        <div class="text-warning small mb-1">
+          {% if review.rating == 5 %}⭐⭐⭐⭐⭐
+          {% elif review.rating == 4 %}⭐⭐⭐⭐☆
+          {% elif review.rating == 3 %}⭐⭐⭐☆☆
+          {% elif review.rating == 2 %}⭐⭐☆☆☆
+          {% else %}⭐☆☆☆☆{% endif %}
+          <span class="font-weight-bold text-dark ml-2">{{ review.title }}</span>
+        </div>
+        <p class="text-muted small mb-0">{{ review.comment }}</p>
+      </div>
+      {% empty %}
+      <p class="text-muted text-center py-4 mb-0">Aún no hay opiniones para este producto. ¡Sé el primero en dejar una reseña!</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
 <script>
+
   function switchProductImage(url, btn) {
     var mainImg = document.getElementById('mainProductImage');
     if (mainImg) {

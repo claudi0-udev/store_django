@@ -282,6 +282,12 @@ class StoreSettings(models.Model):
 
     enable_live_sales_notifications = models.BooleanField(default=True, verbose_name='Habilitar avisos de compras recientes en vivo')
 
+    # Widget de WhatsApp Live Support
+    whatsapp_number = models.CharField(max_length=30, default='+56912345678', verbose_name='Número de WhatsApp de atención (+569...)')
+    whatsapp_default_message = models.CharField(max_length=250, default='Hola! Quisiera más información sobre la tienda.', verbose_name='Mensaje inicial de WhatsApp por defecto')
+    enable_whatsapp_widget = models.BooleanField(default=True, verbose_name='Habilitar botón flotante de WhatsApp')
+
+
 
 
     class Meta:

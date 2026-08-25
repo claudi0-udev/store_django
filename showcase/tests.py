@@ -1729,3 +1729,48 @@ class PWATests(TestCase):
         response = self.client.get('/offline/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Sin Conexión a Internet')
+
+
+class WhatsAppWidgetTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(username='wastaff', password='testpass123', is_staff=True)
+        self.category = Category.objects.create(name='Telefonía')
+        self.product = Product.objects.create(
+            name='Smartphone Pro Max', description='Teléfono de alta gama',
+            price=Decimal('899990.00'), units=5, category=self.category,
+        )
+
+    def test_whatsapp_widget_rendered_on_home_and_product_detail(self):
+        # Home page render
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="whatsapp-widget-container"')
+        self.assertContains(response, 'wa.me/56912345678')
+
+        # Product detail contextual message
+        prod_resp = self.client.get(f'/products/detail/{self.product.id}/')
+        self.assertEqual(prod_resp.status_code, 200)
+        self.assertContains(prod_resp, 'id="whatsapp-widget-container"')
+        self.assertContains(prod_resp, 'Smartphone%20Pro%20Max')
+
+    def test_whatsapp_widget_admin_settings_toggle(self):
+        self.client.login(username='wastaff', password='testpass123')
+        # Disable WhatsApp widget in settings
+        self.client.post('/manage/settings/', {
+            'action': 'settings',
+            'store_name': 'Store Django',
+            'origin_commune': 'Pichidegua',
+            'free_shipping_threshold': '59990',
+            'whatsapp_number': '+56999887766',
+            'whatsapp_default_message': 'Consulta de prueba',
+            # enable_whatsapp_widget omitted -> False
+        })
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        self.assertFalse(settings.enable_whatsapp_widget)
+        self.assertEqual(settings.whatsapp_number, '+56999887766')
+
+        # Verify widget is not rendered on home page
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'id="whatsapp-widget-container"')

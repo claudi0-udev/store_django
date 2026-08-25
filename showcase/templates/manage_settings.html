@@ -80,7 +80,28 @@
             </div>
           </div>
 
+          <div class="form-group mb-3">
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="id_enable_whatsapp" name="enable_whatsapp_widget" {% if store_settings.enable_whatsapp_widget %}checked{% endif %}>
+              <label class="custom-control-label font-weight-bold text-dark small" for="id_enable_whatsapp">
+                💬 Mostrar botón flotante de WhatsApp Live Support en la tienda
+              </label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label class="small font-weight-bold">📱 Número de WhatsApp de atención</label>
+              <input type="text" name="whatsapp_number" class="form-control" value="{{ store_settings.whatsapp_number }}" placeholder="Ej: +56912345678">
+            </div>
+            <div class="form-group col-md-6">
+              <label class="small font-weight-bold">💬 Mensaje inicial predeterminado</label>
+              <input type="text" name="whatsapp_default_message" class="form-control" value="{{ store_settings.whatsapp_default_message }}" placeholder="Ej: Hola! Quisiera más información.">
+            </div>
+          </div>
+
           <hr>
+
 
           <p class="font-weight-bold small text-primary text-uppercase mb-3">🎨 Personalización de Marca (Branding)</p>
           <div class="form-row">

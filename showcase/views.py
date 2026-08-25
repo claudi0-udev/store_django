@@ -224,6 +224,8 @@ def ProductDetail(request, productId):
         extra_qs = Product.objects.filter(is_active=True).exclude(id__in=excluded_ids)[:extra_needed]
         related_products.extend(list(extra_qs))
 
+    whatsapp_msg = f"Hola! Quisiera consultar sobre el producto: {product.name}"
+
     return render(request, 'product_detail.html', {
         'product': product,
         'category': category,
@@ -235,7 +237,9 @@ def ProductDetail(request, productId):
         'user_review': user_review,
         'is_verified_buyer': is_verified_buyer,
         'rating_breakdown': rating_breakdown,
+        'whatsapp_custom_message': whatsapp_msg,
     })
+
 
 
 @login_required(login_url='login')
@@ -1386,8 +1390,16 @@ def ManageSettings(request):
 
             settings.enable_live_sales_notifications = request.POST.get('enable_live_sales_notifications') == 'on'
 
+            # WhatsApp Live Support Widget
+            if 'whatsapp_number' in request.POST:
+                settings.whatsapp_number = request.POST.get('whatsapp_number', settings.whatsapp_number).strip()
+            if 'whatsapp_default_message' in request.POST:
+                settings.whatsapp_default_message = request.POST.get('whatsapp_default_message', settings.whatsapp_default_message).strip()
+            settings.enable_whatsapp_widget = request.POST.get('enable_whatsapp_widget') == 'on'
+
             settings.save()
             messages.success(request, 'Configuración y personalización de marca guardadas exitosamente.')
+
 
 
 

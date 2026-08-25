@@ -7,10 +7,22 @@
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
 
+    <!-- Meta etiquetas y manifiesto PWA -->
+    <link rel="manifest" href="{% url 'manifestJSON' %}">
+    <meta name="theme-color" content="#007bff">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="{{ store_settings.store_name|default:'Store Django' }}">
+    {% if store_settings.site_logo %}
+    <link rel="apple-touch-icon" href="{{ store_settings.site_logo.url }}">
+    {% endif %}
+
     {% if store_settings.site_favicon %}
     <link rel="shortcut icon" href="{{ store_settings.site_favicon.url }}">
     {% endif %}
     <title>{{ store_settings.store_name|default:'Store Django' }} - Tienda Online</title>
+
 
 
     <style>
@@ -197,11 +209,15 @@
     </div>
 
     <footer class="bg-light border-top py-4 mt-5 text-center text-muted small">
-      <div class="container">
+      <div class="container d-flex flex-column align-items-center justify-content-center">
         <p class="mb-1">© 2026 <strong>{{ store_settings.store_name|default:'Store Django' }}</strong>. Todos los derechos reservados.</p>
-        <p class="mb-0">{{ store_settings.footer_text|default:'Plataforma de comercio electrónico con despacho y seguimiento en línea.' }}</p>
+        <p class="mb-2">{{ store_settings.footer_text|default:'Plataforma de comercio electrónico con despacho y seguimiento en línea.' }}</p>
+        <button id="pwa-install-btn" onclick="window.installPWA();" class="btn btn-outline-primary btn-sm font-weight-bold shadow-sm" style="display: none; border-radius: 20px;">
+          📱 Instalar Aplicación Store Django
+        </button>
       </div>
     </footer>
+
 
     
     <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
@@ -419,7 +435,43 @@
             console.error('Error al cargar notificaciones en vivo:', err);
           });
       });
+
+      // 5. Registro de Service Worker PWA y Manejo del Prompt de Instalación
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register("{% url 'serviceWorkerJS' %}")
+            .then(function(reg) {
+              console.log('PWA ServiceWorker registrado con éxito scope:', reg.scope);
+            })
+            .catch(function(err) {
+              console.error('Error al registrar ServiceWorker PWA:', err);
+            });
+        });
+      }
+
+      var deferredInstallPrompt = null;
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        var btn = document.getElementById('pwa-install-btn');
+        if (btn) btn.style.display = 'inline-block';
+      });
+
+      window.installPWA = function() {
+        if (deferredInstallPrompt) {
+          deferredInstallPrompt.prompt();
+          deferredInstallPrompt.userChoice.then(function(choiceResult) {
+            if (choiceResult.outcome === 'accepted') {
+              console.log('PWA instalada por el usuario');
+            }
+            deferredInstallPrompt = null;
+            var btn = document.getElementById('pwa-install-btn');
+            if (btn) btn.style.display = 'none';
+          });
+        }
+      };
     </script>
+
 
     {% block extras %}
     {% endblock %}

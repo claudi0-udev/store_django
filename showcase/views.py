@@ -1528,3 +1528,104 @@ def RecentSalesNotificationAPI(request):
     return JsonResponse({'enabled': True, 'notifications': notifications})
 
 
+def ManifestJSON(request):
+    """
+    Retorna el archivo manifest.json para habilitar la instalación PWA.
+    """
+    settings = StoreSettings.get_solo()
+    store_name = settings.store_name or 'Store Django'
+
+    logo_url = settings.site_logo.url if settings.site_logo else '/static/images/logo_icon.png'
+
+    manifest_data = {
+        "name": store_name,
+        "short_name": store_name[:12],
+        "description": settings.footer_text or "Tienda en línea con despacho y seguimiento",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#007bff",
+        "icons": [
+            {
+                "src": logo_url,
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any maskable"
+            },
+            {
+                "src": logo_url,
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any maskable"
+            }
+        ]
+    }
+    return JsonResponse(manifest_data)
+
+
+def ServiceWorkerJS(request):
+    """
+    Retorna el JavaScript del Service Worker para almacenamiento en caché y offline PWA.
+    """
+    sw_code = """
+const CACHE_NAME = 'store-django-pwa-v1';
+const ASSETS_TO_CACHE = [
+  '/',
+  '/offline/',
+  'https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css',
+  'https://code.jquery.com/jquery-3.3.1.min.js'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS_TO_CACHE);
+    })
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
+          }
+        })
+      );
+    })
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return caches.match('/offline/');
+      })
+    );
+  } else {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        return cachedResponse || fetch(event.request);
+      })
+    );
+  }
+});
+"""
+    response = HttpResponse(sw_code.strip(), content_type='application/javascript')
+    response['Service-Worker-Allowed'] = '/'
+    return response
+
+
+def OfflinePage(request):
+    """
+    Página de contingencia mostrada cuando el usuario está sin conexión.
+    """
+    return render(request, 'offline.html')
+
+
+

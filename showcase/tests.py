@@ -1706,3 +1706,26 @@ class LiveSalesNotificationTests(TestCase):
         data = response.json()
         self.assertFalse(data['enabled'])
         self.assertEqual(len(data['notifications']), 0)
+
+
+class PWATests(TestCase):
+    def test_manifest_json_endpoint(self):
+        response = self.client.get('/manifest.json')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['display'], 'standalone')
+        self.assertIn('name', data)
+        self.assertIn('icons', data)
+
+    def test_serviceworker_js_endpoint(self):
+        response = self.client.get('/serviceworker.js')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/javascript')
+        self.assertIn('Service-Worker-Allowed', response)
+        self.assertEqual(response['Service-Worker-Allowed'], '/')
+        self.assertIn('CACHE_NAME', response.content.decode('utf-8'))
+
+    def test_offline_page_rendering(self):
+        response = self.client.get('/offline/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Sin Conexión a Internet')

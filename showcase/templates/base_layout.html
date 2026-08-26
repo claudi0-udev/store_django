@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -16,11 +17,16 @@
     <meta name="apple-mobile-web-app-title" content="{{ store_settings.store_name|default:'Store Django' }}">
     {% if store_settings.site_logo %}
     <link rel="apple-touch-icon" href="{{ store_settings.site_logo.url }}">
+    {% else %}
+    <link rel="apple-touch-icon" href="{% static 'images/favicon.jpg' %}">
     {% endif %}
 
     {% if store_settings.site_favicon %}
     <link rel="shortcut icon" href="{{ store_settings.site_favicon.url }}">
+    {% else %}
+    <link rel="shortcut icon" href="{% static 'images/favicon.jpg' %}">
     {% endif %}
+
     <title>{{ store_settings.store_name|default:'Store Django' }} - Tienda Online</title>
 
     <!-- Google Fonts dinámico -->
@@ -154,9 +160,11 @@
           {% if store_settings.site_logo %}
           <img src="{{ store_settings.site_logo.url }}" alt="{{ store_settings.store_name }}" style="max-height: 38px; object-fit: contain;" class="mr-2">
           {% else %}
-          🛒 {{ store_settings.store_name|default:'Store Django' }}
+          <img src="{% static 'images/logo.jpg' %}" alt="{{ store_settings.store_name|default:'Store Django' }}" style="max-height: 38px; border-radius: 4px; object-fit: contain;" class="mr-2">
+          <span>{{ store_settings.store_name|default:'Store Django' }}</span>
           {% endif %}
         </a>
+
 
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>

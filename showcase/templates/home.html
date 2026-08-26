@@ -1,6 +1,8 @@
 {% extends 'base_layout.html' %}
+{% load static %}
 
 {% block body %}
+
 <section class="row align-items-center py-5">
   <div class="col-lg-7">
     <h1 class="display-4 font-weight-bold">{{ store_settings.hero_title|default:'Descubre tu próxima compra' }}</h1>
@@ -34,7 +36,7 @@
 
 <section class="row mb-4">
   <div class="col-12">
-    <div id="promoCarousel" class="carousel slide shadow-sm rounded overflow-hidden" data-ride="carousel">
+    <div id="promoCarousel" class="carousel slide shadow-sm rounded overflow-hidden" data-ride="carousel" data-interval="4500">
       <ol class="carousel-indicators">
         <li data-target="#promoCarousel" data-slide-to="0" class="active"></li>
         <li data-target="#promoCarousel" data-slide-to="1"></li>
@@ -42,27 +44,51 @@
       </ol>
       <div class="carousel-inner">
         <div class="carousel-item active">
-          <div class="d-block w-100 p-5 rounded {{ store_settings.banner1_bg_color|default:'bg-primary text-white' }}">
-            <h3 class="font-weight-bold">{{ store_settings.banner1_title|default:'Promoción del mes' }}</h3>
-            <p class="mb-0">{{ store_settings.banner1_subtitle|default:'Aprovecha descuentos especiales en productos seleccionados.' }}</p>
+          {% if store_settings.banner1_image %}
+          <img src="{{ store_settings.banner1_image.url }}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Tecnológico">
+          {% else %}
+          <img src="{% static 'images/banner_tech.jpg' %}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Tecnológico">
+          {% endif %}
+          <div class="carousel-caption d-none d-md-block p-3 rounded" style="background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);">
+            <h3 class="font-weight-bold text-white">{{ store_settings.banner1_title|default:'Tecnología de Vanguardia 🔥' }}</h3>
+            <p class="mb-0 text-white-50">{{ store_settings.banner1_subtitle|default:'Descubre la última colección de smartphones, laptops y audio premium.' }}</p>
           </div>
         </div>
         <div class="carousel-item">
-          <div class="d-block w-100 p-5 rounded {{ store_settings.banner2_bg_color|default:'bg-success text-white' }}">
-            <h3 class="font-weight-bold">{{ store_settings.banner2_title|default:'Envío gratis' }}</h3>
-            <p class="mb-0">{{ store_settings.banner2_subtitle|default:'Disfruta de envío gratis en pedidos por encima de un valor mínimo.' }}</p>
+          {% if store_settings.banner2_image %}
+          <img src="{{ store_settings.banner2_image.url }}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Moda">
+          {% else %}
+          <img src="{% static 'images/banner_fashion.jpg' %}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Moda">
+          {% endif %}
+          <div class="carousel-caption d-none d-md-block p-3 rounded" style="background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);">
+            <h3 class="font-weight-bold text-white">{{ store_settings.banner2_title|default:'Estilo y Tendencia 👟' }}</h3>
+            <p class="mb-0 text-white-50">{{ store_settings.banner2_subtitle|default:'Renueva tu look con lo último en calzado, ropa y accesorios urbanos.' }}</p>
           </div>
         </div>
         <div class="carousel-item">
-          <div class="d-block w-100 p-5 rounded {{ store_settings.banner3_bg_color|default:'bg-warning text-dark' }}">
-            <h3 class="font-weight-bold">{{ store_settings.banner3_title|default:'Nuevos lanzamientos' }}</h3>
-            <p class="mb-0">{{ store_settings.banner3_subtitle|default:'Descubre la colección más reciente para esta temporada.' }}</p>
+          {% if store_settings.banner3_image %}
+          <img src="{{ store_settings.banner3_image.url }}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Hogar">
+          {% else %}
+          <img src="{% static 'images/banner_home.jpg' %}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Hogar">
+          {% endif %}
+          <div class="carousel-caption d-none d-md-block p-3 rounded" style="background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);">
+            <h3 class="font-weight-bold text-white">{{ store_settings.banner3_title|default:'Hogar y Confort ☕' }}</h3>
+            <p class="mb-0 text-white-50">{{ store_settings.banner3_subtitle|default:'Equipa tu hogar con cafeteras inteligentes y electrodomésticos de diseño.' }}</p>
           </div>
         </div>
       </div>
+      <a class="carousel-control-prev" href="#promoCarousel" role="button" data-slide="prev">
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+        <span class="sr-only">Anterior</span>
+      </a>
+      <a class="carousel-control-next" href="#promoCarousel" role="button" data-slide="next">
+        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+        <span class="sr-only">Siguiente</span>
+      </a>
     </div>
   </div>
 </section>
+
 
 
 <section class="row mb-4">

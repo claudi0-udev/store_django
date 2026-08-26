@@ -516,3 +516,18 @@ class Coupon(models.Model):
         else:
             discount = self.discount_value
         return min(discount, order_total)
+
+
+class WishlistItem(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='wishlist_items', verbose_name='Usuario')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='wishlisted_by', verbose_name='Producto')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de adición')
+
+    class Meta:
+        verbose_name = 'Ítem de Lista de Deseos'
+        verbose_name_plural = 'Ítems de Lista de Deseos'
+        unique_together = ('user', 'product')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user} - {self.product.name}"

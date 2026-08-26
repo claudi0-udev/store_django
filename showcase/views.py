@@ -41,6 +41,7 @@ from .models import (
     ShippingRate,
 
     StoreSettings,
+    WishlistItem,
 )
 
 
@@ -1638,6 +1639,58 @@ def OfflinePage(request):
     Página de contingencia mostrada cuando el usuario está sin conexión.
     """
     return render(request, 'offline.html')
+
+
+@login_required(login_url='login')
+def WishlistToggle(request, productId):
+    """
+    Alterna un producto en la lista de deseos del usuario.
+    Soporta AJAX (retorna JSON) o peticiones HTTP estándar (redirecciona).
+    """
+    product = get_object_or_404(Product, pk=productId, is_active=True, deleted_at__isnull=True)
+    item, created = WishlistItem.objects.get_or_create(user=request.user, product=product)
+
+    if not created:
+        item.delete()
+        in_wishlist = False
+        msg = f'"{product.name}" fue quitado de tus favoritos.'
+    else:
+        in_wishlist = True
+        msg = f'"{product.name}" fue agregado a tus favoritos.'
+
+    wishlist_count = WishlistItem.objects.filter(user=request.user).count()
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+
+    if is_ajax:
+        return JsonResponse({
+            'success': True,
+            'in_wishlist': in_wishlist,
+            'wishlist_count': wishlist_count,
+            'message': msg,
+        })
+
+    if in_wishlist:
+        messages.success(request, msg)
+    else:
+        messages.info(request, msg)
+
+    from django.urls import reverse
+    next_url = request.META.get('HTTP_REFERER') or reverse('wishlistDetail')
+    return redirect(next_url)
+
+
+
+@login_required(login_url='login')
+def WishlistDetail(request):
+    """
+    Muestra la lista de deseos (favoritos) del usuario autenticado.
+    """
+    wishlist_items = WishlistItem.objects.filter(user=request.user).select_related('product', 'product__category')
+    return render(request, 'wishlist_detail.html', {
+        'wishlist_items': wishlist_items,
+    })
+
 
 
 

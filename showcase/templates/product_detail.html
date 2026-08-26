@@ -156,8 +156,14 @@
                 🛒 Añadir al carrito
               </button>
             </div>
+            <div class="col-auto">
+              <a href="{% url 'wishlistToggle' product.id %}" class="btn btn-outline-danger btn-lg font-weight-bold shadow-sm" title="Agregar/Quitar de Favoritos">
+                ❤️
+              </a>
+            </div>
           </div>
         </form>
+
 
         <!-- Sellos de Confianza y Garantía -->
         <div class="row text-center text-muted small py-2 mb-4 border-top border-bottom">

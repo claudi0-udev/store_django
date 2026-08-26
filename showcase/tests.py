@@ -1774,3 +1774,48 @@ class WhatsAppWidgetTests(TestCase):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'id="whatsapp-widget-container"')
+
+
+class WishlistTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='wishlistuser', password='testpass123')
+        self.category = Category.objects.create(name='Accesorios')
+        self.product = Product.objects.create(
+            name='Audífonos Inalámbricos', description='Cancelación de ruido activa',
+            price=Decimal('79990.00'), units=10, category=self.category,
+        )
+
+    def test_toggle_wishlist_add_and_remove(self):
+        self.client.login(username='wishlistuser', password='testpass123')
+        # Add to wishlist via POST
+        res1 = self.client.post(f'/wishlist/toggle/{self.product.id}/')
+        self.assertEqual(res1.status_code, 302)
+        from showcase.models import WishlistItem
+        self.assertTrue(WishlistItem.objects.filter(user=self.user, product=self.product).exists())
+
+        # Remove from wishlist via POST
+        res2 = self.client.post(f'/wishlist/toggle/{self.product.id}/')
+        self.assertEqual(res2.status_code, 302)
+        self.assertFalse(WishlistItem.objects.filter(user=self.user, product=self.product).exists())
+
+    def test_wishlist_ajax_toggle(self):
+        self.client.login(username='wishlistuser', password='testpass123')
+        res = self.client.post(
+            f'/wishlist/toggle/{self.product.id}/',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue(data['success'])
+        self.assertTrue(data['in_wishlist'])
+        self.assertEqual(data['wishlist_count'], 1)
+
+    def test_wishlist_detail_page_rendering(self):
+        self.client.login(username='wishlistuser', password='testpass123')
+        from showcase.models import WishlistItem
+        WishlistItem.objects.create(user=self.user, product=self.product)
+
+        response = self.client.get('/wishlist/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Audífonos Inalámbricos')
+        self.assertContains(response, 'Mover al Carrito')

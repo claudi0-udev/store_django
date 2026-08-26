@@ -106,95 +106,122 @@
 
 
           <p class="font-weight-bold small text-primary text-uppercase mb-3">🎨 Personalización de Marca (Branding)</p>
-          <div class="form-row">
+          <div class="form-row mb-3">
             <div class="form-group col-md-6">
               <label class="small font-weight-bold">Logo de la tienda</label>
-              {% if store_settings.site_logo %}
+              {% if store_settings.get_site_logo_url %}
               <div class="mb-2 p-2 border rounded bg-light text-center">
-                <img src="{{ store_settings.site_logo.url }}" alt="Logo" style="max-height: 50px; object-fit: contain;">
+                <img src="{{ store_settings.get_site_logo_url }}" alt="Logo" style="max-height: 50px; object-fit: contain;">
               </div>
               {% endif %}
-              <input type="file" name="site_logo" class="form-control-file small" accept="image/*">
+              <label class="small text-muted mb-1">Subir Archivo:</label>
+              <input type="file" name="site_logo" class="form-control-file small mb-2" accept="image/*">
+              <label class="small text-muted mb-1">o Ingresar URL de Imagen Directa:</label>
+              <input type="url" name="site_logo_url" class="form-control form-control-sm" value="{{ store_settings.site_logo_url }}" placeholder="https://ejemplo.com/logo.jpg">
             </div>
+
             <div class="form-group col-md-6">
-              <label class="small font-weight-bold">Favicon (Icono pestaña)</label>
-              {% if store_settings.site_favicon %}
+              <label class="small font-weight-bold">Favicon (Ícono pestaña)</label>
+              {% if store_settings.get_site_favicon_url %}
               <div class="mb-2 p-2 border rounded bg-light text-center">
-                <img src="{{ store_settings.site_favicon.url }}" alt="Favicon" style="max-height: 32px;">
+                <img src="{{ store_settings.get_site_favicon_url }}" alt="Favicon" style="max-height: 32px;">
               </div>
               {% endif %}
-              <input type="file" name="site_favicon" class="form-control-file small" accept="image/*">
+              <label class="small text-muted mb-1">Subir Archivo:</label>
+              <input type="file" name="site_favicon" class="form-control-file small mb-2" accept="image/*">
+              <label class="small text-muted mb-1">o Ingresar URL de Imagen Directa:</label>
+              <input type="url" name="site_favicon_url" class="form-control form-control-sm" value="{{ store_settings.site_favicon_url }}" placeholder="https://ejemplo.com/favicon.ico">
             </div>
           </div>
+          
           <div class="form-group">
             <label class="small font-weight-bold">Texto del Pie de Página (Footer)</label>
             <input type="text" name="footer_text" class="form-control" value="{{ store_settings.footer_text }}">
           </div>
 
           <hr>
-          <p class="font-weight-bold small text-primary text-uppercase mb-3">🎠 Carrusel Promocional de Inicio</p>
+          <p class="font-weight-bold small text-primary text-uppercase mb-3">🎠 Carrusel Promocional de Inicio (Banners e Imágenes)</p>
           
           <!-- Banner 1 -->
           <div class="card border p-3 mb-3 bg-light">
-            <span class="font-weight-bold small text-muted mb-2 d-block">Banner 1</span>
+            <span class="font-weight-bold small text-muted mb-2 d-block">🖼️ Banner 1</span>
+            {% if store_settings.get_banner1_image_url %}
+            <div class="mb-2 rounded overflow-hidden text-center border bg-white">
+              <img src="{{ store_settings.get_banner1_image_url }}" alt="Banner 1" style="max-height: 120px; width: 100%; object-fit: cover;">
+            </div>
+            {% endif %}
+            <div class="form-row mb-2">
+              <div class="col-md-6 mb-2 mb-md-0">
+                <label class="small text-muted mb-1">Subir Archivo de Imagen:</label>
+                <input type="file" name="banner1_image" class="form-control-file small" accept="image/*">
+              </div>
+              <div class="col-md-6">
+                <label class="small text-muted mb-1">o URL de Imagen Directa:</label>
+                <input type="url" name="banner1_image_url" class="form-control form-control-sm" value="{{ store_settings.banner1_image_url }}" placeholder="https://images.unsplash.com/...">
+              </div>
+            </div>
             <div class="form-group mb-2">
               <input type="text" name="banner1_title" class="form-control form-control-sm font-weight-bold" value="{{ store_settings.banner1_title }}" placeholder="Título Banner 1">
             </div>
-            <div class="form-group mb-2">
-              <input type="text" name="banner1_subtitle" class="form-control form-control-sm" value="{{ store_settings.banner1_subtitle }}" placeholder="Subtítulo Banner 1">
-            </div>
             <div class="form-group mb-0">
-              <select name="banner1_bg_color" class="form-control form-control-sm">
-                <option value="bg-primary text-white" {% if store_settings.banner1_bg_color == 'bg-primary text-white' %}selected{% endif %}>Azul (Primary)</option>
-                <option value="bg-dark text-white" {% if store_settings.banner1_bg_color == 'bg-dark text-white' %}selected{% endif %}>Oscuro (Dark)</option>
-                <option value="bg-success text-white" {% if store_settings.banner1_bg_color == 'bg-success text-white' %}selected{% endif %}>Verde (Success)</option>
-                <option value="bg-warning text-dark" {% if store_settings.banner1_bg_color == 'bg-warning text-dark' %}selected{% endif %}>Amarillo (Warning)</option>
-                <option value="bg-info text-white" {% if store_settings.banner1_bg_color == 'bg-info text-white' %}selected{% endif %}>Celeste (Info)</option>
-              </select>
+              <input type="text" name="banner1_subtitle" class="form-control form-control-sm" value="{{ store_settings.banner1_subtitle }}" placeholder="Subtítulo Banner 1">
             </div>
           </div>
 
           <!-- Banner 2 -->
           <div class="card border p-3 mb-3 bg-light">
-            <span class="font-weight-bold small text-muted mb-2 d-block">Banner 2</span>
+            <span class="font-weight-bold small text-muted mb-2 d-block">🖼️ Banner 2</span>
+            {% if store_settings.get_banner2_image_url %}
+            <div class="mb-2 rounded overflow-hidden text-center border bg-white">
+              <img src="{{ store_settings.get_banner2_image_url }}" alt="Banner 2" style="max-height: 120px; width: 100%; object-fit: cover;">
+            </div>
+            {% endif %}
+            <div class="form-row mb-2">
+              <div class="col-md-6 mb-2 mb-md-0">
+                <label class="small text-muted mb-1">Subir Archivo de Imagen:</label>
+                <input type="file" name="banner2_image" class="form-control-file small" accept="image/*">
+              </div>
+              <div class="col-md-6">
+                <label class="small text-muted mb-1">o URL de Imagen Directa:</label>
+                <input type="url" name="banner2_image_url" class="form-control form-control-sm" value="{{ store_settings.banner2_image_url }}" placeholder="https://images.unsplash.com/...">
+              </div>
+            </div>
             <div class="form-group mb-2">
               <input type="text" name="banner2_title" class="form-control form-control-sm font-weight-bold" value="{{ store_settings.banner2_title }}" placeholder="Título Banner 2">
             </div>
-            <div class="form-group mb-2">
-              <input type="text" name="banner2_subtitle" class="form-control form-control-sm" value="{{ store_settings.banner2_subtitle }}" placeholder="Subtítulo Banner 2">
-            </div>
             <div class="form-group mb-0">
-              <select name="banner2_bg_color" class="form-control form-control-sm">
-                <option value="bg-success text-white" {% if store_settings.banner2_bg_color == 'bg-success text-white' %}selected{% endif %}>Verde (Success)</option>
-                <option value="bg-primary text-white" {% if store_settings.banner2_bg_color == 'bg-primary text-white' %}selected{% endif %}>Azul (Primary)</option>
-                <option value="bg-dark text-white" {% if store_settings.banner2_bg_color == 'bg-dark text-white' %}selected{% endif %}>Oscuro (Dark)</option>
-                <option value="bg-warning text-dark" {% if store_settings.banner2_bg_color == 'bg-warning text-dark' %}selected{% endif %}>Amarillo (Warning)</option>
-                <option value="bg-info text-white" {% if store_settings.banner2_bg_color == 'bg-info text-white' %}selected{% endif %}>Celeste (Info)</option>
-              </select>
+              <input type="text" name="banner2_subtitle" class="form-control form-control-sm" value="{{ store_settings.banner2_subtitle }}" placeholder="Subtítulo Banner 2">
             </div>
           </div>
 
           <!-- Banner 3 -->
           <div class="card border p-3 mb-3 bg-light">
-            <span class="font-weight-bold small text-muted mb-2 d-block">Banner 3</span>
+            <span class="font-weight-bold small text-muted mb-2 d-block">🖼️ Banner 3</span>
+            {% if store_settings.get_banner3_image_url %}
+            <div class="mb-2 rounded overflow-hidden text-center border bg-white">
+              <img src="{{ store_settings.get_banner3_image_url }}" alt="Banner 3" style="max-height: 120px; width: 100%; object-fit: cover;">
+            </div>
+            {% endif %}
+            <div class="form-row mb-2">
+              <div class="col-md-6 mb-2 mb-md-0">
+                <label class="small text-muted mb-1">Subir Archivo de Imagen:</label>
+                <input type="file" name="banner3_image" class="form-control-file small" accept="image/*">
+              </div>
+              <div class="col-md-6">
+                <label class="small text-muted mb-1">o URL de Imagen Directa:</label>
+                <input type="url" name="banner3_image_url" class="form-control form-control-sm" value="{{ store_settings.banner3_image_url }}" placeholder="https://images.unsplash.com/...">
+              </div>
+            </div>
             <div class="form-group mb-2">
               <input type="text" name="banner3_title" class="form-control form-control-sm font-weight-bold" value="{{ store_settings.banner3_title }}" placeholder="Título Banner 3">
             </div>
-            <div class="form-group mb-2">
-              <input type="text" name="banner3_subtitle" class="form-control form-control-sm" value="{{ store_settings.banner3_subtitle }}" placeholder="Subtítulo Banner 3">
-            </div>
             <div class="form-group mb-0">
-              <select name="banner3_bg_color" class="form-control form-control-sm">
-                <option value="bg-warning text-dark" {% if store_settings.banner3_bg_color == 'bg-warning text-dark' %}selected{% endif %}>Amarillo (Warning)</option>
-                <option value="bg-primary text-white" {% if store_settings.banner3_bg_color == 'bg-primary text-white' %}selected{% endif %}>Azul (Primary)</option>
-                <option value="bg-dark text-white" {% if store_settings.banner3_bg_color == 'bg-dark text-white' %}selected{% endif %}>Oscuro (Dark)</option>
-                <option value="bg-success text-white" {% if store_settings.banner3_bg_color == 'bg-success text-white' %}selected{% endif %}>Verde (Success)</option>
-                <option value="bg-info text-white" {% if store_settings.banner3_bg_color == 'bg-info text-white' %}selected{% endif %}>Celeste (Info)</option>
-              </select>
+              <input type="text" name="banner3_subtitle" class="form-control form-control-sm" value="{{ store_settings.banner3_subtitle }}" placeholder="Subtítulo Banner 3">
             </div>
           </div>
 
           <hr>
+
           <p class="font-weight-bold small text-muted text-uppercase mb-2">🔌 Integración Shipit (Futuro)</p>
           <div class="form-group">
             <label class="small font-weight-bold">Email cuenta Shipit</label>

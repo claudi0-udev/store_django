@@ -1245,10 +1245,12 @@ class ShippingCalculatorTests(TestCase):
 
     def test_store_settings_default_origin(self):
         from showcase.models import StoreSettings
+        from showcase.models import StoreSettings
         settings = StoreSettings.get_solo()
         self.assertEqual(settings.origin_commune, 'Pichidegua')
 
     def test_free_shipping_threshold_default(self):
+        from showcase.models import StoreSettings
         from showcase.models import StoreSettings
         settings = StoreSettings.get_solo()
         self.assertEqual(settings.free_shipping_threshold, Decimal('59990.00'))
@@ -1289,6 +1291,7 @@ class ShippingCalculatorTests(TestCase):
     def test_shipping_quote_free_for_large_order(self):
         # Add many units to exceed free shipping threshold
         from showcase.models import StoreSettings
+        from showcase.models import StoreSettings
         settings = StoreSettings.get_solo()
         settings.free_shipping_threshold = Decimal('5000.00')
         settings.save()
@@ -1318,6 +1321,7 @@ class ShippingCalculatorTests(TestCase):
             'free_shipping_threshold': '49990',
         })
         self.assertEqual(response.status_code, 302)
+        from showcase.models import StoreSettings
         from showcase.models import StoreSettings
         settings = StoreSettings.get_solo()
         self.assertEqual(settings.origin_commune, 'Rancagua')
@@ -1467,6 +1471,7 @@ class StoreBrandingTests(TestCase):
             'banner1_bg_color': 'bg-dark text-white',
         })
         self.assertEqual(response.status_code, 302)
+        from showcase.models import StoreSettings
         from showcase.models import StoreSettings
         settings = StoreSettings.get_solo()
         self.assertEqual(settings.store_name, 'Mi Tienda Personalizada')
@@ -1699,6 +1704,7 @@ class LiveSalesNotificationTests(TestCase):
             # enable_live_sales_notifications not in POST means False
         })
         from showcase.models import StoreSettings
+        from showcase.models import StoreSettings
         settings = StoreSettings.get_solo()
         self.assertFalse(settings.enable_live_sales_notifications)
 
@@ -1767,6 +1773,7 @@ class WhatsAppWidgetTests(TestCase):
             'whatsapp_default_message': 'Consulta de prueba',
             # enable_whatsapp_widget omitted -> False
         })
+        from showcase.models import StoreSettings
         from showcase.models import StoreSettings
         settings = StoreSettings.get_solo()
         self.assertFalse(settings.enable_whatsapp_widget)
@@ -1883,6 +1890,7 @@ class ThemeCustomizerTests(TestCase):
 
 
         from showcase.models import StoreSettings
+        from showcase.models import StoreSettings
         settings = StoreSettings.get_solo()
         self.assertEqual(settings.primary_color, '#e63946')
         self.assertEqual(settings.font_family, 'poppins')
@@ -1892,6 +1900,7 @@ class ThemeCustomizerTests(TestCase):
         self.assertEqual(settings.hero_title, 'Nueva Colección 2026')
 
     def test_announcement_bar_and_hero_rendered_on_home(self):
+        from showcase.models import StoreSettings
         from showcase.models import StoreSettings
         settings = StoreSettings.get_solo()
         settings.primary_color = '#2a9d8f'
@@ -1974,3 +1983,27 @@ class ProductBackupExportTests(TestCase):
         response = self.client.get('/manage/products/export/zip/')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response['Content-Type'], 'application/zip')
+
+
+class StoreSettingsImageURLTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(username='settingsstaff', password='pass1234', is_staff=True)
+
+    def test_saving_custom_image_urls_in_settings(self):
+        self.client.login(username='settingsstaff', password='pass1234')
+        response = self.client.post('/manage/settings/', {
+            'action': 'settings',
+            'store_name': 'Tienda Personalizada',
+            'site_logo_url': 'https://example.com/custom_logo.jpg',
+            'site_favicon_url': 'https://example.com/custom_favicon.ico',
+            'banner1_image_url': 'https://example.com/banner1.jpg',
+            'banner2_image_url': 'https://example.com/banner2.jpg',
+            'banner3_image_url': 'https://example.com/banner3.jpg',
+        })
+        self.assertIn(response.status_code, [200, 302])
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        self.assertEqual(settings.site_logo_url, 'https://example.com/custom_logo.jpg')
+        self.assertEqual(settings.get_site_logo_url, 'https://example.com/custom_logo.jpg')
+        self.assertEqual(settings.get_site_favicon_url, 'https://example.com/custom_favicon.ico')
+        self.assertEqual(settings.get_banner1_image_url, 'https://example.com/banner1.jpg')

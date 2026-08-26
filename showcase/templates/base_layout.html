@@ -15,17 +15,18 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="{{ store_settings.store_name|default:'Store Django' }}">
-    {% if store_settings.site_logo %}
-    <link rel="apple-touch-icon" href="{{ store_settings.site_logo.url }}">
+    {% if store_settings.get_site_logo_url %}
+    <link rel="apple-touch-icon" href="{{ store_settings.get_site_logo_url }}">
     {% else %}
     <link rel="apple-touch-icon" href="{% static 'images/favicon.jpg' %}">
     {% endif %}
 
-    {% if store_settings.site_favicon %}
-    <link rel="shortcut icon" href="{{ store_settings.site_favicon.url }}">
+    {% if store_settings.get_site_favicon_url %}
+    <link rel="shortcut icon" href="{{ store_settings.get_site_favicon_url }}">
     {% else %}
     <link rel="shortcut icon" href="{% static 'images/favicon.jpg' %}">
     {% endif %}
+
 
     <title>{{ store_settings.store_name|default:'Store Django' }} - Tienda Online</title>
 
@@ -157,13 +158,14 @@
 
       <div class="container">
         <a class="navbar-brand font-weight-bold text-primary d-flex align-items-center" href="{% url 'home' %}">
-          {% if store_settings.site_logo %}
-          <img src="{{ store_settings.site_logo.url }}" alt="{{ store_settings.store_name }}" style="max-height: 38px; object-fit: contain;" class="mr-2">
+          {% if store_settings.get_site_logo_url %}
+          <img src="{{ store_settings.get_site_logo_url }}" alt="{{ store_settings.store_name }}" style="max-height: 38px; object-fit: contain;" class="mr-2">
           {% else %}
           <img src="{% static 'images/logo.jpg' %}" alt="{{ store_settings.store_name|default:'Store Django' }}" style="max-height: 38px; border-radius: 4px; object-fit: contain;" class="mr-2">
           <span>{{ store_settings.store_name|default:'Store Django' }}</span>
           {% endif %}
         </a>
+
 
 
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">

@@ -44,8 +44,8 @@
       </ol>
       <div class="carousel-inner">
         <div class="carousel-item active">
-          {% if store_settings.banner1_image %}
-          <img src="{{ store_settings.banner1_image.url }}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Tecnológico">
+          {% if store_settings.get_banner1_image_url %}
+          <img src="{{ store_settings.get_banner1_image_url }}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Tecnológico">
           {% else %}
           <img src="{% static 'images/banner_tech.jpg' %}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Tecnológico">
           {% endif %}
@@ -55,8 +55,8 @@
           </div>
         </div>
         <div class="carousel-item">
-          {% if store_settings.banner2_image %}
-          <img src="{{ store_settings.banner2_image.url }}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Moda">
+          {% if store_settings.get_banner2_image_url %}
+          <img src="{{ store_settings.get_banner2_image_url }}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Moda">
           {% else %}
           <img src="{% static 'images/banner_fashion.jpg' %}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Moda">
           {% endif %}
@@ -66,8 +66,8 @@
           </div>
         </div>
         <div class="carousel-item">
-          {% if store_settings.banner3_image %}
-          <img src="{{ store_settings.banner3_image.url }}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Hogar">
+          {% if store_settings.get_banner3_image_url %}
+          <img src="{{ store_settings.get_banner3_image_url }}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Hogar">
           {% else %}
           <img src="{% static 'images/banner_home.jpg' %}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Hogar">
           {% endif %}
@@ -76,6 +76,7 @@
             <p class="mb-0 text-white-50">{{ store_settings.banner3_subtitle|default:'Equipa tu hogar con cafeteras inteligentes y electrodomésticos de diseño.' }}</p>
           </div>
         </div>
+
       </div>
       <a class="carousel-control-prev" href="#promoCarousel" role="button" data-slide="prev">
         <span class="carousel-control-prev-icon" aria-hidden="true"></span>

@@ -259,8 +259,10 @@ class StoreSettings(models.Model):
     shipit_enabled = models.BooleanField(default=False, verbose_name='Activar integración Shipit')
 
     # Personalización de Marca y Branding
-    site_logo = models.ImageField(upload_to='store_branding/', null=True, blank=True, verbose_name='Logo de la tienda')
-    site_favicon = models.ImageField(upload_to='store_branding/', null=True, blank=True, verbose_name='Favicon')
+    site_logo = models.ImageField(upload_to='store_branding/', null=True, blank=True, verbose_name='Logo de la tienda (Archivo)')
+    site_logo_url = models.URLField(max_length=500, blank=True, default='', verbose_name='Logo de la tienda (URL Directa)')
+    site_favicon = models.ImageField(upload_to='store_branding/', null=True, blank=True, verbose_name='Favicon (Archivo)')
+    site_favicon_url = models.URLField(max_length=500, blank=True, default='', verbose_name='Favicon (URL Directa)')
     footer_text = models.CharField(
         max_length=300,
         default='Plataforma de comercio electrónico con despacho y seguimiento en línea.',
@@ -271,14 +273,21 @@ class StoreSettings(models.Model):
     banner1_title = models.CharField(max_length=150, default='Promoción del mes', verbose_name='Banner 1 Título')
     banner1_subtitle = models.CharField(max_length=300, default='Aprovecha descuentos especiales en productos seleccionados.', verbose_name='Banner 1 Subtítulo')
     banner1_bg_color = models.CharField(max_length=30, default='bg-primary text-white', verbose_name='Banner 1 Estilo/Color')
+    banner1_image = models.ImageField(upload_to='store_branding/', null=True, blank=True, verbose_name='Banner 1 Imagen (Archivo)')
+    banner1_image_url = models.URLField(max_length=500, blank=True, default='', verbose_name='Banner 1 Imagen (URL Directa)')
 
     banner2_title = models.CharField(max_length=150, default='Envío gratis', verbose_name='Banner 2 Título')
     banner2_subtitle = models.CharField(max_length=300, default='Disfruta de envío gratis en pedidos sobre el monto mínimo.', verbose_name='Banner 2 Subtítulo')
     banner2_bg_color = models.CharField(max_length=30, default='bg-success text-white', verbose_name='Banner 2 Estilo/Color')
+    banner2_image = models.ImageField(upload_to='store_branding/', null=True, blank=True, verbose_name='Banner 2 Imagen (Archivo)')
+    banner2_image_url = models.URLField(max_length=500, blank=True, default='', verbose_name='Banner 2 Imagen (URL Directa)')
 
     banner3_title = models.CharField(max_length=150, default='Nuevos lanzamientos', verbose_name='Banner 3 Título')
     banner3_subtitle = models.CharField(max_length=300, default='Descubre la colección más reciente para esta temporada.', verbose_name='Banner 3 Subtítulo')
     banner3_bg_color = models.CharField(max_length=30, default='bg-warning text-dark', verbose_name='Banner 3 Estilo/Color')
+    banner3_image = models.ImageField(upload_to='store_branding/', null=True, blank=True, verbose_name='Banner 3 Imagen (Archivo)')
+    banner3_image_url = models.URLField(max_length=500, blank=True, default='', verbose_name='Banner 3 Imagen (URL Directa)')
+
 
     enable_live_sales_notifications = models.BooleanField(default=True, verbose_name='Habilitar avisos de compras recientes en vivo')
 
@@ -305,8 +314,49 @@ class StoreSettings(models.Model):
 
 
 
+    @property
+    def get_site_logo_url(self):
+        if self.site_logo:
+            return self.site_logo.url
+        if self.site_logo_url:
+            return self.site_logo_url
+        return ''
+
+    @property
+    def get_site_favicon_url(self):
+        if self.site_favicon:
+            return self.site_favicon.url
+        if self.site_favicon_url:
+            return self.site_favicon_url
+        return ''
+
+    @property
+    def get_banner1_image_url(self):
+        if self.banner1_image:
+            return self.banner1_image.url
+        if self.banner1_image_url:
+            return self.banner1_image_url
+        return ''
+
+    @property
+    def get_banner2_image_url(self):
+        if self.banner2_image:
+            return self.banner2_image.url
+        if self.banner2_image_url:
+            return self.banner2_image_url
+        return ''
+
+    @property
+    def get_banner3_image_url(self):
+        if self.banner3_image:
+            return self.banner3_image.url
+        if self.banner3_image_url:
+            return self.banner3_image_url
+        return ''
+
     class Meta:
         verbose_name = 'Configuración de la Tienda'
+
 
     def __str__(self):
         return f'Configuración: {self.store_name}'

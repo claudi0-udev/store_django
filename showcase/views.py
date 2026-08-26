@@ -1384,8 +1384,12 @@ def ManageSettings(request):
             # Branding y Personalización de Marca
             if 'site_logo' in request.FILES:
                 settings.site_logo = request.FILES['site_logo']
+            if 'site_logo_url' in request.POST:
+                settings.site_logo_url = request.POST.get('site_logo_url', '').strip()
             if 'site_favicon' in request.FILES:
                 settings.site_favicon = request.FILES['site_favicon']
+            if 'site_favicon_url' in request.POST:
+                settings.site_favicon_url = request.POST.get('site_favicon_url', '').strip()
             if 'footer_text' in request.POST:
                 settings.footer_text = request.POST.get('footer_text', settings.footer_text).strip()
 
@@ -1393,14 +1397,27 @@ def ManageSettings(request):
             settings.banner1_title = request.POST.get('banner1_title', settings.banner1_title).strip()
             settings.banner1_subtitle = request.POST.get('banner1_subtitle', settings.banner1_subtitle).strip()
             settings.banner1_bg_color = request.POST.get('banner1_bg_color', settings.banner1_bg_color).strip()
+            if 'banner1_image' in request.FILES:
+                settings.banner1_image = request.FILES['banner1_image']
+            if 'banner1_image_url' in request.POST:
+                settings.banner1_image_url = request.POST.get('banner1_image_url', '').strip()
 
             settings.banner2_title = request.POST.get('banner2_title', settings.banner2_title).strip()
             settings.banner2_subtitle = request.POST.get('banner2_subtitle', settings.banner2_subtitle).strip()
             settings.banner2_bg_color = request.POST.get('banner2_bg_color', settings.banner2_bg_color).strip()
+            if 'banner2_image' in request.FILES:
+                settings.banner2_image = request.FILES['banner2_image']
+            if 'banner2_image_url' in request.POST:
+                settings.banner2_image_url = request.POST.get('banner2_image_url', '').strip()
 
             settings.banner3_title = request.POST.get('banner3_title', settings.banner3_title).strip()
             settings.banner3_subtitle = request.POST.get('banner3_subtitle', settings.banner3_subtitle).strip()
             settings.banner3_bg_color = request.POST.get('banner3_bg_color', settings.banner3_bg_color).strip()
+            if 'banner3_image' in request.FILES:
+                settings.banner3_image = request.FILES['banner3_image']
+            if 'banner3_image_url' in request.POST:
+                settings.banner3_image_url = request.POST.get('banner3_image_url', '').strip()
+
 
             settings.enable_live_sales_notifications = request.POST.get('enable_live_sales_notifications') == 'on'
 

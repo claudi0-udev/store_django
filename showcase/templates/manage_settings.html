@@ -40,10 +40,12 @@
           {% csrf_token %}
           <input type="hidden" name="action" value="settings">
 
-          <div class="form-group">
-            <label class="small font-weight-bold">Nombre de la tienda</label>
-            <input type="text" name="store_name" class="form-control" value="{{ store_settings.store_name }}">
+          <div class="form-group p-3 bg-light rounded border border-primary mb-3">
+            <label class="font-weight-bold text-primary mb-1">🏷️ Nombre de la Tienda</label>
+            <input type="text" name="store_name" class="form-control form-control-lg font-weight-bold" value="{{ store_settings.store_name }}" required>
+            <small class="form-text text-muted">Este nombre se mostrará públicamente en la barra de navegación, correos de compras y títulos.</small>
           </div>
+
           <div class="form-row">
             <div class="form-group col-md-6">
               <label class="small font-weight-bold">Email de contacto</label>

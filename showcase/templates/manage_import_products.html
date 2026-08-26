@@ -1,0 +1,123 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent px-0">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'manageSettings' %}">Administración</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Importación Masiva de Productos</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h2 font-weight-bold mb-1">📥 Importación Masiva de Productos (CSV / Excel)</h1>
+    <p class="text-muted mb-0">Carga lotes enteros de productos con precios, stock, categorías e imágenes en segundos.</p>
+  </div>
+  <a href="{% url 'downloadImportTemplate' %}" class="btn btn-outline-success font-weight-bold shadow-sm">
+    📄 Descargar Plantilla CSV de Ejemplo
+  </a>
+</div>
+
+<div class="row">
+  <div class="col-lg-6 mb-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white border-bottom py-3">
+        <span class="font-weight-bold h5 mb-0">📤 Subir Archivo de Productos</span>
+      </div>
+      <div class="card-body p-4">
+        <form method="post" action="{% url 'manageImportProducts' %}" enctype="multipart/form-data">
+          {% csrf_token %}
+
+          <div class="form-group mb-4">
+            <label class="font-weight-bold">Seleccionar archivo (.csv o .zip con fotos):</label>
+            <div class="custom-file">
+              <input type="file" name="import_file" class="custom-file-input" id="importFileInput" accept=".csv, .zip" required>
+              <label class="custom-file-label" for="importFileInput">Elegir archivo CSV o ZIP...</label>
+            </div>
+            <small class="form-text text-muted mt-2">
+              Acepta archivos <strong>.CSV</strong> simples o <strong>.ZIP</strong> conteniendo el archivo CSV y las fotos referenciadas.
+            </small>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block btn-lg font-weight-bold shadow-sm">
+            🚀 Iniciar Importación de Productos
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6 mb-4">
+    <div class="card border-0 shadow-sm h-100 bg-light">
+      <div class="card-header bg-transparent border-bottom py-3">
+        <span class="font-weight-bold h5 mb-0">💡 Instrucciones del Formato CSV</span>
+      </div>
+      <div class="card-body p-4">
+        <p class="small text-muted mb-3">Tu archivo CSV debe contener la fila de encabezados con las siguientes columnas:</p>
+        <ul class="small font-weight-bold text-dark pl-3 mb-3">
+          <li><code>nombre</code>: Nombre del producto (Obligatorio)</li>
+          <li><code>precio</code>: Valor en CLP sin puntos ni signos (Ej: 49990)</li>
+          <li><code>unidades</code>: Stock disponible (Ej: 25)</li>
+          <li><code>categoria</code>: Nombre de la categoría (se crea automáticamente si no existe)</li>
+          <li><code>marca</code>: Nombre de la marca (opcional)</li>
+          <li><code>sku</code>: Código identificador (opcional)</li>
+          <li><code>descripcion</code>: Detalle o ficha del producto (opcional)</li>
+          <li><code>imagen_url</code>: Enlace HTTP público o nombre de archivo de foto dentro del archivo ZIP</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if created_products %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-success text-white py-3">
+    <span class="font-weight-bold h5 mb-0">✅ {{ success_count }} Productos Importados Exitosamente</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="thead-light">
+          <tr>
+            <th>ID</th>
+            <th>Producto</th>
+            <th>Categoría</th>
+            <th>Precio</th>
+            <th>Stock</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in created_products %}
+          <tr>
+            <td><strong>#{{ p.id }}</strong></td>
+            <td>
+              <a href="{% url 'productDetail' p.id %}" class="font-weight-bold text-dark" target="_blank">
+                {{ p.name }}
+              </a>
+            </td>
+            <td><span class="badge badge-info">{{ p.category.name|default:'General' }}</span></td>
+            <td class="font-weight-bold text-primary">$ {{ p.price }}</td>
+            <td><span class="badge badge-success">{{ p.units }} un.</span></td>
+            <td>
+              <a href="{% url 'editProduct' p.id %}" class="btn btn-sm btn-outline-secondary">Editar</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+  // Actualizar etiqueta del input file al elegir archivo
+  document.getElementById('importFileInput').addEventListener('change', function(e){
+    var fileName = e.target.files[0] ? e.target.files[0].name : 'Elegir archivo CSV o ZIP...';
+    var label = e.target.nextElementSibling;
+    label.innerText = fileName;
+  });
+</script>
+{% endblock %}

@@ -178,8 +178,11 @@
                 <a class="dropdown-item" href="{% url 'orderHistory' %}">Historial de compras</a>
                 {% if user.is_staff %}
                 <a class="dropdown-item" href="{% url 'manageOrders' %}">Panel de pedidos (Staff)</a>
+                <a class="dropdown-item" href="{% url 'manageImportProducts' %}">📥 Importar productos (Lote)</a>
+                <a class="dropdown-item" href="{% url 'manageSettings' %}">⚙️ Configurar Tienda</a>
                 <a class="dropdown-item" href="/admin/" target="_blank">Django Admin</a>
                 {% endif %}
+
                 <div class="dropdown-divider"></div>
                 <form method="post" action="{% url 'logout' %}" class="px-3 py-1">
                   {% csrf_token %}

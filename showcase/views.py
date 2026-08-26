@@ -1692,5 +1692,169 @@ def WishlistDetail(request):
     })
 
 
+@user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='login')
+def DownloadImportTemplate(request):
+    """
+    Genera y descarga la plantilla de ejemplo CSV para la importación masiva de productos.
+    """
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = 'attachment; filename="plantilla_importacion_productos.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow([
+        'nombre',
+        'descripcion',
+        'precio',
+        'unidades',
+        'categoria',
+        'marca',
+        'sku',
+        'imagen_url',
+    ])
+    writer.writerow([
+        'Audífonos Bluetooth Pro',
+        'Audífonos de alta fidelidad con cancelación de ruido activa.',
+        '49990',
+        '25',
+        'Audio y Sonido',
+        'Sony',
+        'AUD-BT-001',
+        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
+    ])
+    writer.writerow([
+        'Teclado Mecánico Gamer RGB',
+        'Teclado ergonómico retroiluminado con switches azules.',
+        '35000',
+        '15',
+        'Computación',
+        'Logitech',
+        'TEC-RGB-002',
+        '',
+    ])
+
+    return response
+
+
+@user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='login')
+def ManageImportProducts(request):
+    """
+    Procesa la importación masiva de productos por archivo CSV o ZIP (CSV + imágenes).
+    """
+    import io
+    import urllib.request
+    import zipfile
+    from django.core.files.base import ContentFile
+
+    success_count = 0
+    errors = []
+    created_products = []
+
+    if request.method == 'POST' and request.FILES.get('import_file'):
+        uploaded_file = request.FILES['import_file']
+        filename = uploaded_file.name.lower()
+
+        csv_content = None
+        extracted_images = {}
+
+        try:
+            if filename.endswith('.zip'):
+                with zipfile.ZipFile(uploaded_file, 'r') as zf:
+                    for name in zf.namelist():
+                        if name.lower().endswith('.csv') and not name.startswith('__MACOSX'):
+                            csv_content = zf.read(name).decode('utf-8-sig')
+                        elif any(name.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.webp', '.gif']):
+                            clean_name = name.split('/')[-1]
+                            extracted_images[clean_name.lower()] = ContentFile(zf.read(name))
+            else:
+                csv_content = uploaded_file.read().decode('utf-8-sig')
+
+            if not csv_content:
+                messages.error(request, 'No se encontró ningún archivo CSV válido para procesar.')
+                return redirect('manageImportProducts')
+
+            reader = csv.DictReader(io.StringIO(csv_content))
+
+            for line_idx, row in enumerate(reader, start=2):
+                name = (row.get('nombre') or row.get('name') or '').strip()
+                if not name:
+                    continue
+
+                price_raw = (row.get('precio') or row.get('price') or '0').strip()
+                try:
+                    price = Decimal(price_raw.replace(',', '.'))
+                except Exception:
+                    errors.append(f"Línea {line_idx}: Precio inválido '{price_raw}' para el producto '{name}'.")
+                    continue
+
+                units_raw = (row.get('unidades') or row.get('units') or '0').strip()
+                try:
+                    units = int(float(units_raw))
+                except Exception:
+                    units = 0
+
+                description = (row.get('descripcion') or row.get('description') or '').strip()
+                if len(description) < 10:
+                    description = f"{description} (Producto importado por lote)".strip()
+                if len(description) < 10:
+                    description = "Producto de tienda sin descripción detallada."
+
+                cat_name = (row.get('categoria') or row.get('category') or 'General').strip()
+                brand_name = (row.get('marca') or row.get('brand') or '').strip()
+                sku = (row.get('sku') or row.get('SKU') or '').strip()
+                image_url = (row.get('imagen_url') or row.get('image_url') or '').strip()
+
+                category = None
+                if cat_name:
+                    category, _ = Category.objects.get_or_create(name=cat_name)
+
+                brand = None
+                if brand_name:
+                    brand, _ = Brand.objects.get_or_create(name=brand_name)
+
+                product = Product.objects.create(
+                    name=name,
+                    description=description,
+                    price=price,
+                    units=units,
+                    category=category,
+                    brand=brand,
+                    is_active=True,
+                )
+
+
+                if image_url:
+                    image_filename = image_url.split('/')[-1].split('?')[0].lower()
+                    if image_filename in extracted_images:
+                        product.image.save(image_filename, extracted_images[image_filename], save=True)
+                    elif image_url.startswith('http://') or image_url.startswith('https://'):
+                        try:
+                            req = urllib.request.Request(image_url, headers={'User-Agent': 'Mozilla/5.0'})
+                            with urllib.request.urlopen(req, timeout=5) as resp:
+                                img_data = resp.read()
+                                file_ext = image_filename.split('.')[-1] if '.' in image_filename else 'jpg'
+                                product.image.save(f"imported_{product.id}.{file_ext}", ContentFile(img_data), save=True)
+                        except Exception as img_err:
+                            errors.append(f"Línea {line_idx}: No se pudo descargar la imagen desde URL ({img_err}).")
+
+                success_count += 1
+                created_products.append(product)
+
+            if success_count > 0:
+                messages.success(request, f'¡Éxito! Se importaron {success_count} productos correctamente.')
+            if errors:
+                for err in errors[:5]:
+                    messages.warning(request, err)
+
+        except Exception as e:
+            messages.error(request, f'Error crítico al procesar el archivo: {e}')
+
+    return render(request, 'manage_import_products.html', {
+        'success_count': success_count,
+        'errors': errors,
+        'created_products': created_products,
+    })
+
+
+
 
 

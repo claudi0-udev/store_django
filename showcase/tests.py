@@ -1819,3 +1819,38 @@ class WishlistTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Audífonos Inalámbricos')
         self.assertContains(response, 'Mover al Carrito')
+
+
+class BatchImportTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(username='importstaff', password='testpass123', is_staff=True)
+
+    def test_download_import_template(self):
+        self.client.login(username='importstaff', password='testpass123')
+        response = self.client.get('/manage/products/import/template/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv; charset=utf-8-sig')
+        self.assertContains(response, 'nombre,descripcion,precio,unidades,categoria,marca,sku,imagen_url')
+
+    def test_csv_batch_import_creates_products(self):
+        self.client.login(username='importstaff', password='testpass123')
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        csv_data = (
+            "nombre,descripcion,precio,unidades,categoria,marca,sku,imagen_url\n"
+            "Teclado Gamer,Teclado mecánico,45000,10,Periféricos,Logitech,TEC-01,\n"
+            "Mouse Wireless,Mouse óptico 16000 DPI,25000,5,Periféricos,Razer,MOU-02,\n"
+        ).encode('utf-8')
+        uploaded_file = SimpleUploadedFile('test_import.csv', csv_data, content_type='text/csv')
+
+        response = self.client.post('/manage/products/import/', {'import_file': uploaded_file})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Teclado Gamer')
+        self.assertContains(response, 'Mouse Wireless')
+
+
+
+        from showcase.models import Product, Category, Brand
+        self.assertTrue(Product.objects.filter(name='Teclado Gamer', price=Decimal('45000.00')).exists())
+        self.assertTrue(Product.objects.filter(name='Mouse Wireless', price=Decimal('25000.00')).exists())
+        self.assertTrue(Category.objects.filter(name='Periféricos').exists())
+        self.assertTrue(Brand.objects.filter(name='Logitech').exists())

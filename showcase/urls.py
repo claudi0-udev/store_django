@@ -51,6 +51,8 @@ from .views import (
     OfflinePage,
     WishlistDetail,
     WishlistToggle,
+    DownloadImportTemplate,
+    ManageImportProducts,
     Register,
     RestoreProduct,
     ShippingQuote,
@@ -111,6 +113,8 @@ urlpatterns = [
     path('manage/dashboard/export-csv/', ManageAnalyticsExportCSV, name='manageAnalyticsExportCSV'),
     path('manage/settings/', ManageSettings, name='manageSettings'),
     path('manage/coupons/', ManageCoupons, name='manageCoupons'),
+    path('manage/products/import/', ManageImportProducts, name='manageImportProducts'),
+    path('manage/products/import/template/', DownloadImportTemplate, name='downloadImportTemplate'),
     path('api/recent-sales/', RecentSalesNotificationAPI, name='recentSalesAPI'),
     path('shipping/quote/', ShippingQuote, name='shippingQuote'),
 ]

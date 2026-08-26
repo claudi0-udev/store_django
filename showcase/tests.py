@@ -1928,3 +1928,21 @@ class HomePageSearchFixTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context['is_search_active'])
         self.assertContains(response, 'No encontramos productos que coincidan con tu búsqueda')
+
+
+class GoogleMapsCoordinateFormattingTests(TestCase):
+    def test_order_lat_lng_formatting_uses_dot_decimal_separator(self):
+        order = Order.objects.create(
+            first_name='Claudio',
+            last_name='Pérez',
+            email='claudio@example.com',
+            phone='+56912345678',
+            address='Av. O’Higgins 123',
+            city='Pichidegua',
+            latitude=Decimal('-34.305504'),
+            longitude=Decimal('-71.393342'),
+        )
+        self.assertEqual(order.lat_str, '-34.305504')
+        self.assertEqual(order.lng_str, '-71.393342')
+        self.assertEqual(order.google_maps_url, 'https://www.google.com/maps?q=-34.305504,-71.393342')
+        self.assertEqual(order.waze_url, 'https://waze.com/ul?ll=-34.305504,-71.393342&navigate=yes')

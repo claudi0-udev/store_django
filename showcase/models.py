@@ -433,7 +433,32 @@ class Order(models.Model):
         parts = [self.address, self.city, self.region, self.country]
         return ', '.join([p for p in parts if p])
 
+    @property
+    def lat_str(self):
+        if self.latitude is not None:
+            return str(self.latitude).replace(',', '.')
+        return ''
+
+    @property
+    def lng_str(self):
+        if self.longitude is not None:
+            return str(self.longitude).replace(',', '.')
+        return ''
+
+    @property
+    def google_maps_url(self):
+        if self.latitude is not None and self.longitude is not None:
+            return f"https://www.google.com/maps?q={self.lat_str},{self.lng_str}"
+        return ''
+
+    @property
+    def waze_url(self):
+        if self.latitude is not None and self.longitude is not None:
+            return f"https://waze.com/ul?ll={self.lat_str},{self.lng_str}&navigate=yes"
+        return ''
+
     def get_total_cost(self):
+
 
         return sum(item.get_cost() for item in self.items.all())
 

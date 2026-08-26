@@ -95,10 +95,11 @@
               </div>
               {% if order.latitude and order.longitude %}
               <div class="small text-muted mt-1">
-                📍 <strong>Punto GPS:</strong> {{ order.latitude }}, {{ order.longitude }}
-                (<a href="https://www.google.com/maps?q={{ order.latitude }},{{ order.longitude }}" target="_blank" class="text-primary font-weight-bold">Ver en mapa ↗</a>)
+                📍 <strong>Punto GPS:</strong> {{ order.lat_str }}, {{ order.lng_str }}
+                (<a href="{{ order.google_maps_url }}" target="_blank" class="text-primary font-weight-bold">Ver en mapa ↗</a>)
               </div>
               {% endif %}
+
             </div>
 
             <div class="col-sm-6 text-sm-right mt-2 mt-sm-0">

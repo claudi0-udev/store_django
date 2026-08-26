@@ -128,8 +128,9 @@
             data-region="{{ last_order.region }}"
             data-country="{{ last_order.country }}"
             data-postal="{{ last_order.postal_code }}"
-            data-lat="{{ last_order.latitude|default:'' }}"
-            data-lng="{{ last_order.longitude|default:'' }}">
+            data-lat="{{ last_order.lat_str|default:'' }}"
+            data-lng="{{ last_order.lng_str|default:'' }}">
+
             📍 Usar mi dirección habitual
           </button>
           {% endif %}

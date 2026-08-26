@@ -158,12 +158,12 @@
             {% if order.latitude and order.longitude %}
             <div class="mt-3">
               <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="small font-weight-bold text-dark">📍 Punto Exacto GPS: {{ order.latitude }}, {{ order.longitude }}</span>
+                <span class="small font-weight-bold text-dark">📍 Punto Exacto GPS: {{ order.lat_str }}, {{ order.lng_str }}</span>
                 <div>
-                  <a href="https://www.google.com/maps?q={{ order.latitude }},{{ order.longitude }}" target="_blank" class="btn btn-xs btn-outline-danger py-1 px-2 font-weight-bold">
+                  <a href="{{ order.google_maps_url }}" target="_blank" class="btn btn-xs btn-outline-danger py-1 px-2 font-weight-bold">
                     🗺️ Google Maps
                   </a>
-                  <a href="https://waze.com/ul?ll={{ order.latitude }},{{ order.longitude }}&navigate=yes" target="_blank" class="btn btn-xs btn-outline-info py-1 px-2 font-weight-bold ml-1">
+                  <a href="{{ order.waze_url }}" target="_blank" class="btn btn-xs btn-outline-info py-1 px-2 font-weight-bold ml-1">
                     🚗 Waze
                   </a>
                 </div>
@@ -171,6 +171,7 @@
               <div id="staff-delivery-map" style="height: 200px; border-radius: 6px;" class="border"></div>
             </div>
             {% endif %}
+
           </div>
         </div>
       </div>
@@ -274,8 +275,9 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    var lat = {{ order.latitude }};
-    var lng = {{ order.longitude }};
+    var lat = {{ order.lat_str }};
+    var lng = {{ order.lng_str }};
+
     var map = L.map('staff-delivery-map').setView([lat, lng], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,

@@ -27,8 +27,10 @@ class TestHomePageView(TestCase):
         response = HomePage(request)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Descubre tu próxima compra')
-        self.assertContains(response, 'Explorar catálogo')
+        self.assertContains(response, 'Bienvenido a nuestra tienda')
+        self.assertContains(response, 'Explorar Catálogo')
+
+
 
 
 @override_settings(MEDIA_ROOT=tempfile.gettempdir())
@@ -1854,3 +1856,51 @@ class BatchImportTests(TestCase):
         self.assertTrue(Product.objects.filter(name='Mouse Wireless', price=Decimal('25000.00')).exists())
         self.assertTrue(Category.objects.filter(name='Periféricos').exists())
         self.assertTrue(Brand.objects.filter(name='Logitech').exists())
+
+
+class ThemeCustomizerTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(username='themestaff', password='testpass123', is_staff=True)
+
+    def test_update_theme_settings_saves_colors_and_texts(self):
+        self.client.login(username='themestaff', password='testpass123')
+        response = self.client.post('/manage/settings/', {
+            'action': 'settings',
+            'store_name': 'Store Custom Theme',
+            'origin_commune': 'Pichidegua',
+            'free_shipping_threshold': '59990',
+            'primary_color': '#e63946',
+            'font_family': 'poppins',
+            'card_style': 'elevated',
+            'announcement_bar_enabled': 'on',
+            'announcement_bar_text': '🚀 ¡Mega Descuentos de Aniversario!',
+            'hero_title': 'Nueva Colección 2026',
+            'hero_subtitle': 'Encuentra las mejores tendencias',
+            'hero_button_text': 'Ver Ahora 🔥',
+            'hero_button_link': '/products/',
+        })
+        self.assertEqual(response.status_code, 302)
+
+
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        self.assertEqual(settings.primary_color, '#e63946')
+        self.assertEqual(settings.font_family, 'poppins')
+        self.assertEqual(settings.card_style, 'elevated')
+        self.assertTrue(settings.announcement_bar_enabled)
+        self.assertEqual(settings.announcement_bar_text, '🚀 ¡Mega Descuentos de Aniversario!')
+        self.assertEqual(settings.hero_title, 'Nueva Colección 2026')
+
+    def test_announcement_bar_and_hero_rendered_on_home(self):
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        settings.primary_color = '#2a9d8f'
+        settings.announcement_bar_text = '🎉 Envío Gratis en todo Chile'
+        settings.hero_title = 'Tecnología e Innovación'
+        settings.save()
+
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '#2a9d8f')
+        self.assertContains(response, '🎉 Envío Gratis en todo Chile')
+        self.assertContains(response, 'Tecnología e Innovación')

@@ -204,14 +204,84 @@
             <label class="small font-weight-bold">Token API Shipit</label>
             <input type="text" name="shipit_token" class="form-control" value="{{ store_settings.shipit_token }}" placeholder="Token de acceso">
           </div>
-          <div class="form-check mb-3">
-            <input class="form-check-input" type="checkbox" name="shipit_enabled" id="shipitEnabled" {% if store_settings.shipit_enabled %}checked{% endif %}>
-            <label class="form-check-label" for="shipitEnabled">
-              Activar cotización en tiempo real con Shipit
-              <span class="badge {% if store_settings.shipit_enabled %}badge-success{% else %}badge-secondary{% endif %} ml-1">
-                {% if store_settings.shipit_enabled %}🟢 Activo{% else %}🔴 Inactivo{% endif %}
-              </span>
-            </label>
+          <!-- Sección de Personalización Visual y Estética -->
+          <div class="card border border-info mb-4 bg-light">
+            <div class="card-header bg-info text-white font-weight-bold">
+              🎨 Personalización Visual y Estética del Sitio
+            </div>
+            <div class="card-body">
+              <div class="form-row align-items-center mb-3">
+                <div class="form-group col-md-6 mb-2">
+                  <label class="small font-weight-bold">Color Primario de la Marca</label>
+                  <div class="input-group">
+                    <input type="color" name="primary_color" class="form-control form-control-color p-1" value="{{ store_settings.primary_color|default:'#007bff' }}" style="height: 38px; width: 60px;">
+                    <input type="text" class="form-control font-weight-bold" value="{{ store_settings.primary_color|default:'#007bff' }}" readonly>
+                  </div>
+                </div>
+                <div class="form-group col-md-6 mb-2">
+                  <label class="small font-weight-bold">Tipografía de la Tienda</label>
+                  <select name="font_family" class="form-control font-weight-bold">
+                    <option value="inter" {% if store_settings.font_family == 'inter' %}selected{% endif %}>Inter (Moderna y Limpia)</option>
+                    <option value="roboto" {% if store_settings.font_family == 'roboto' %}selected{% endif %}>Roboto (Estándar Google)</option>
+                    <option value="poppins" {% if store_settings.font_family == 'poppins' %}selected{% endif %}>Poppins (Geométrica)</option>
+                    <option value="montserrat" {% if store_settings.font_family == 'montserrat' %}selected{% endif %}>Montserrat (Moderna)</option>
+                    <option value="playfair" {% if store_settings.font_family == 'playfair' %}selected{% endif %}>Playfair Display (Elegante)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group mb-3">
+                <label class="small font-weight-bold">Estilo de Tarjetas de Producto</label>
+                <select name="card_style" class="form-control">
+                  <option value="rounded" {% if store_settings.card_style == 'rounded' %}selected{% endif %}>Bordes Redondeados Suaves (Moderno - 12px)</option>
+                  <option value="elevated" {% if store_settings.card_style == 'elevated' %}selected{% endif %}>Tarjetas Flotantes Elevadas (Con Sombra Elegante)</option>
+                  <option value="flat" {% if store_settings.card_style == 'flat' %}selected{% endif %}>Estilo Plano Minimalista (Sin Sombras, Bordes Rectos)</option>
+                </select>
+              </div>
+
+              <hr>
+              <h6 class="font-weight-bold text-dark mb-3">📣 Barra Promocional Superior (Announcement Bar)</h6>
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" name="announcement_bar_enabled" id="announcementBarEnabled" {% if store_settings.announcement_bar_enabled %}checked{% endif %}>
+                <label class="form-check-label font-weight-bold" for="announcementBarEnabled">
+                  Mostrar barra promocional superior
+                </label>
+              </div>
+              <div class="form-group mb-2">
+                <input type="text" name="announcement_bar_text" class="form-control" value="{{ store_settings.announcement_bar_text }}" placeholder="Mensaje de promoción...">
+              </div>
+              <div class="form-row mb-3">
+                <div class="form-group col-md-6 mb-2">
+                  <label class="small font-weight-bold">Color Fondo Barra</label>
+                  <input type="color" name="announcement_bar_bg_color" class="form-control p-1" value="{{ store_settings.announcement_bar_bg_color|default:'#007bff' }}" style="height: 38px;">
+                </div>
+                <div class="form-group col-md-6 mb-2">
+                  <label class="small font-weight-bold">Color Texto Barra</label>
+                  <input type="color" name="announcement_bar_text_color" class="form-control p-1" value="{{ store_settings.announcement_bar_text_color|default:'#ffffff' }}" style="height: 38px;">
+                </div>
+              </div>
+
+              <hr>
+              <h6 class="font-weight-bold text-dark mb-3">🖼️ Hero Banner Principal de Portada</h6>
+              <div class="form-group mb-2">
+                <label class="small font-weight-bold">Título Principal</label>
+                <input type="text" name="hero_title" class="form-control font-weight-bold" value="{{ store_settings.hero_title }}">
+              </div>
+              <div class="form-group mb-2">
+                <label class="small font-weight-bold">Subtítulo</label>
+                <input type="text" name="hero_subtitle" class="form-control" value="{{ store_settings.hero_subtitle }}">
+              </div>
+              <div class="form-row">
+                <div class="form-group col-md-6 mb-2">
+                  <label class="small font-weight-bold">Texto del Botón</label>
+                  <input type="text" name="hero_button_text" class="form-control" value="{{ store_settings.hero_button_text }}">
+                </div>
+                <div class="form-group col-md-6 mb-2">
+                  <label class="small font-weight-bold">Enlace del Botón</label>
+                  <input type="text" name="hero_button_link" class="form-control" value="{{ store_settings.hero_button_link }}">
+                </div>
+              </div>
+            </div>
           </div>
 
           <button type="submit" class="btn btn-primary btn-block btn-lg font-weight-bold shadow-sm">💾 Guardar Configuración y Marca</button>
@@ -219,6 +289,7 @@
       </div>
     </div>
   </div>
+
 
   <!-- Tarifas de Envío -->
   <div class="col-lg-5 mb-4">

@@ -1398,8 +1398,34 @@ def ManageSettings(request):
                 settings.whatsapp_default_message = request.POST.get('whatsapp_default_message', settings.whatsapp_default_message).strip()
             settings.enable_whatsapp_widget = request.POST.get('enable_whatsapp_widget') == 'on'
 
+            # Personalización Estética y Temas Visuales
+            if 'primary_color' in request.POST:
+                settings.primary_color = request.POST.get('primary_color', settings.primary_color).strip()
+            if 'theme_preset' in request.POST:
+                settings.theme_preset = request.POST.get('theme_preset', settings.theme_preset).strip()
+            settings.announcement_bar_enabled = request.POST.get('announcement_bar_enabled') == 'on'
+            if 'announcement_bar_text' in request.POST:
+                settings.announcement_bar_text = request.POST.get('announcement_bar_text', settings.announcement_bar_text).strip()
+            if 'announcement_bar_bg_color' in request.POST:
+                settings.announcement_bar_bg_color = request.POST.get('announcement_bar_bg_color', settings.announcement_bar_bg_color).strip()
+            if 'announcement_bar_text_color' in request.POST:
+                settings.announcement_bar_text_color = request.POST.get('announcement_bar_text_color', settings.announcement_bar_text_color).strip()
+            if 'font_family' in request.POST:
+                settings.font_family = request.POST.get('font_family', settings.font_family).strip()
+            if 'card_style' in request.POST:
+                settings.card_style = request.POST.get('card_style', settings.card_style).strip()
+            if 'hero_title' in request.POST:
+                settings.hero_title = request.POST.get('hero_title', settings.hero_title).strip()
+            if 'hero_subtitle' in request.POST:
+                settings.hero_subtitle = request.POST.get('hero_subtitle', settings.hero_subtitle).strip()
+            if 'hero_button_text' in request.POST:
+                settings.hero_button_text = request.POST.get('hero_button_text', settings.hero_button_text).strip()
+            if 'hero_button_link' in request.POST:
+                settings.hero_button_link = request.POST.get('hero_button_link', settings.hero_button_link).strip()
+
             settings.save()
             messages.success(request, 'Configuración y personalización de marca guardadas exitosamente.')
+
 
 
 

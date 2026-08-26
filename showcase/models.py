@@ -287,6 +287,21 @@ class StoreSettings(models.Model):
     whatsapp_default_message = models.CharField(max_length=250, default='Hola! Quisiera más información sobre la tienda.', verbose_name='Mensaje inicial de WhatsApp por defecto')
     enable_whatsapp_widget = models.BooleanField(default=True, verbose_name='Habilitar botón flotante de WhatsApp')
 
+    # Configuración de Personalización Estética y Tema Visual
+    primary_color = models.CharField(max_length=20, default='#007bff', verbose_name='Color primario de la marca (HEX)')
+    theme_preset = models.CharField(max_length=50, default='custom', verbose_name='Preset de tema visual')
+    announcement_bar_enabled = models.BooleanField(default=True, verbose_name='Habilitar barra de anuncios promocionales superior')
+    announcement_bar_text = models.CharField(max_length=250, default='🚚 ¡Envío GRATIS a todo Chile por compras sobre $59.990! 🇨🇱', verbose_name='Texto de barra de anuncios')
+    announcement_bar_bg_color = models.CharField(max_length=20, default='#007bff', verbose_name='Color de fondo de barra de anuncios')
+    announcement_bar_text_color = models.CharField(max_length=20, default='#ffffff', verbose_name='Color de texto de barra de anuncios')
+    font_family = models.CharField(max_length=50, default='inter', verbose_name='Tipografía principal de la tienda')
+    card_style = models.CharField(max_length=30, default='rounded', verbose_name='Estilo de tarjetas de producto')
+    hero_title = models.CharField(max_length=150, default='Bienvenido a nuestra tienda', verbose_name='Título del Hero Banner')
+    hero_subtitle = models.CharField(max_length=300, default='Descubre los mejores productos seleccionados especialmente para ti.', verbose_name='Subtítulo del Hero Banner')
+    hero_button_text = models.CharField(max_length=50, default='Explorar Catálogo 🔥', verbose_name='Texto del botón del Hero Banner')
+    hero_button_link = models.CharField(max_length=250, default='/products/', verbose_name='Enlace del botón del Hero Banner')
+
+
 
 
 

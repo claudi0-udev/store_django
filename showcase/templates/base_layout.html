@@ -23,14 +23,57 @@
     {% endif %}
     <title>{{ store_settings.store_name|default:'Store Django' }} - Tienda Online</title>
 
-
+    <!-- Google Fonts dinámico -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@400;600;700&family=Playfair+Display:wght@400;600;700&family=Poppins:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 
     <style>
+      :root {
+        --primary-color: {{ store_settings.primary_color|default:'#007bff' }};
+      }
+      body {
+        {% if store_settings.font_family == 'roboto' %}
+        font-family: 'Roboto', sans-serif;
+        {% elif store_settings.font_family == 'poppins' %}
+        font-family: 'Poppins', sans-serif;
+        {% elif store_settings.font_family == 'montserrat' %}
+        font-family: 'Montserrat', sans-serif;
+        {% elif store_settings.font_family == 'playfair' %}
+        font-family: 'Playfair Display', serif;
+        {% else %}
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        {% endif %}
+      }
+      .btn-primary, .bg-primary, .badge-primary {
+        background-color: var(--primary-color) !important;
+        border-color: var(--primary-color) !important;
+      }
+      .text-primary {
+        color: var(--primary-color) !important;
+      }
+      .btn-outline-primary {
+        color: var(--primary-color) !important;
+        border-color: var(--primary-color) !important;
+      }
+      .btn-outline-primary:hover {
+        background-color: var(--primary-color) !important;
+        color: #ffffff !important;
+      }
+      {% if store_settings.card_style == 'flat' %}
+      .card { border-radius: 0px !important; box-shadow: none !important; }
+      {% elif store_settings.card_style == 'elevated' %}
+      .card { border-radius: 16px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.12) !important; }
+      {% else %}
+      .card { border-radius: 12px !important; }
+      {% endif %}
+
       /* Live Search Dropdown Styling */
       .live-search-wrapper {
         position: relative;
         min-width: 260px;
       }
+
       .live-search-dropdown {
         position: absolute;
         top: 100%;
@@ -96,7 +139,16 @@
     </style>
 </head>
 <body>
+    {% if store_settings.announcement_bar_enabled %}
+    <div class="announcement-bar py-2 text-center small font-weight-bold" style="background-color: {{ store_settings.announcement_bar_bg_color|default:'#007bff' }}; color: {{ store_settings.announcement_bar_text_color|default:'#ffffff' }}; z-index: 1060; position: relative;">
+      <div class="container">
+        {{ store_settings.announcement_bar_text|default:'🚚 ¡Envío GRATIS a todo Chile por compras sobre $59.990! 🇨🇱' }}
+      </div>
+    </div>
+    {% endif %}
+
     <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm sticky-top">
+
       <div class="container">
         <a class="navbar-brand font-weight-bold text-primary d-flex align-items-center" href="{% url 'home' %}">
           {% if store_settings.site_logo %}

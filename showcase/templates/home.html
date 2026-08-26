@@ -3,15 +3,21 @@
 {% block body %}
 <section class="row align-items-center py-5">
   <div class="col-lg-7">
-    <h1 class="display-4 font-weight-bold">Descubre tu próxima compra</h1>
+    <h1 class="display-4 font-weight-bold">{{ store_settings.hero_title|default:'Descubre tu próxima compra' }}</h1>
     <p class="lead text-muted">
-      Una tienda simple, elegante y preparada para mostrar productos con una experiencia clara para el visitante.
+      {{ store_settings.hero_subtitle|default:'Una tienda simple, elegante y preparada para mostrar productos con una experiencia clara.' }}
     </p>
     <div class="d-flex flex-wrap gap-2">
-      <a class="btn btn-primary btn-lg" href="{% url 'products' %}">Explorar catálogo</a>
+      <a class="btn btn-primary btn-lg font-weight-bold shadow-sm" href="{{ store_settings.hero_button_link|default:'/products/' }}">
+        {{ store_settings.hero_button_text|default:'Explorar Catálogo 🔥' }}
+      </a>
+
+      {% if not user.is_authenticated %}
       <a class="btn btn-outline-secondary btn-lg" href="{% url 'register' %}">Crear cuenta</a>
+      {% endif %}
     </div>
   </div>
+
   <div class="col-lg-5 mt-4 mt-lg-0">
     <div class="card shadow-sm border-0 bg-light">
       <div class="card-body">

@@ -1,7 +1,11 @@
 import csv
+import io
 import json
-from datetime import timedelta
+import os
+import zipfile
+from datetime import datetime, timedelta
 from decimal import Decimal
+
 
 from django.contrib import messages
 from django.contrib.auth import login
@@ -1881,6 +1885,84 @@ def ManageImportProducts(request):
         'errors': errors,
         'created_products': created_products,
     })
+
+
+@user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='login')
+def ManageExportProductsCSV(request):
+    """
+    Exporta todos los productos de la tienda en un archivo CSV formateado para respaldo o reimportación.
+    """
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = f'attachment; filename="respaldo_productos_{today_str}.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['nombre', 'descripcion', 'precio', 'unidades', 'categoria', 'marca', 'sku', 'imagen_url'])
+
+    products = Product.objects.all().select_related('category', 'brand').order_by('id')
+    for p in products:
+        img_url = p.image.url if p.image else ''
+        if request and img_url and not img_url.startswith('http'):
+            img_url = request.build_absolute_uri(img_url)
+        writer.writerow([
+            p.name,
+            p.description,
+            str(int(p.price)),
+            str(p.units),
+            p.category.name if p.category else '',
+            p.brand.name if p.brand else '',
+            getattr(p, 'sku', f'PRD-{p.id:04d}'),
+            img_url,
+        ])
+
+    return response
+
+
+@user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='login')
+def ManageExportProductsZIP(request):
+    """
+    Exporta un archivo ZIP completo con el CSV de productos y todas las imágenes locales adjuntas.
+    """
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    buffer = io.BytesIO()
+
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        csv_buffer = io.StringIO()
+        writer = csv.writer(csv_buffer)
+        writer.writerow(['nombre', 'descripcion', 'precio', 'unidades', 'categoria', 'marca', 'sku', 'imagen_url'])
+
+        products = Product.objects.all().select_related('category', 'brand').order_by('id')
+        for p in products:
+            img_name = ''
+            if p.image and p.image.name:
+                try:
+                    img_path = p.image.path
+                    if os.path.exists(img_path):
+                        img_filename = os.path.basename(img_path)
+                        zip_img_path = f"imagenes/{img_filename}"
+                        zf.write(img_path, zip_img_path)
+                        img_name = zip_img_path
+                except Exception:
+                    pass
+
+            writer.writerow([
+                p.name,
+                p.description,
+                str(int(p.price)),
+                str(p.units),
+                p.category.name if p.category else '',
+                p.brand.name if p.brand else '',
+                getattr(p, 'sku', f'PRD-{p.id:04d}'),
+                img_name,
+            ])
+
+        zf.writestr('productos.csv', csv_buffer.getvalue().encode('utf-8-sig'))
+
+    buffer.seek(0)
+    response = HttpResponse(buffer.getvalue(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="respaldo_completo_productos_{today_str}.zip"'
+    return response
+
 
 
 

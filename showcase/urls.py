@@ -53,6 +53,8 @@ from .views import (
     WishlistToggle,
     DownloadImportTemplate,
     ManageImportProducts,
+    ManageExportProductsCSV,
+    ManageExportProductsZIP,
     Register,
     RestoreProduct,
     ShippingQuote,
@@ -115,6 +117,8 @@ urlpatterns = [
     path('manage/coupons/', ManageCoupons, name='manageCoupons'),
     path('manage/products/import/', ManageImportProducts, name='manageImportProducts'),
     path('manage/products/import/template/', DownloadImportTemplate, name='downloadImportTemplate'),
+    path('manage/products/export/csv/', ManageExportProductsCSV, name='manageExportProductsCSV'),
+    path('manage/products/export/zip/', ManageExportProductsZIP, name='manageExportProductsZIP'),
     path('api/recent-sales/', RecentSalesNotificationAPI, name='recentSalesAPI'),
     path('shipping/quote/', ShippingQuote, name='shippingQuote'),
 ]

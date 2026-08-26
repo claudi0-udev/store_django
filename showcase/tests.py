@@ -1946,3 +1946,31 @@ class GoogleMapsCoordinateFormattingTests(TestCase):
         self.assertEqual(order.lng_str, '-71.393342')
         self.assertEqual(order.google_maps_url, 'https://www.google.com/maps?q=-34.305504,-71.393342')
         self.assertEqual(order.waze_url, 'https://waze.com/ul?ll=-34.305504,-71.393342&navigate=yes')
+
+
+class ProductBackupExportTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(username='backupstaff', password='pass1234', is_staff=True)
+        self.cat = Category.objects.create(name='Audio y Sonido')
+        self.prod = Product.objects.create(
+            name='Audífonos Respaldo Test',
+            description='Prueba de exportación',
+            price=Decimal('29990.00'),
+            category=self.cat,
+            units=10,
+            is_active=True
+        )
+
+    def test_export_products_csv_downloads_file(self):
+        self.client.login(username='backupstaff', password='pass1234')
+        response = self.client.get('/manage/products/export/csv/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv; charset=utf-8-sig')
+        self.assertContains(response, 'Audífonos Respaldo Test')
+        self.assertContains(response, '29990')
+
+    def test_export_products_zip_downloads_zip_archive(self):
+        self.client.login(username='backupstaff', password='pass1234')
+        response = self.client.get('/manage/products/export/zip/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/zip')

@@ -9,15 +9,24 @@
   </ol>
 </nav>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <div>
-    <h1 class="h2 font-weight-bold mb-1">📥 Importación Masiva de Productos (CSV / Excel)</h1>
-    <p class="text-muted mb-0">Carga lotes enteros de productos con precios, stock, categorías e imágenes en segundos.</p>
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
+  <div class="mb-2 mb-md-0">
+    <h1 class="h2 font-weight-bold mb-1">📥 Importación y Respaldos Masivos de Productos</h1>
+    <p class="text-muted mb-0">Carga o respalda lotes enteros de productos con precios, stock, categorías e imágenes.</p>
   </div>
-  <a href="{% url 'downloadImportTemplate' %}" class="btn btn-outline-success font-weight-bold shadow-sm">
-    📄 Descargar Plantilla CSV de Ejemplo
-  </a>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{% url 'manageExportProductsCSV' %}" class="btn btn-outline-primary font-weight-bold shadow-sm mr-2 mb-2">
+      📤 Respaldar Productos (CSV)
+    </a>
+    <a href="{% url 'manageExportProductsZIP' %}" class="btn btn-outline-info font-weight-bold shadow-sm mr-2 mb-2">
+      📦 Respaldo Completo + Fotos (ZIP)
+    </a>
+    <a href="{% url 'downloadImportTemplate' %}" class="btn btn-success font-weight-bold shadow-sm mb-2">
+      📄 Plantilla Demo CSV
+    </a>
+  </div>
 </div>
+
 
 <div class="row">
   <div class="col-lg-6 mb-4">

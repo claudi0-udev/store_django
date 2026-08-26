@@ -69,10 +69,10 @@
   <div class="col-12">
     <div class="card shadow-sm border-0">
       <div class="card-body">
-        <form method="get" class="row g-2 align-items-end">
+        <form method="get" class="row g-2 align-items-end" action="{% url 'home' %}#searchResultsSection">
           <div class="col-md-5">
             <label class="sr-only" for="q">Buscar</label>
-            <input class="form-control" id="q" type="search" name="q" value="{{ search_query }}" placeholder="Buscar productos por nombre">
+            <input class="form-control" id="q" type="search" name="q" value="{{ search_query }}" placeholder="Buscar productos por nombre, marca o categoría...">
           </div>
           <div class="col-md-3">
             <label class="sr-only" for="category">Categoría</label>
@@ -93,9 +93,9 @@
             </select>
           </div>
           <div class="col-md-2 d-flex gap-2">
-            <button class="btn btn-primary" type="submit">Buscar</button>
+            <button class="btn btn-primary btn-block font-weight-bold" type="submit">🔍 Buscar</button>
             {% if search_query or category_id or ordering != '-id' %}
-            <a class="btn btn-outline-secondary" href="{% url 'home' %}">Limpiar</a>
+            <a class="btn btn-outline-secondary" href="{% url 'home' %}" title="Limpiar búsqueda">✕</a>
             {% endif %}
           </div>
         </form>
@@ -103,6 +103,102 @@
     </div>
   </div>
 </section>
+
+{% if is_search_active %}
+<section id="searchResultsSection" class="row mb-5">
+  <div class="col-12">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap bg-light p-3 rounded border">
+      <div>
+        <h2 class="h5 font-weight-bold mb-1 text-primary">
+          🔍 Resultados de Búsqueda
+        </h2>
+        <p class="text-muted small mb-0">
+          {% if search_query %}
+          Coincidencias para <strong>"{{ search_query }}"</strong>
+          {% endif %}
+          {% if selected_category %}
+          en categoría <strong>{{ selected_category.name }}</strong>
+          {% endif %}
+          <span class="badge badge-primary ml-2">{{ total_search_results }} producto{{ total_search_results|pluralize }} encontrado{{ total_search_results|pluralize }}</span>
+        </p>
+      </div>
+      <div class="mt-2 mt-sm-0">
+        <a href="{% url 'home' %}" class="btn btn-sm btn-outline-danger mr-2 font-weight-bold">✕ Limpiar búsqueda</a>
+        <a href="{% url 'products' %}?q={{ search_query }}&category={{ category_id|default:'' }}" class="btn btn-sm btn-outline-primary font-weight-bold">Ver catálogo completo →</a>
+      </div>
+    </div>
+
+    <div class="row">
+      {% for product in products %}
+      <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+          {% if product.image %}
+          <div style="height: 180px; overflow: hidden;" class="text-center bg-light p-2 rounded-top">
+            <img src="{{ product.image.url }}" class="img-fluid h-100" style="object-fit: contain;" alt="{{ product.name }}">
+          </div>
+          {% else %}
+          <div style="height: 180px;" class="bg-light d-flex align-items-center justify-content-center text-muted font-weight-bold rounded-top">
+            📦 Sin Imagen
+          </div>
+          {% endif %}
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="badge badge-info">{{ product.category.name|default:'Sin categoría' }}</span>
+              {% if product.units == 0 %}
+              <span class="badge badge-secondary">Agotado</span>
+              {% elif product.units <= 3 %}
+              <span class="badge badge-danger">🔥 ¡Últimas {{ product.units }}!</span>
+              {% else %}
+              <span class="badge badge-success">En Stock</span>
+              {% endif %}
+            </div>
+            <h5 class="card-title font-weight-bold h6 mb-1">{{ product.name }}</h5>
+            {% if product.get_review_count > 0 %}
+            <div class="small text-warning mb-1">
+              ★ <strong>{{ product.get_average_rating }}</strong> <span class="text-muted">({{ product.get_review_count }})</span>
+            </div>
+            {% endif %}
+            <p class="card-text text-muted small">{{ product.description|truncatechars:80 }}</p>
+            <p class="font-weight-bold text-primary mb-0">$ {{ product.price }}</p>
+          </div>
+          <div class="card-footer bg-white border-0 pt-0 d-flex justify-content-between">
+            <a class="btn btn-outline-secondary btn-sm mr-2 flex-fill" href="{% url 'productDetail' product.id %}">Ver detalle</a>
+            <form method="post" action="{% url 'cartAdd' product.id %}" class="ajax-add-to-cart m-0 flex-fill">
+              {% csrf_token %}
+              <input type="hidden" name="quantity" value="1">
+              <button type="submit" class="btn btn-primary btn-sm btn-block font-weight-bold" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
+                🛒 Añadir
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="col-12 py-4">
+        <div class="alert alert-warning text-center border-0 shadow-sm py-4" role="alert">
+          <h5 class="font-weight-bold mb-2">🔍 No encontramos productos que coincidan con tu búsqueda</h5>
+          <p class="mb-3 text-muted">Intenta revisar la ortografía, buscar términos más generales o explorar por categoría.</p>
+          <div class="d-flex justify-content-center gap-2">
+            <a href="{% url 'home' %}" class="btn btn-secondary btn-sm font-weight-bold">Limpiar Filtros</a>
+            <a href="{% url 'products' %}" class="btn btn-primary btn-sm font-weight-bold">Ver Catálogo Completo</a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var searchSec = document.getElementById('searchResultsSection');
+    if (searchSec) {
+      searchSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+</script>
+{% endif %}
+
 
 <section class="row mb-4">
   <div class="col-12">

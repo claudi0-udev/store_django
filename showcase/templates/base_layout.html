@@ -185,9 +185,9 @@
 
           <!-- Live Search Bar en Navbar -->
           <div class="live-search-wrapper my-2 my-lg-0 mx-lg-3">
-            <form method="get" action="{% url 'home' %}" class="form-inline w-100" autocomplete="off">
+            <form method="get" action="{% url 'products' %}" class="form-inline w-100" autocomplete="off">
               <div class="input-group input-group-sm w-100">
-                <input type="text" id="liveSearchInput" name="search" class="form-control rounded-pill-left" placeholder="🔍 Buscar productos..." value="{{ search_query|default:'' }}">
+                <input type="text" id="liveSearchInput" name="q" class="form-control rounded-pill-left" placeholder="🔍 Buscar productos..." value="{{ search_query|default:'' }}">
                 <div class="input-group-append">
                   <button class="btn btn-outline-primary btn-sm" type="submit">Buscar</button>
                 </div>
@@ -195,6 +195,7 @@
             </form>
             <div id="liveSearchResults" class="live-search-dropdown"></div>
           </div>
+
 
           <ul class="navbar-nav ml-auto align-items-center">
             {% if user.is_authenticated %}

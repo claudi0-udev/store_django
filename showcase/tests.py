@@ -1904,3 +1904,27 @@ class ThemeCustomizerTests(TestCase):
         self.assertContains(response, '#2a9d8f')
         self.assertContains(response, '🎉 Envío Gratis en todo Chile')
         self.assertContains(response, 'Tecnología e Innovación')
+
+
+class HomePageSearchFixTests(TestCase):
+    def setUp(self):
+        self.cat = Category.objects.create(name='Computación')
+        self.prod1 = Product.objects.create(name='Laptop HP Pavilion', description='Excelente laptop para trabajo', price=Decimal('450000.00'), category=self.cat, units=5, is_active=True)
+        self.prod2 = Product.objects.create(name='Audífonos Sony', description='Cancelación de ruido activo', price=Decimal('120000.00'), category=self.cat, units=3, is_active=True)
+
+    def test_search_on_home_page_renders_results_section(self):
+        response = self.client.get('/?q=Laptop')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['is_search_active'])
+        self.assertContains(response, 'Resultados de Búsqueda')
+        self.assertContains(response, 'Laptop HP Pavilion')
+        search_products = list(response.context['products'])
+        self.assertIn(self.prod1, search_products)
+        self.assertNotIn(self.prod2, search_products)
+
+
+    def test_search_with_no_matches_displays_empty_notice(self):
+        response = self.client.get('/?q=Inexistente12345')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['is_search_active'])
+        self.assertContains(response, 'No encontramos productos que coincidan con tu búsqueda')

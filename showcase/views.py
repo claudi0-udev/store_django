@@ -94,7 +94,12 @@ def HomePage(request):
     else:
         products_query = products_query.order_by('-id')
 
-    products = products_query[:8]
+    total_search_results = products_query.count()
+    products = products_query[:12]
+
+    selected_category = None
+    if category_id:
+        selected_category = Category.objects.filter(pk=category_id).first()
 
     return render(request, 'home.html', {
         'featured_products': featured_products,
@@ -104,9 +109,13 @@ def HomePage(request):
         'categories': all_categories,
         'search_query': search_query,
         'category_id': category_id,
+        'selected_category': selected_category,
         'ordering': ordering,
         'products': products,
+        'total_search_results': total_search_results,
+        'is_search_active': bool(search_query or category_id),
     })
+
 
 
 

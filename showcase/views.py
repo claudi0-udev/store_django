@@ -1730,44 +1730,37 @@ def WishlistDetail(request):
 @user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='login')
 def DownloadImportTemplate(request):
     """
-    Genera y descarga la plantilla de ejemplo CSV para la importación masiva de productos.
+    Genera y descarga un catálogo completo de productos de muestra en formato CSV listo para importar.
     """
     response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
-    response['Content-Disposition'] = 'attachment; filename="plantilla_importacion_productos.csv"'
+    response['Content-Disposition'] = 'attachment; filename="catalogo_demo_productos_chile.csv"'
 
     writer = csv.writer(response)
-    writer.writerow([
-        'nombre',
-        'descripcion',
-        'precio',
-        'unidades',
-        'categoria',
-        'marca',
-        'sku',
-        'imagen_url',
-    ])
-    writer.writerow([
-        'Audífonos Bluetooth Pro',
-        'Audífonos de alta fidelidad con cancelación de ruido activa.',
-        '49990',
-        '25',
-        'Audio y Sonido',
-        'Sony',
-        'AUD-BT-001',
-        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
-    ])
-    writer.writerow([
-        'Teclado Mecánico Gamer RGB',
-        'Teclado ergonómico retroiluminado con switches azules.',
-        '35000',
-        '15',
-        'Computación',
-        'Logitech',
-        'TEC-RGB-002',
-        '',
-    ])
+    writer.writerow(['nombre', 'descripcion', 'precio', 'unidades', 'categoria', 'marca', 'sku', 'imagen_url'])
+    
+    sample_products = [
+        ['iPhone 15 Pro Max 256GB', 'Smartphone flagship de Apple con cuerpo de titanio, cámara de 48MP y chip A17 Pro.', '1299990', '10', 'Tecnología', 'Apple', 'IPH-15PRO-256', 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=600'],
+        ['MacBook Air M2 13" 256GB', 'Laptop ultra delgada y potente con procesador Apple M2 y pantalla Liquid Retina.', '999990', '8', 'Tecnología', 'Apple', 'MAC-AIR-M2', 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600'],
+        ['Audífonos Sony WH-1000XM5', 'Audífonos inalámbricos de diadema con la mejor cancelación de ruido del mercado.', '299990', '15', 'Audio y Sonido', 'Sony', 'SNY-XM5-BLK', 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600'],
+        ['Zapatillas Nike Pegasus 40', 'Zapatillas de running ergonómicas con amortiguación React para máximo confort.', '89990', '20', 'Calzado y Moda', 'Nike', 'NKE-PEG-40', 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600'],
+        ['Cafetera Espresso Philips 2200', 'Cafetera superautomática de grano a la taza con espumador de leche clásico.', '349990', '5', 'Hogar y Electro', 'Philips', 'PHL-ESP-2200', 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600'],
+        ['Smartwatch Samsung Galaxy Watch 6', 'Reloj inteligente con monitoreo de salud, ECG, análisis de sueño y GPS.', '219990', '12', 'Tecnología', 'Samsung', 'SAM-WCH-6', 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600'],
+        ['Silla Gamer Ergonómica Premium', 'Silla ergonómica reclinable 180° con cojín lumbar y reposabrazos 4D.', '159990', '7', 'Muebles y Oficina', 'Cougar', 'CHR-GMR-4D', 'https://images.unsplash.com/photo-1580481072645-022f9a6d8310?w=600'],
+        ['Consola PlayStation 5 Slim 1TB', 'Consola de juegos de última generación con disco SSD ultra rápido y mando DualSense.', '549990', '6', 'Videojuegos', 'Sony', 'PS5-SLM-1TB', 'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=600'],
+        ['Mochila Ejecutiva Impermeable USB', 'Mochila ergonómica para laptop de 15.6" con puerto de carga USB integrado.', '29990', '30', 'Accesorios', 'Samsonite', 'MC-EJEC-USB', 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600'],
+        ['Monitor Gamer LG UltraGear 27" 144Hz', 'Monitor IPS QHD de 27 pulgadas con 1ms de respuesta y G-Sync Compatible.', '249990', '9', 'Computación', 'LG', 'MON-LG-27-144', 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=600'],
+        ['Teclado Mecánico Keychron K2', 'Teclado mecánico compacto al 75% con switches Gateron Brown y Bluetooth.', '84990', '18', 'Computación', 'Keychron', 'KEY-K2-BRN', 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=600'],
+        ['Parlante Portátil JBL Charge 5', 'Parlante Bluetooth resistente al agua IP67 con batería para 20 horas de música.', '129990', '14', 'Audio y Sonido', 'JBL', 'JBL-CHG-5', 'https://images.unsplash.com/photo-1545454675-3531b543be5d?w=600'],
+        ['Lámpara LED Escritorio Inteligente', 'Lámpara táctil con temperatura de luz regulable, temporizador y carga Qi.', '34990', '22', 'Hogar y Decoración', 'Xiaomi', 'LMP-LED-QI', 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=600'],
+        ['Freidora de Aire Ninja 5.2L', 'Freidora sin aceite con 6 funciones de cocción y cesta cerámica antiadherente.', '119990', '11', 'Hogar y Electro', 'Ninja', 'NJ-AF-52L', 'https://images.unsplash.com/photo-1585515320310-259814833e62?w=600'],
+        ['Chaqueta Térmica Impermeable', 'Chaqueta cortaviento de alta montaña con forro polar interior.', '69990', '16', 'Calzado y Moda', 'Columbia', 'CHQ-OUT-TRM', 'https://images.unsplash.com/photo-1544441893-675973e31985?w=600']
+    ]
+
+    for prod in sample_products:
+        writer.writerow(prod)
 
     return response
+
 
 
 @user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='login')

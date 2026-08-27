@@ -1,0 +1,143 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<div class="row justify-content-center py-3">
+  <div class="col-lg-8 col-md-10">
+
+    <!-- Header de Pasarela Segura -->
+    <div class="card shadow-sm border-0 mb-4 overflow-hidden">
+      <div class="card-header bg-dark text-white py-3 px-4 d-flex justify-content-between align-items-center">
+        <div>
+          <span class="badge badge-success mr-2">🔒 Conexión Cifrada SSL 256-bit</span>
+          <span class="small text-light">Portal de Pago Seguro</span>
+        </div>
+        <div class="font-weight-bold text-white small">
+          Orden #{{ order.id }}
+        </div>
+      </div>
+
+      <div class="card-body p-4 bg-light border-bottom">
+        <div class="row align-items-center">
+          <div class="col-md-7 mb-3 mb-md-0">
+            <h4 class="font-weight-bold mb-1 text-dark">
+              {{ gateway_info.icon }} {{ gateway_info.name }}
+            </h4>
+            <p class="text-muted small mb-0">{{ gateway_info.description }}</p>
+          </div>
+          <div class="col-md-5 text-md-right">
+            <span class="text-muted small d-block">Monto Total a Pagar:</span>
+            <span class="h3 font-weight-bold text-primary mb-0">$ {{ order.total_amount }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-body p-4 bg-white">
+        <form method="post" action="{% url 'paymentProcess' order.id %}" id="paymentGatewayForm">
+          {% csrf_token %}
+          <input type="hidden" name="gateway" value="{{ order.payment_method }}">
+          <input type="hidden" name="action" id="paymentAction" value="approve">
+
+          <!-- Tarjeta Virtual / Simulador Interactivo -->
+          <div class="p-3 mb-4 rounded border bg-light">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <span class="font-weight-bold small text-muted text-uppercase">Datos de la Tarjeta</span>
+              <div class="small">
+                <span class="badge badge-light border">Visa</span>
+                <span class="badge badge-light border">Mastercard</span>
+                <span class="badge badge-light border">Redcompra</span>
+              </div>
+            </div>
+
+            <div class="form-group mb-3">
+              <label for="card_holder" class="small font-weight-bold text-muted mb-1">Nombre del Titular</label>
+              <input type="text" class="form-control font-weight-bold" id="card_holder" name="card_holder" value="{{ order.first_name }} {{ order.last_name }}" required>
+            </div>
+
+            <div class="form-group mb-3">
+              <label for="card_number" class="small font-weight-bold text-muted mb-1">Número de Tarjeta</label>
+              <div class="input-group">
+                <div class="input-group-prepend">
+                  <span class="input-group-text bg-white">💳</span>
+                </div>
+                <input type="text" class="form-control font-weight-bold" id="card_number" name="card_number" value="4532 8765 4321 8890" maxlength="19" required>
+              </div>
+              <small class="form-text text-muted">Puedes usar los datos de prueba sugeridos o ingresar una tarjeta de test.</small>
+            </div>
+
+            <div class="row">
+              <div class="col-6 col-md-4 mb-3">
+                <label for="exp_date" class="small font-weight-bold text-muted mb-1">Vencimiento</label>
+                <input type="text" class="form-control text-center font-weight-bold" id="exp_date" name="exp_date" value="12/29" maxlength="5" placeholder="MM/AA">
+              </div>
+              <div class="col-6 col-md-4 mb-3">
+                <label for="cvv" class="small font-weight-bold text-muted mb-1">CVV / CVC</label>
+                <input type="password" class="form-control text-center font-weight-bold" id="cvv" name="cvv" value="123" maxlength="4" placeholder="123">
+              </div>
+              <div class="col-12 col-md-4 mb-3">
+                <label for="card_type" class="small font-weight-bold text-muted mb-1">Tipo de Tarjeta</label>
+                <select class="form-control font-weight-bold" id="card_type" name="card_type">
+                  <option value="Visa Crédito" selected>Visa Crédito</option>
+                  <option value="Mastercard Crédito">Mastercard Crédito</option>
+                  <option value="Redcompra Débito">Redcompra Débito</option>
+                  <option value="Prepago Digital">Prepago Digital</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group mb-0">
+              <label for="installments" class="small font-weight-bold text-muted mb-1">Cuotas de Pago</label>
+              <select class="form-control font-weight-bold" id="installments" name="installments">
+                <option value="1" selected>1 cuota de $ {{ order.total_amount }} (Sin interés)</option>
+                <option value="3">3 cuotas sin interés</option>
+                <option value="6">6 cuotas sin interés</option>
+                <option value="12">12 cuotas con interés mensual</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Botones de Acción -->
+          <div class="row g-2 mb-3">
+            <div class="col-md-7 mb-2 mb-md-0">
+              <button type="button" class="btn btn-success btn-lg btn-block font-weight-bold py-3 shadow-sm" onclick="submitPayment('approve')">
+                ✅ Pagar $ {{ order.total_amount }}
+              </button>
+            </div>
+            <div class="col-md-5">
+              <button type="button" class="btn btn-outline-danger btn-lg btn-block font-weight-bold py-3" onclick="submitPayment('reject')">
+                ❌ Simular Rechazo
+              </button>
+            </div>
+          </div>
+
+          <div class="text-center mt-3">
+            <button type="button" class="btn btn-link text-muted btn-sm" onclick="submitPayment('cancel')">
+              ← Cancelar y elegir otro medio de pago
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Footer de Seguridad -->
+      <div class="card-footer bg-light py-3 px-4 text-center border-top">
+        <div class="d-flex justify-content-center align-items-center gap-3 text-muted small flex-wrap">
+          <span class="mr-3">🛡️ <strong>PCI-DSS Certified</strong></span>
+          <span class="mr-3">🔒 <strong>3D Secure Verification</strong></span>
+          <span>⚡ <strong>Transbank / Mercado Pago Gateway</strong></span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function submitPayment(actionType) {
+    var form = document.getElementById('paymentGatewayForm');
+    var actionInput = document.getElementById('paymentAction');
+    if (form && actionInput) {
+      actionInput.value = actionType;
+      form.submit();
+    }
+  }
+</script>
+{% endblock %}

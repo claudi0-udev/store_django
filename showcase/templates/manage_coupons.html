@@ -1,0 +1,171 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent px-0">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Gestión de Cupones</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h2 font-weight-bold mb-1">🎫 Gestión de Cupones y Descuentos</h1>
+    <p class="text-muted mb-0">Crea y administra códigos promocionales para la tienda.</p>
+  </div>
+  <a href="{% url 'manageSettings' %}" class="btn btn-outline-secondary btn-sm">
+    ⚙️ Configuración de Tienda
+  </a>
+</div>
+
+<div class="row">
+  <!-- Formulario de Creación de Cupón -->
+  <div class="col-lg-4 mb-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white border-bottom py-3">
+        <h5 class="font-weight-bold mb-0 text-dark">➕ Crear Nuevo Cupón</h5>
+      </div>
+      <div class="card-body p-4">
+        <form method="post" action="{% url 'manageCoupons' %}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="create">
+
+          <div class="form-group mb-3">
+            <label for="id_code" class="font-weight-bold small text-muted">Código Promocional</label>
+            <input type="text" name="code" id="id_code" class="form-control text-uppercase font-weight-bold" placeholder="Ej: DESCUENTO10" required>
+            <small class="form-text text-muted">Se convertirá a mayúsculas automáticamente.</small>
+          </div>
+
+          <div class="form-group mb-3">
+            <label for="id_discount_type" class="font-weight-bold small text-muted">Tipo de Descuento</label>
+            <select name="discount_type" id="id_discount_type" class="form-control font-weight-bold">
+              <option value="percentage">Porcentaje (%)</option>
+              <option value="fixed">Monto Fijo ($ CLP)</option>
+            </select>
+          </div>
+
+          <div class="form-group mb-3">
+            <label for="id_discount_value" class="font-weight-bold small text-muted">Valor del Descuento</label>
+            <input type="number" step="0.01" min="0.01" name="discount_value" id="id_discount_value" class="form-control font-weight-bold" placeholder="Ej: 15 para 15% o 5000 para $5.000 CLP" required>
+          </div>
+
+          <div class="form-group mb-3">
+            <label for="id_min_purchase_amount" class="font-weight-bold small text-muted">Monto Mínimo de Compra ($ CLP)</label>
+            <input type="number" step="1" min="0" name="min_purchase_amount" id="id_min_purchase_amount" class="form-control" value="0" placeholder="0 para sin mínimo">
+          </div>
+
+          <div class="form-group mb-3">
+            <label for="id_max_uses" class="font-weight-bold small text-muted">Límite de Usos Totales (Opcional)</label>
+            <input type="number" min="1" name="max_uses" id="id_max_uses" class="form-control" placeholder="Dejar vacío para ilimitado">
+          </div>
+
+          <div class="form-group mb-4">
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="id_is_active" name="is_active" checked>
+              <label class="custom-control-label font-weight-bold" for="id_is_active">
+                ✅ Cupón Activo inmediatamente
+              </label>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block font-weight-bold shadow-sm py-2">
+            💾 Guardar Cupón
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Listado de Cupones Existentes -->
+  <div class="col-lg-8">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+        <h5 class="font-weight-bold mb-0 text-dark">📋 Cupones Registrados</h5>
+        <span class="badge badge-secondary px-3 py-2">{{ coupons.count }} cupones</span>
+      </div>
+      <div class="card-body p-0">
+        {% if coupons %}
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="bg-light">
+              <tr>
+                <th>Código</th>
+                <th>Descuento</th>
+                <th>Mín. Compra</th>
+                <th>Usos</th>
+                <th>Estado</th>
+                <th class="text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for coupon in coupons %}
+              <tr>
+                <td>
+                  <strong class="h6 font-weight-bold text-primary mb-0">{{ coupon.code }}</strong>
+                </td>
+                <td>
+                  {% if coupon.discount_type == 'percentage' %}
+                  <span class="badge badge-info font-weight-bold">{{ coupon.discount_value|floatformat:0 }}% OFF</span>
+                  {% else %}
+                  <span class="badge badge-success font-weight-bold">$ {{ coupon.discount_value }} OFF</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if coupon.min_purchase_amount > 0 %}
+                  $ {{ coupon.min_purchase_amount }}
+                  {% else %}
+                  <span class="text-muted small">Sin mínimo</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {{ coupon.used_count }}
+                  {% if coupon.max_uses %}
+                  / {{ coupon.max_uses }}
+                  {% else %}
+                  <span class="text-muted small">(Ilimitado)</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if coupon.is_active %}
+                  <span class="badge badge-success">Activo</span>
+                  {% else %}
+                  <span class="badge badge-secondary">Inactivo</span>
+                  {% endif %}
+                </td>
+                <td class="text-right">
+                  <div class="d-flex justify-content-end gap-1">
+                    <form method="post" action="{% url 'manageCoupons' %}" class="d-inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="toggle_active">
+                      <input type="hidden" name="coupon_id" value="{{ coupon.id }}">
+                      <button type="submit" class="btn btn-outline-warning btn-sm" title="Activar/Desactivar">
+                        {% if coupon.is_active %}⏸️ Desactivar{% else %}▶️ Activar{% endif %}
+                      </button>
+                    </form>
+
+                    <form method="post" action="{% url 'manageCoupons' %}" class="d-inline" onsubmit="return confirm('¿Seguro que deseas eliminar el cupón {{ coupon.code }}?');">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="delete">
+                      <input type="hidden" name="coupon_id" value="{{ coupon.id }}">
+                      <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar">
+                        🗑️
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="p-5 text-center text-muted">
+          <p class="h5 mb-2">No hay cupones creados aún.</p>
+          <p class="small">Utiliza el formulario de la izquierda para crear tu primer cupón de descuento.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

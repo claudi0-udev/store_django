@@ -1,0 +1,15 @@
+🚚 ¡Tu pedido #{{ order.id }} está en camino!
+
+Hola {{ order.first_name }} {{ order.last_name }},
+
+Queremos informarte que tu pedido ha sido despachado exitosamente.
+
+Estado: {{ order.get_status_display }}
+Número de Seguimiento: {{ order.tracking_number|default:'Por asignar' }}
+Transportista: {{ order.shipping_courier|default:'Starken' }}
+Plazo estimado: {{ order.shipping_estimated_days|default:'3-5 días hábiles' }}
+
+Dirección de entrega: {{ order.address }}, {{ order.city }}
+
+Gracias por comprar con nosotros.
+Store Django

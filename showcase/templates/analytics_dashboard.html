@@ -1,0 +1,330 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent px-0">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'manageOrders' %}">Panel de Gestión</a></li>
+    <li class="breadcrumb-item active" aria-current="page">📊 Dashboard Analytics</li>
+  </ol>
+</nav>
+
+<!-- Header -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+  <div>
+    <h1 class="h2 font-weight-bold mb-1">📊 Dashboard Analytics</h1>
+    <p class="text-muted mb-0 small">Datos actualizados al {{ now|date:"d/m/Y H:i" }}</p>
+  </div>
+  <div class="mt-3 mt-md-0 d-flex align-items-center">
+    <a href="{% url 'manageAnalyticsExportCSV' %}" class="btn btn-outline-success btn-sm mr-2">⬇️ Exportar CSV</a>
+    <a href="{% url 'manageOrders' %}" class="btn btn-outline-secondary btn-sm mr-2">🚚 Pedidos</a>
+    <a href="{% url 'addProduct' %}" class="btn btn-primary btn-sm font-weight-bold">+ Producto</a>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="row mb-4">
+  <div class="col-6 col-md-4 col-lg-2 mb-3">
+    <div class="card border-0 shadow-sm h-100 text-center p-3">
+      <div class="text-muted small font-weight-bold text-uppercase">💰 Ingresos</div>
+      <div class="h4 font-weight-bold text-success mb-0 mt-1">$ {{ total_revenue|floatformat:0 }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2 mb-3">
+    <div class="card border-0 shadow-sm h-100 text-center p-3">
+      <div class="text-muted small font-weight-bold text-uppercase">📦 Pedidos</div>
+      <div class="h4 font-weight-bold text-dark mb-0 mt-1">{{ total_orders }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2 mb-3">
+    <div class="card border-0 shadow-sm h-100 text-center p-3 bg-light">
+      <div class="text-muted small font-weight-bold text-uppercase">⏳ Pendientes</div>
+      <div class="h4 font-weight-bold text-warning mb-0 mt-1">{{ pending_count }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2 mb-3">
+    <div class="card border-0 shadow-sm h-100 text-center p-3">
+      <div class="text-muted small font-weight-bold text-uppercase">✅ Completados</div>
+      <div class="h4 font-weight-bold text-success mb-0 mt-1">{{ completed_count }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2 mb-3">
+    <div class="card border-0 shadow-sm h-100 text-center p-3">
+      <div class="text-muted small font-weight-bold text-uppercase">🕐 Hoy</div>
+      <div class="h4 font-weight-bold text-info mb-0 mt-1">{{ orders_today }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2 mb-3">
+    <div class="card border-0 shadow-sm h-100 text-center p-3">
+      <div class="text-muted small font-weight-bold text-uppercase">📈 Ticket Prom.</div>
+      <div class="h4 font-weight-bold text-primary mb-0 mt-1">$ {{ avg_ticket|floatformat:0 }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Fila 1: Ventas mensuales + Estados -->
+<div class="row mb-4">
+  <div class="col-lg-8 mb-4 mb-lg-0">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+        <span class="font-weight-bold">💰 Ingresos Mensuales (últimos 12 meses)</span>
+        <span class="badge badge-success badge-pill">Pagados</span>
+      </div>
+      <div class="card-body" style="position:relative;height:280px;">
+        <canvas id="chartMonthlySales"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white border-bottom py-3">
+        <span class="font-weight-bold">🍩 Estado de Pedidos</span>
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center" style="height:280px;">
+        <canvas id="chartStatusDoughnut"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Fila 2: Pedidos diarios + Métodos de pago -->
+<div class="row mb-4">
+  <div class="col-lg-8 mb-4 mb-lg-0">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white border-bottom py-3">
+        <span class="font-weight-bold">📅 Pedidos por Día (últimos 30 días)</span>
+      </div>
+      <div class="card-body" style="position:relative;height:260px;">
+        <canvas id="chartDailyOrders"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white border-bottom py-3">
+        <span class="font-weight-bold">💳 Métodos de Pago</span>
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center" style="height:260px;">
+        <canvas id="chartPaymentMethods"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Fila 3: Top productos + Ingresos por categoría -->
+<div class="row mb-4">
+  <div class="col-lg-6 mb-4 mb-lg-0">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white border-bottom py-3">
+        <span class="font-weight-bold">🏆 Top 5 Productos más Vendidos</span>
+      </div>
+      <div class="card-body" style="position:relative;height:260px;">
+        <canvas id="chartTopProducts"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white border-bottom py-3">
+        <span class="font-weight-bold">🗂️ Ingresos por Categoría</span>
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center" style="height:260px;">
+        <canvas id="chartCategoryRevenue"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Fila 4: Últimas órdenes + Stock crítico -->
+<div class="row mb-5">
+  <div class="col-lg-7 mb-4 mb-lg-0">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+        <span class="font-weight-bold">🕐 Últimos 5 Pedidos</span>
+        <a href="{% url 'manageOrders' %}" class="btn btn-outline-primary btn-sm">Ver todos</a>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 small">
+            <thead class="thead-light">
+              <tr>
+                <th class="pl-3">#</th>
+                <th>Cliente</th>
+                <th>Monto</th>
+                <th>Método</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for order in recent_orders %}
+              <tr>
+                <td class="pl-3 font-weight-bold">#{{ order.id }}</td>
+                <td>{{ order.first_name }} {{ order.last_name }}</td>
+                <td class="text-success font-weight-bold">$ {{ order.total_amount|floatformat:0 }}</td>
+                <td>
+                  {% if order.payment_method == 'webpay' %}<span class="badge badge-info">Webpay</span>
+                  {% elif order.payment_method == 'mercadopago' %}<span class="badge badge-warning text-dark">MercadoPago</span>
+                  {% elif order.payment_method == 'sandbox_card' %}<span class="badge badge-secondary">Tarjeta</span>
+                  {% else %}<span class="badge badge-light border">Transferencia</span>{% endif %}
+                </td>
+                <td>
+                  {% if order.status == 'pending' %}<span class="badge badge-warning text-dark">Pendiente</span>
+                  {% elif order.status == 'paid' %}<span class="badge badge-primary">Pagada</span>
+                  {% elif order.status == 'shipped' %}<span class="badge badge-info">En Camino</span>
+                  {% elif order.status == 'completed' %}<span class="badge badge-success">Completada</span>
+                  {% else %}<span class="badge badge-danger">Cancelada</span>{% endif %}
+                </td>
+                <td>
+                  <a href="{% url 'manageOrderDetail' orderId=order.id %}" class="btn btn-outline-secondary btn-sm py-0 px-2">Ver</a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="6" class="text-center text-muted py-3">No hay pedidos registrados.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+        <span class="font-weight-bold">⚠️ Stock Crítico (≤ 5 uds.)</span>
+        <a href="{% url 'products' %}" class="btn btn-outline-warning btn-sm">Catálogo</a>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 small">
+            <thead class="thead-light">
+              <tr>
+                <th class="pl-3">Producto</th>
+                <th>Categoría</th>
+                <th class="text-center">Stock</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for product in low_stock_products %}
+              <tr>
+                <td class="pl-3 font-weight-bold text-truncate" style="max-width:140px;">{{ product.name }}</td>
+                <td class="text-muted">{{ product.category.name|default:"—" }}</td>
+                <td class="text-center">
+                  {% if product.units == 0 %}<span class="badge badge-danger">Agotado</span>
+                  {% elif product.units <= 2 %}<span class="badge badge-danger">{{ product.units }}</span>
+                  {% else %}<span class="badge badge-warning text-dark">{{ product.units }}</span>{% endif %}
+                </td>
+                <td>
+                  <a href="{% url 'editProduct' productId=product.id %}" class="btn btn-outline-primary btn-sm py-0 px-2">Editar</a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="text-center text-muted py-3">✅ Todo el stock está bien.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  var COLORS = ['#4e73df','#1cc88a','#36b9cc','#f6c23e','#e74a3b','#858796'];
+  var COLORS_A = COLORS.map(function(c){ return c+'bb'; });
+
+  // 1. Ingresos mensuales — Barras
+  new Chart(document.getElementById('chartMonthlySales'), {
+    type: 'bar',
+    data: {
+      labels: {{ monthly_labels_json|safe }},
+      datasets: [{
+        label: 'Ingresos ($)',
+        data: {{ monthly_revenue_json|safe }},
+        backgroundColor: '#4e73df',
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { callback: function(v){ return '$ '+v.toLocaleString('es-CL'); } } } }
+    }
+  });
+
+  // 2. Estado de pedidos — Dona
+  new Chart(document.getElementById('chartStatusDoughnut'), {
+    type: 'doughnut',
+    data: {
+      labels: {{ status_labels_json|safe }},
+      datasets: [{ data: {{ status_counts_json|safe }}, backgroundColor: COLORS, borderWidth: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '60%',
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+    }
+  });
+
+  // 3. Pedidos diarios — Línea
+  new Chart(document.getElementById('chartDailyOrders'), {
+    type: 'line',
+    data: {
+      labels: {{ daily_labels_json|safe }},
+      datasets: [{
+        label: 'Pedidos', data: {{ daily_counts_json|safe }},
+        borderColor: '#1cc88a', backgroundColor: 'rgba(28,200,138,0.12)',
+        fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#1cc88a',
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+    }
+  });
+
+  // 4. Métodos de pago — Dona
+  new Chart(document.getElementById('chartPaymentMethods'), {
+    type: 'doughnut',
+    data: {
+      labels: {{ payment_labels_json|safe }},
+      datasets: [{ data: {{ payment_counts_json|safe }}, backgroundColor: ['#4e73df','#f6c23e','#1cc88a','#36b9cc'], borderWidth: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '60%',
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+    }
+  });
+
+  // 5. Top 5 productos — Barras horizontales
+  new Chart(document.getElementById('chartTopProducts'), {
+    type: 'bar',
+    data: {
+      labels: {{ top_product_labels_json|safe }},
+      datasets: [{ label: 'Unidades vendidas', data: {{ top_product_qty_json|safe }}, backgroundColor: COLORS_A, borderRadius: 4 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
+    }
+  });
+
+  // 6. Ingresos por categoría — Dona
+  new Chart(document.getElementById('chartCategoryRevenue'), {
+    type: 'doughnut',
+    data: {
+      labels: {{ category_labels_json|safe }},
+      datasets: [{ data: {{ category_revenue_json|safe }}, backgroundColor: COLORS, borderWidth: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '60%',
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+    }
+  });
+</script>
+
+{% endblock %}

@@ -25,13 +25,19 @@ Plataforma de comercio electrónico moderna, robusta y escalable desarrollada en
 - Contador dinámico en la barra de navegación visible en todas las páginas vía `context_processors.py`.
 - Descuento automático de stock al finalizar la compra.
 
-### 🗺️ 4. Checkout con Mapa Interactivo y Geolocalización GPS
+### 🗺️ 4. Checkout con Mapa Interactivo y Geolocalización GPS Completa
 - **Leaflet.js + OpenStreetMap:** Mapa interactivo integrado sin necesidad de API keys de pago.
-- **Pin Arrastrable y Clic:** Selección del punto exacto de entrega con marcador interactivo.
-- **Autocompletado Inteligente (*Reverse Geocoding*):** Al mover el pin, el sistema obtiene la calle, comuna y código postal con Nominatim y los escribe automáticamente en la casilla de texto.
-- **Casilla de Texto Editable:** El comprador puede complementar libremente su dirección (depto, torre, piso).
+- **Pin Arrastrable y Clic:** Selección del punto exacto de entrega con marcador interactivo y botón *"🎯 Mi ubicación actual"*.
+- **Autocompletado Estructurado (*Reverse Geocoding*):** Al mover el pin o hacer clic en el mapa, el sistema obtiene automáticamente y rellena de forma editable:
+  - **Dirección (Calle y número)**
+  - **Comuna / Ciudad**
+  - **Región / Estado**
+  - **País**
+  - **Código Postal**
+- **Casillas de Texto Editables:** El comprador puede complementar libremente su dirección (depto, torre, piso o villa).
 - **Seguridad en Contacto:** Teléfono de contacto obligatorio con validación numérica ($\ge 8$ dígitos).
-- **Almacenamiento de Coordenadas:** Las coordenadas GPS (`latitude`, `longitude`) quedan guardadas en la orden.
+- **Almacenamiento de Coordenadas:** Las coordenadas GPS (`latitude`, `longitude`) quedan guardadas en la orden y vinculadas a Google Maps y Waze.
+
 
 ### 📧 5. Sistema de Confirmación por Correo Electrónico
 - Envío automático de correo al comprador al completar la orden.
@@ -49,10 +55,36 @@ Plataforma de comercio electrónico moderna, robusta y escalable desarrollada en
   - Visualización del mapa con el pin exacto de entrega y botones directos hacia **Google Maps** y **Waze**.
   - Impresión directa de hoja de despacho y empaque (`🖨️`).
 
-### 👤 7. Autenticación y Cuentas de Usuario
+### ✨ 7. Suite de Experiencia del Comprador (UI/UX)
+- **Live Search Autocomplete:** Búsqueda predictiva instantánea en la barra de navegación con imágenes, categorías, stock y precios.
+- **Compra Rápida desde Tarjetas:** Botón `+ 🛒` directo en la página principal y catálogo con notificación flotante (*Toast*) y animación.
+- **Badges de Stock y Urgencia:** Alertas visuales dinámicas (*"🔥 ¡Últimas X unidades!"*, *"En Stock"*, *"Agotado"*).
+- **Ficha de Producto Completa:** Selector táctil `+`/`-`, facilidades en cuotas con tarjeta, sellos de garantía y módulo de productos relacionados (*Cross-Selling*).
+- **Carrito Dinámico AJAX:** Actualización de cantidades y totales en tiempo real sin recargar la página y banner de envío gratis.
+- **Checkout con Memoria de Dirección:** *Stepper* de progreso (`Carrito` ➔ `Despacho` ➔ `Confirmación`) y botón para reutilizar la dirección anterior en 1 clic.
+- **Seguimiento Visual y WhatsApp:** Línea de tiempo gráfica de despacho (*Tracking Timeline*) y botón de soporte directo por WhatsApp con el número de orden precargado.
+
+
+### 💳 8. Suite de Pasarelas de Pago en Línea y Vouchers Bancarios
+- **Múltiples Medios de Pago Integrados:**
+  - **Webpay Plus (Transbank):** Tarjetas de crédito, débito (*Redcompra*) y prepago en Chile.
+  - **Mercado Pago:** Pagos con cuenta, saldo digital y tarjetas en cuotas.
+  - **Tarjeta Directa (Pago Seguro):** Procesamiento bancario directo con cifrado SSL.
+  - **Transferencia Bancaria Manual:** Generación de pedido en espera con datos de cuenta bancaria e instrucciones claras.
+- **Portal Seguro Interactivo (`/payments/portal/<order_id>/`):**
+  - Entorno de procesamiento visual con selector de cuotas (1, 3, 6, 12 cuotas) y datos del titular.
+  - Opciones para simular pagos aprobados, rechazos bancarios o cancelaciones para pruebas inmediatas.
+- **Voucher Bancario Oficial:**
+  - Código de autorización (`payment_auth_code`), marca de tarjeta, últimos 4 dígitos (`payment_card_last4`), número de cuotas e ID de transacción emitidos en la pantalla de confirmación y en el dashboard de despacho.
+- **Gestión de Errores y Reintentos (`/payments/failure/<order_id>/`):**
+  - Pantalla amigable si el banco rechaza la transacción, permitiendo reintentar con otra tarjeta o cambiar a transferencia bancaria en 1 clic.
+
+### 👤 9. Autenticación y Cuentas de Usuario
 - **Registro de Clientes:** Formulario completo con validación de nombre, apellido, email único y contraseña segura.
 - **Inicio de Sesión:** Interfaz moderna con selector de credenciales de prueba preconfiguradas.
 - **Historial de Pedidos:** Sección "Mis pedidos" para que los clientes consulten el estado de sus compras y su código de seguimiento.
+
+
 
 ---
 

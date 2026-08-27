@@ -1,5 +1,6 @@
+{% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -7,74 +8,271 @@
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
 
-    <title>Showcase</title>
+    <!-- Meta etiquetas y manifiesto PWA -->
+    <link rel="manifest" href="{% url 'manifestJSON' %}">
+    <meta name="theme-color" content="#007bff">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="{{ store_settings.store_name|default:'Store Django' }}">
+    {% if store_settings.get_site_logo_url %}
+    <link rel="apple-touch-icon" href="{{ store_settings.get_site_logo_url }}">
+    {% else %}
+    <link rel="apple-touch-icon" href="{% static 'images/favicon.jpg' %}">
+    {% endif %}
+
+    {% if store_settings.get_site_favicon_url %}
+    <link rel="shortcut icon" href="{{ store_settings.get_site_favicon_url }}">
+    {% else %}
+    <link rel="shortcut icon" href="{% static 'images/favicon.jpg' %}">
+    {% endif %}
+
+
+    <title>{{ store_settings.store_name|default:'Store Django' }} - Tienda Online</title>
+
+    <!-- Google Fonts dinámico -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@400;600;700&family=Playfair+Display:wght@400;600;700&family=Poppins:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+      :root {
+        --primary-color: {{ store_settings.primary_color|default:'#007bff' }};
+      }
+      body {
+        {% if store_settings.font_family == 'roboto' %}
+        font-family: 'Roboto', sans-serif;
+        {% elif store_settings.font_family == 'poppins' %}
+        font-family: 'Poppins', sans-serif;
+        {% elif store_settings.font_family == 'montserrat' %}
+        font-family: 'Montserrat', sans-serif;
+        {% elif store_settings.font_family == 'playfair' %}
+        font-family: 'Playfair Display', serif;
+        {% else %}
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        {% endif %}
+      }
+      .btn-primary, .bg-primary, .badge-primary {
+        background-color: var(--primary-color) !important;
+        border-color: var(--primary-color) !important;
+      }
+      .text-primary {
+        color: var(--primary-color) !important;
+      }
+      .btn-outline-primary {
+        color: var(--primary-color) !important;
+        border-color: var(--primary-color) !important;
+      }
+      .btn-outline-primary:hover {
+        background-color: var(--primary-color) !important;
+        color: #ffffff !important;
+      }
+      {% if store_settings.card_style == 'flat' %}
+      .card { border-radius: 0px !important; box-shadow: none !important; }
+      {% elif store_settings.card_style == 'elevated' %}
+      .card { border-radius: 16px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.12) !important; }
+      {% else %}
+      .card { border-radius: 12px !important; }
+      {% endif %}
+
+      /* Live Search Dropdown Styling */
+      .live-search-wrapper {
+        position: relative;
+        min-width: 260px;
+      }
+
+      .live-search-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #ffffff;
+        border: 1px solid #ced4da;
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        z-index: 1050;
+        max-height: 380px;
+        overflow-y: auto;
+        display: none;
+      }
+      .live-search-item {
+        display: flex;
+        align-items: center;
+        padding: 10px 14px;
+        border-bottom: 1px solid #f1f3f5;
+        text-decoration: none;
+        color: #212529;
+        transition: background 0.15s ease-in-out;
+      }
+      .live-search-item:hover {
+        background: #f8f9fa;
+        text-decoration: none;
+        color: #007bff;
+      }
+      .live-search-item:last-child {
+        border-bottom: none;
+      }
+      .live-search-thumb {
+        width: 38px;
+        height: 38px;
+        object-fit: contain;
+        border-radius: 4px;
+        margin-right: 10px;
+        background: #f8f9fa;
+      }
+
+      /* Global Floating Toast */
+      #global-toast-container {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 1090;
+        min-width: 320px;
+        max-width: 380px;
+      }
+      .cart-toast {
+        background: #ffffff;
+        border: 1px solid #28a745;
+        border-left: 5px solid #28a745;
+        border-radius: 8px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+        overflow: hidden;
+        animation: slideInUp 0.3s ease-out;
+      }
+      @keyframes slideInUp {
+        from { transform: translateY(50px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+    </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <a class="navbar-brand" href={% url 'products' %}>Showcase App</a>
+    {% if store_settings.announcement_bar_enabled %}
+    <div class="announcement-bar py-2 text-center small font-weight-bold" style="background-color: {{ store_settings.announcement_bar_bg_color|default:'#007bff' }}; color: {{ store_settings.announcement_bar_text_color|default:'#ffffff' }}; z-index: 1060; position: relative;">
+      <div class="container">
+        {{ store_settings.announcement_bar_text|default:'🚚 ¡Envío GRATIS a todo Chile por compras sobre $59.990! 🇨🇱' }}
+      </div>
+    </div>
+    {% endif %}
+
+    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm sticky-top">
+
+      <div class="container">
+        <a class="navbar-brand font-weight-bold text-primary d-flex align-items-center" href="{% url 'home' %}">
+          {% if store_settings.get_site_logo_url %}
+          <img src="{{ store_settings.get_site_logo_url }}" alt="{{ store_settings.store_name }}" style="max-height: 38px; object-fit: contain;" class="mr-2">
+          {% else %}
+          <img src="{% static 'images/logo.jpg' %}" alt="{{ store_settings.store_name|default:'Store Django' }}" style="max-height: 38px; border-radius: 4px; object-fit: contain;" class="mr-2">
+          <span>{{ store_settings.store_name|default:'Store Django' }}</span>
+          {% endif %}
+        </a>
+
+
+
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
+
         <div class="collapse navbar-collapse" id="navbarNavDropdown">
-          <ul class="navbar-nav mr-auto">
+          <ul class="navbar-nav mr-auto align-items-lg-center">
             <li class="nav-item">
-              <a class="nav-link" href={% url 'home' %}>Inicio</a>
+              <a class="nav-link" href="{% url 'home' %}">Inicio</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href={% url 'products' %}>Catálogo</a>
+              <a class="nav-link" href="{% url 'products' %}">Catálogo</a>
             </li>
             {% if user.is_authenticated and user.is_staff %}
             <li class="nav-item">
-              <a class="nav-link text-primary font-weight-bold" href="{% url 'manageOrders' %}">🚚 Gestión de Pedidos</a>
+              <a class="nav-link text-primary font-weight-bold" href="{% url 'manageOrders' %}">🚚 Despacho</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href={% url 'addProduct' %}>+ Nuevo producto</a>
+              <a class="nav-link" href="{% url 'addProduct' %}">+ Producto</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-warning" href="{% url 'archivedProducts' %}">📦 Papelera / Auditoría</a>
+              <a class="nav-link text-warning" href="{% url 'archivedProducts' %}">📦 Papelera</a>
             </li>
             {% endif %}
           </ul>
+
+          <!-- Live Search Bar en Navbar -->
+          <div class="live-search-wrapper my-2 my-lg-0 mx-lg-3">
+            <form method="get" action="{% url 'products' %}" class="form-inline w-100" autocomplete="off">
+              <div class="input-group input-group-sm w-100">
+                <input type="text" id="liveSearchInput" name="q" class="form-control rounded-pill-left" placeholder="🔍 Buscar productos..." value="{{ search_query|default:'' }}">
+                <div class="input-group-append">
+                  <button class="btn btn-outline-primary btn-sm" type="submit">Buscar</button>
+                </div>
+              </div>
+            </form>
+            <div id="liveSearchResults" class="live-search-dropdown"></div>
+          </div>
+
+
           <ul class="navbar-nav ml-auto align-items-center">
+            {% if user.is_authenticated %}
+            <li class="nav-item mr-2">
+              <a class="nav-link text-danger font-weight-bold d-flex align-items-center" href="{% url 'wishlistDetail' %}" title="Mi lista de deseos">
+                <span class="mr-1">❤️ Favoritos</span>
+                <span id="nav-wishlist-badge" class="badge badge-danger badge-pill ml-1">
+                  {{ user.wishlist_items.count }}
+                </span>
+              </a>
+            </li>
+            {% endif %}
             <li class="nav-item mr-2">
               <a class="nav-link btn btn-outline-primary btn-sm px-3 text-primary d-flex align-items-center" href="{% url 'cartDetail' %}">
                 <span class="mr-1">🛒 Carrito</span>
-                {% if cart|length > 0 %}
-                <span class="badge badge-primary badge-pill ml-1">{{ cart.get_total_quantity }}</span>
-                {% else %}
-                <span class="badge badge-secondary badge-pill ml-1">0</span>
-                {% endif %}
+                <span id="nav-cart-badge" class="badge {% if cart|length > 0 %}badge-primary{% else %}badge-secondary{% endif %} badge-pill ml-1">
+                  {{ cart.get_total_quantity|default:0 }}
+                </span>
               </a>
             </li>
             {% if user.is_authenticated %}
             <li class="nav-item">
               <a class="nav-link" href="{% url 'orderHistory' %}">Mis pedidos</a>
             </li>
-            <li class="nav-item">
-              <span class="nav-link font-weight-bold">Hola, {{ user.username }}</span>
-            </li>
-            <li class="nav-item">
-              <form method="post" action="{% url 'logout' %}" class="form-inline my-2 my-lg-0">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-link nav-link p-0 text-muted">Salir</button>
-              </form>
+
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle font-weight-bold" href="#" id="navbarUserDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                👤 {{ user.username }}
+              </a>
+              <div class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarUserDropdown">
+                <span class="dropdown-item-text text-muted small">{{ user.email|default:'Sin correo' }}</span>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="{% url 'orderHistory' %}">Historial de compras</a>
+                {% if user.is_staff %}
+                <a class="dropdown-item" href="{% url 'manageOrders' %}">Panel de pedidos (Staff)</a>
+                <a class="dropdown-item" href="{% url 'manageImportProducts' %}">📥 Importar productos (Lote)</a>
+                <a class="dropdown-item" href="{% url 'manageSettings' %}">⚙️ Configurar Tienda</a>
+                <a class="dropdown-item" href="/admin/" target="_blank">Django Admin</a>
+                {% endif %}
+
+                <div class="dropdown-divider"></div>
+                <form method="post" action="{% url 'logout' %}" class="px-3 py-1">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-danger btn-block">Cerrar sesión</button>
+                </form>
+              </div>
             </li>
             {% else %}
             <li class="nav-item">
-              <a class="nav-link" href="{% url 'login' %}">Ingresar</a>
+              <a class="nav-link text-primary font-weight-bold" href="{% url 'login' %}">Ingresar</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="{% url 'register' %}">Registrarse</a>
+              <a class="btn btn-primary btn-sm ml-lg-2" href="{% url 'register' %}">Crear cuenta</a>
             </li>
             {% endif %}
           </ul>
         </div>
-      </nav>
+      </div>
+    </nav>
 
-    <div class="container mt-4">
+    <!-- Contenedor Flotante Global de Toast -->
+    <div id="global-toast-container"></div>
+
+    <div class="container mt-4 mb-5">
         {% if messages %}
         {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm" role="alert">
             {{ message }}
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                 <span aria-hidden="true">&times;</span>
@@ -84,16 +282,286 @@
         {% endif %}
 
         {% block body %}
-
-
-
         {% endblock %}
-
     </div>
+
+    <footer class="bg-light border-top py-4 mt-5 text-center text-muted small">
+      <div class="container d-flex flex-column align-items-center justify-content-center">
+        <p class="mb-1">© 2026 <strong>{{ store_settings.store_name|default:'Store Django' }}</strong>. Todos los derechos reservados.</p>
+        <p class="mb-2">{{ store_settings.footer_text|default:'Plataforma de comercio electrónico con despacho y seguimiento en línea.' }}</p>
+        <button id="pwa-install-btn" onclick="window.installPWA();" class="btn btn-outline-primary btn-sm font-weight-bold shadow-sm" style="display: none; border-radius: 20px;">
+          📱 Instalar Aplicación Store Django
+        </button>
+      </div>
+    </footer>
+
+
     
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.14.7/dist/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+    <script>
+      // 1. Manejador Global de Notificaciones Toast
+      window.showCartToast = function(productName, price, imgUrl, cartTotalQty) {
+        var container = document.getElementById('global-toast-container');
+        if (!container) return;
+
+        var toast = document.createElement('div');
+        toast.className = 'cart-toast p-3 mb-2';
+        toast.innerHTML = `
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <strong class="text-success small font-weight-bold">✅ ¡Agregado al carrito!</strong>
+            <button type="button" class="close text-muted" style="font-size: 18px;" onclick="this.closest('.cart-toast').remove();">&times;</button>
+          </div>
+          <div class="d-flex align-items-center mb-3">
+            ${imgUrl ? `<img src="${imgUrl}" alt="${productName}" class="rounded mr-2" style="width: 44px; height: 44px; object-fit: contain; background: #f8f9fa;">` : ''}
+            <div>
+              <div class="small font-weight-bold text-truncate" style="max-width: 220px;">${productName}</div>
+              <div class="small text-primary font-weight-bold">$ ${price}</div>
+            </div>
+          </div>
+          <div class="d-flex justify-content-between gap-2">
+            <button class="btn btn-xs btn-outline-secondary btn-sm py-1 px-2" onclick="this.closest('.cart-toast').remove();">Seguir comprando</button>
+            <a href="{% url 'cartDetail' %}" class="btn btn-xs btn-primary btn-sm py-1 px-3 font-weight-bold">Ver carrito (${cartTotalQty}) →</a>
+          </div>
+        `;
+        container.appendChild(toast);
+
+        // Auto remove after 4.5 seconds
+        setTimeout(function() {
+          if (toast.parentNode) {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.4s ease';
+            setTimeout(function() { toast.remove(); }, 400);
+          }
+        }, 4500);
+      };
+
+      // 2. Manejador Global de AJAX Add-To-Cart
+      document.addEventListener('submit', function(e) {
+        if (e.target && e.target.classList.contains('ajax-add-to-cart')) {
+          e.preventDefault();
+          var form = e.target;
+          var btn = form.querySelector('button[type="submit"]');
+          var originalBtnHtml = btn ? btn.innerHTML : '';
+          if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Agregando...';
+          }
+
+          var formData = new FormData(form);
+          fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json'
+            }
+          })
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            if (data && data.success) {
+              // Actualizar badge del navbar
+              var badge = document.getElementById('nav-cart-badge');
+              if (badge) {
+                badge.textContent = data.cart_total_quantity;
+                badge.className = data.cart_total_quantity > 0 ? 'badge badge-primary badge-pill ml-1' : 'badge badge-secondary badge-pill ml-1';
+              }
+              // Mostrar toast
+              window.showCartToast(data.product_name, data.product_price, data.product_image, data.cart_total_quantity);
+            }
+          })
+          .catch(function(err) {
+            console.error('Error adding to cart:', err);
+            form.submit(); // fallback to regular submit
+          })
+          .finally(function() {
+            if (btn) {
+              btn.disabled = false;
+              btn.innerHTML = originalBtnHtml;
+            }
+          });
+        }
+      });
+
+      // 3. Live Search Autocomplete en Navbar
+      document.addEventListener('DOMContentLoaded', function() {
+        var searchInput = document.getElementById('liveSearchInput');
+        var searchDropdown = document.getElementById('liveSearchResults');
+        var searchTimeout = null;
+
+        if (searchInput && searchDropdown) {
+          searchInput.addEventListener('input', function() {
+            var query = this.value.trim();
+            clearTimeout(searchTimeout);
+
+            if (query.length < 2) {
+              searchDropdown.style.display = 'none';
+              searchDropdown.innerHTML = '';
+              return;
+            }
+
+            searchTimeout = setTimeout(function() {
+              fetch('{% url "liveProductSearch" %}?q=' + encodeURIComponent(query))
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                  if (data && data.results && data.results.length > 0) {
+                    var html = '';
+                    data.results.forEach(function(item) {
+                      html += `
+                        <a href="${item.url}" class="live-search-item">
+                          ${item.image ? `<img src="${item.image}" alt="${item.name}" class="live-search-thumb">` : '<div class="live-search-thumb d-flex align-items-center justify-content-center text-muted">📦</div>'}
+                          <div class="flex-grow-1">
+                            <div class="font-weight-bold small text-truncate" style="max-width: 180px;">${item.name}</div>
+                            <div class="d-flex justify-content-between align-items-center">
+                              <span class="text-primary font-weight-bold small">$ ${item.price}</span>
+                              ${item.units <= 3 ? (item.units <= 0 ? '<span class="badge badge-secondary" style="font-size:10px;">Agotado</span>' : '<span class="badge badge-danger" style="font-size:10px;">¡Últimas ' + item.units + '!</span>') : '<span class="badge badge-light border text-muted" style="font-size:10px;">En stock</span>'}
+                            </div>
+                          </div>
+                        </a>
+                      `;
+                    });
+                    searchDropdown.innerHTML = html;
+                    searchDropdown.style.display = 'block';
+                  } else {
+                    searchDropdown.innerHTML = '<div class="p-3 text-center text-muted small">No se encontraron productos</div>';
+                    searchDropdown.style.display = 'block';
+                  }
+                })
+                .catch(function(err) {
+                  console.error('Live search error:', err);
+                });
+            }, 250);
+          });
+
+          // Cerrar dropdown al hacer clic fuera
+          document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
+              searchDropdown.style.display = 'none';
+            }
+    <!-- Contenedor de Notificaciones en Vivo (Social Proof Sales Toast) -->
+    <div id="live-sales-container" style="position: fixed; bottom: 25px; left: 25px; z-index: 1060; max-width: 330px; pointer-events: none;"></div>
+
+    <!-- Botón Flotante de WhatsApp Live Support -->
+    {% if store_settings.enable_whatsapp_widget and store_settings.whatsapp_number %}
+    <div id="whatsapp-widget-container" style="position: fixed; bottom: 25px; right: 25px; z-index: 1050;">
+      <a href="https://wa.me/{{ store_settings.whatsapp_number|cut:' '|cut:'+'|cut:'-' }}?text={{ whatsapp_custom_message|default:store_settings.whatsapp_default_message|urlencode }}" target="_blank" rel="noopener noreferrer" class="btn btn-success rounded-circle p-3 shadow-lg d-flex align-items-center justify-content-center text-white" style="width: 58px; height: 58px; transition: transform 0.3s ease; text-decoration: none;" onmouseover="this.style.transform='scale(1.1)';" onmouseout="this.style.transform='scale(1)';" title="Chat de soporte por WhatsApp">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-whatsapp" viewBox="0 0 16 16">
+          <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.629.776-.117.133-.232.148-.43.05-.197-.099-.834-.308-1.588-.979-.587-.524-.984-1.17-1.1-1.367-.116-.197-.013-.304.086-.403.088-.088.197-.232.296-.347.099-.116.133-.197.198-.329.065-.133.033-.248-.016-.347-.049-.099-.445-1.072-.61-1.47-.161-.388-.327-.335-.445-.341-.114-.006-.246-.007-.378-.007-.133 0-.347.049-.529.248-.182.197-.698.683-.698 1.666 0 .983.715 1.932.815 2.065.099.133 1.408 2.15 3.413 3.016.477.206.85.329 1.14.422.478.153.913.131 1.258.079.385-.058 1.17-.478 1.336-.94.165-.462.165-.858.116-.94-.049-.082-.182-.133-.379-.232z"/>
+        </svg>
+      </a>
+    </div>
+    {% endif %}
+
+
+    <script>
+      // 4. Avisos en Vivo de Compras Recientes (Sales Activity Toasts)
+      document.addEventListener('DOMContentLoaded', function() {
+        if (sessionStorage.getItem('live_sales_dismissed') === 'true') return;
+
+        fetch("{% url 'recentSalesAPI' %}")
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            if (!data.enabled || !data.notifications || data.notifications.length === 0) return;
+
+            var notifications = data.notifications;
+            var idx = 0;
+
+            function showNextToast() {
+              var container = document.getElementById('live-sales-container');
+              if (!container || sessionStorage.getItem('live_sales_dismissed') === 'true') return;
+
+              var n = notifications[idx];
+              idx = (idx + 1) % notifications.length;
+
+              var toast = document.createElement('div');
+              toast.className = 'card shadow-lg border-0 mb-2 p-3 bg-white text-dark';
+              toast.style.pointerEvents = 'auto';
+              toast.style.borderRadius = '10px';
+              toast.style.transition = 'all 0.5s ease-in-out';
+              toast.style.opacity = '0';
+              toast.style.transform = 'translateY(20px)';
+
+              toast.innerHTML = `
+                <div class="d-flex align-items-center">
+                  ${n.product_image ? `<img src="${n.product_image}" alt="${n.product_name}" class="rounded mr-3" style="width: 48px; height: 48px; object-fit: contain; background: #f8f9fa;">` : '<div class="rounded mr-3 bg-light d-flex align-items-center justify-content-center" style="width:48px; height:48px;">🛍️</div>'}
+                  <div class="flex-grow-1 mr-2" style="line-height: 1.2;">
+                    <div class="small text-muted mb-1">
+                      <strong class="text-dark">${n.buyer_name}</strong> de <span>${n.city}</span>
+                    </div>
+                    <a href="${n.product_url}" class="font-weight-bold text-primary small text-decoration-none d-block text-truncate" style="max-width: 190px;" title="${n.product_name}">
+                      Compró ${n.product_name}
+                    </a>
+                    <div class="text-muted" style="font-size: 11px;">${n.time_ago} · 🛒 Compra verificada</div>
+                  </div>
+                  <button type="button" class="close text-muted align-self-start" style="font-size: 16px; outline: none;" onclick="sessionStorage.setItem('live_sales_dismissed', 'true'); this.closest('.card').remove();">&times;</button>
+                </div>
+              `;
+
+              container.appendChild(toast);
+
+              setTimeout(function() {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+              }, 50);
+
+              // Auto ocultar después de 5.5 segundos
+              setTimeout(function() {
+                if (toast.parentNode) {
+                  toast.style.opacity = '0';
+                  toast.style.transform = 'translateY(20px)';
+                  setTimeout(function() { toast.remove(); }, 500);
+                }
+              }, 5500);
+            }
+
+            // Primer disparo a los 4 segundos, luego cada 18 segundos
+            setTimeout(showNextToast, 4000);
+            setInterval(showNextToast, 18000);
+          })
+          .catch(function(err) {
+            console.error('Error al cargar notificaciones en vivo:', err);
+          });
+      });
+
+      // 5. Registro de Service Worker PWA y Manejo del Prompt de Instalación
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register("{% url 'serviceWorkerJS' %}")
+            .then(function(reg) {
+              console.log('PWA ServiceWorker registrado con éxito scope:', reg.scope);
+            })
+            .catch(function(err) {
+              console.error('Error al registrar ServiceWorker PWA:', err);
+            });
+        });
+      }
+
+      var deferredInstallPrompt = null;
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        var btn = document.getElementById('pwa-install-btn');
+        if (btn) btn.style.display = 'inline-block';
+      });
+
+      window.installPWA = function() {
+        if (deferredInstallPrompt) {
+          deferredInstallPrompt.prompt();
+          deferredInstallPrompt.userChoice.then(function(choiceResult) {
+            if (choiceResult.outcome === 'accepted') {
+              console.log('PWA instalada por el usuario');
+            }
+            deferredInstallPrompt = null;
+            var btn = document.getElementById('pwa-install-btn');
+            if (btn) btn.style.display = 'none';
+          });
+        }
+      };
+    </script>
+
+
     {% block extras %}
     {% endblock %}
 </body>

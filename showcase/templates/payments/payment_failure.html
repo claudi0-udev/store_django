@@ -1,0 +1,79 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<div class="row justify-content-center py-4">
+  <div class="col-lg-7 col-md-9">
+    <div class="card shadow-sm border-0 text-center overflow-hidden">
+      <div class="card-header bg-danger text-white py-4">
+        <div class="display-4 mb-2">❌</div>
+        <h3 class="font-weight-bold mb-1 text-white">No pudimos procesar tu pago</h3>
+        <p class="mb-0 text-white-50">La transacción para la orden #{{ order.id }} fue rechazada o cancelada.</p>
+      </div>
+
+      <div class="card-body p-4 p-md-5">
+        <div class="alert alert-warning text-left mb-4">
+          <h6 class="font-weight-bold mb-1">Posibles causas:</h6>
+          <ul class="small mb-0 pl-3">
+            <li>Fondos insuficientes o límite de crédito diario excedido.</li>
+            <li>Rechazo por validación de seguridad de tu banco emisor.</li>
+            <li>Cancelación manual durante el proceso de pago.</li>
+          </ul>
+        </div>
+
+        <h5 class="font-weight-bold mb-3">¿Cómo deseas continuar?</h5>
+
+        <!-- Formulario para reintentar o cambiar medio de pago -->
+        <form method="post" action="{% url 'paymentRetry' order.id %}">
+          {% csrf_token %}
+
+          <div class="list-group text-left mb-4 shadow-sm">
+            <label class="list-group-item list-group-item-action d-flex align-items-center justify-content-between cursor-pointer">
+              <div class="custom-control custom-radio">
+                <input type="radio" id="retryWebpay" name="payment_method" value="webpay" class="custom-control-input" {% if order.payment_method == 'webpay' %}checked{% endif %}>
+                <label class="custom-control-label font-weight-bold" for="retryWebpay">
+                  💳 Reintentar con Webpay Plus (Transbank)
+                </label>
+                <div class="small text-muted ml-4">Prueba con otra tarjeta de crédito, débito o prepago.</div>
+              </div>
+              <span class="badge badge-light border">Recomendado</span>
+            </label>
+
+            <label class="list-group-item list-group-item-action d-flex align-items-center justify-content-between cursor-pointer">
+              <div class="custom-control custom-radio">
+                <input type="radio" id="retryMP" name="payment_method" value="mercadopago" class="custom-control-input" {% if order.payment_method == 'mercadopago' %}checked{% endif %}>
+                <label class="custom-control-label font-weight-bold" for="retryMP">
+                  🤝 Pagar con Mercado Pago
+                </label>
+                <div class="small text-muted ml-4">Saldo en cuenta, tarjetas bancarias o cuotas.</div>
+              </div>
+            </label>
+
+            <label class="list-group-item list-group-item-action d-flex align-items-center justify-content-between cursor-pointer">
+              <div class="custom-control custom-radio">
+                <input type="radio" id="retryTransfer" name="payment_method" value="transfer" class="custom-control-input" {% if order.payment_method == 'transfer' %}checked{% endif %}>
+                <label class="custom-control-label font-weight-bold" for="retryTransfer">
+                  🏦 Pagar con Transferencia Bancaria Manual
+                </label>
+                <div class="small text-muted ml-4">Transfiere desde tu app bancaria y envíanos el comprobante.</div>
+              </div>
+            </label>
+          </div>
+
+          <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary btn-lg btn-block font-weight-bold py-3 shadow-sm mb-2">
+              🔄 Continuar con el pago ($ {{ order.total_amount }})
+            </button>
+            <a href="{% url 'cartDetail' %}" class="btn btn-outline-secondary btn-block">
+              ← Volver al carrito
+            </a>
+          </div>
+        </form>
+      </div>
+
+      <div class="card-footer bg-light text-muted small py-3">
+        ¿Necesitas ayuda con tu pago? <a href="https://wa.me/56912345678?text=Hola,%20tuve%20un%20problema%20al%20pagar%20mi%20pedido%20%23{{ order.id }}" target="_blank" class="text-success font-weight-bold">Escríbenos por WhatsApp</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

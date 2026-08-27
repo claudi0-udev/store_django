@@ -93,7 +93,10 @@ class OrderCreateForm(forms.ModelForm):
             'phone',
             'address',
             'city',
+            'region',
+            'country',
             'postal_code',
+            'payment_method',
             'latitude',
             'longitude',
         ]
@@ -102,12 +105,12 @@ class OrderCreateForm(forms.ModelForm):
             'longitude': forms.HiddenInput(attrs={'id': 'id_longitude'}),
         }
 
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for name, field in self.fields.items():
             if not isinstance(field.widget, forms.HiddenInput):
                 field.widget.attrs.setdefault('class', 'form-control')
-
 
         self.fields['first_name'].error_messages.update({
             'required': 'Por favor ingresa tu nombre',
@@ -123,7 +126,16 @@ class OrderCreateForm(forms.ModelForm):
             'required': 'Por favor ingresa tu dirección de entrega',
         })
         self.fields['city'].error_messages.update({
-            'required': 'Por favor ingresa tu ciudad o comuna',
+            'required': 'Por favor ingresa tu comuna o ciudad',
+        })
+        self.fields['city'].widget.attrs.update({
+            'placeholder': 'Ej: Santiago, Providencia, Las Condes...',
+        })
+        self.fields['region'].widget.attrs.update({
+            'placeholder': 'Ej: Región Metropolitana de Santiago',
+        })
+        self.fields['country'].widget.attrs.update({
+            'placeholder': 'Ej: Chile',
         })
         self.fields['phone'].required = True
         self.fields['phone'].widget.attrs.update({
@@ -132,6 +144,14 @@ class OrderCreateForm(forms.ModelForm):
         self.fields['phone'].error_messages.update({
             'required': 'Por favor ingresa tu número telefónico de contacto',
         })
+        if 'payment_method' in self.fields:
+            self.fields['payment_method'].required = False
+
+    def clean_payment_method(self):
+        method = (self.cleaned_data.get('payment_method') or '').strip()
+        return method if method else 'webpay'
+
+
 
     def clean_phone(self):
         import re

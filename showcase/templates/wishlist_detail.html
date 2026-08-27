@@ -1,0 +1,77 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent px-0">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Mi Lista de Deseos</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h2 font-weight-bold mb-1">❤️ Mi Lista de Deseos (Favoritos)</h1>
+    <p class="text-muted mb-0">Guarda los productos que te encantan y cómpralos cuando quieras.</p>
+  </div>
+  <span class="badge badge-primary px-3 py-2 font-weight-bold h6 mb-0">{{ wishlist_items.count }} guardados</span>
+</div>
+
+{% if wishlist_items %}
+<div class="row">
+  {% for item in wishlist_items %}
+  <div class="col-6 col-md-4 col-lg-3 mb-4">
+    <div class="card h-100 shadow-sm border-0 position-relative">
+      <form method="post" action="{% url 'wishlistToggle' item.product.id %}" class="position-absolute" style="top: 10px; right: 10px; z-index: 10;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-light rounded-circle shadow-sm p-2 text-danger" title="Quitar de favoritos">
+          ❤️
+        </button>
+      </form>
+
+      {% if item.product.image %}
+      <a href="{% url 'productDetail' item.product.id %}">
+        <img src="{{ item.product.image.url }}" class="card-img-top p-3" alt="{{ item.product.name }}" style="height: 180px; object-fit: contain;">
+      </a>
+      {% else %}
+      <div class="card-img-top p-3 bg-light d-flex align-items-center justify-content-center text-muted" style="height: 180px;">
+        Sin imagen
+      </div>
+      {% endif %}
+
+      <div class="card-body d-flex flex-column p-3">
+        <div class="small text-muted mb-1">{{ item.product.category.name|default:'General' }}</div>
+        <h6 class="card-title font-weight-bold mb-2">
+          <a href="{% url 'productDetail' item.product.id %}" class="text-dark text-decoration-none">
+            {{ item.product.name }}
+          </a>
+        </h6>
+
+        <div class="mt-auto">
+          <div class="h5 font-weight-bold text-primary mb-3">$ {{ item.product.price }}</div>
+
+          <form method="post" action="{% url 'cartAdd' item.product.id %}" class="ajax-add-to-cart">
+            {% csrf_token %}
+            <input type="hidden" name="quantity" value="1">
+            <button type="submit" class="btn btn-primary btn-block btn-sm font-weight-bold shadow-sm" {% if item.product.units <= 0 %}disabled{% endif %}>
+              {% if item.product.units > 0 %}🛒 Mover al Carrito{% else %}Agotado{% endif %}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card shadow-sm border-0 text-center py-5 my-4">
+  <div class="card-body py-5">
+    <div class="display-1 text-muted mb-3">💔</div>
+    <h3 class="font-weight-bold text-dark mb-2">Tu lista de deseos está vacía</h3>
+    <p class="text-muted mb-4">Explora nuestro catálogo de productos y haz clic en el corazón ❤️ para guardarlos aquí.</p>
+    <a href="{% url 'products' %}" class="btn btn-primary btn-lg font-weight-bold px-4 shadow-sm">
+      🔍 Explorar Catálogo de Productos
+    </a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

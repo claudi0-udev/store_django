@@ -27,15 +27,21 @@
     </div>
     <p class="text-muted mb-0 small">Registrado el {{ order.created_at|date:"d/m/Y H:i" }}</p>
   </div>
-  <div class="mt-3 mt-md-0">
+  <div class="mt-3 mt-md-0 d-flex flex-wrap gap-2">
+    {% if order.phone %}
+    <a href="https://wa.me/{{ order.phone|cut:' '|cut:'+'|cut:'-' }}?text=Hola%20{{ order.first_name }}!%20Te%20informamos%20que%20tu%20pedido%20%23{{ order.id }}%20en%20Store%20Django%20ha%20sido%20actualizado%20a%20*{{ order.get_status_display }}*.%0A%0AN%C3%BAmero%20de%20seguimiento:%20*{{ order.tracking_number|default:'Por%20asignar' }}*%0ATransportista:%20*{{ order.shipping_courier|default:'Starken' }}*%0A%0A%C2%A1Muchas%20gracias%20por%20tu%20compra!" target="_blank" class="btn btn-success btn-sm font-weight-bold mr-2">
+      📲 Notificar por WhatsApp
+    </a>
+    {% endif %}
     <button onclick="window.print();" class="btn btn-outline-secondary btn-sm mr-2">
-      🖨️ Imprimir Hoja de Despacho
+      🖨️ Imprimir Hoja
     </button>
     <a href="{% url 'manageOrders' %}" class="btn btn-outline-primary btn-sm">
       ← Volver al listado
     </a>
   </div>
 </div>
+
 
 <div class="row">
   <!-- Columna Izquierda: Formulario Operativo de Actualización -->
@@ -94,9 +100,19 @@
             <textarea name="notes" id="id_notes" rows="3" class="form-control" placeholder="Instrucciones especiales, piso, depto o notas del repartidor...">{{ order.notes }}</textarea>
           </div>
 
+          <div class="form-group mb-3">
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="id_notify_email" name="notify_email" value="on" checked>
+              <label class="custom-control-label font-weight-bold text-primary small" for="id_notify_email">
+                📧 Enviar correo de notificación al cliente al guardar
+              </label>
+            </div>
+          </div>
+
           <button type="submit" class="btn btn-primary btn-block btn-lg font-weight-bold shadow-sm">
             💾 Guardar y Actualizar Pedido
           </button>
+
         </form>
       </div>
     </div>
@@ -136,18 +152,18 @@
         <div class="row mt-3">
           <div class="col-12">
             <div class="text-muted small">Dirección de Despacho:</div>
-            <div class="font-weight-bold">{{ order.address }}</div>
-            <div class="text-muted">{{ order.city }} {% if order.postal_code %}- Código Postal: {{ order.postal_code }}{% endif %}</div>
+            <div class="font-weight-bold">🏠 {{ order.address }}</div>
+            <div class="text-dark small">📍 {{ order.city }}{% if order.region %}, {{ order.region }}{% endif %}{% if order.country %}, {{ order.country }}{% endif %} {% if order.postal_code %}(CP: {{ order.postal_code }}){% endif %}</div>
 
             {% if order.latitude and order.longitude %}
             <div class="mt-3">
               <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="small font-weight-bold text-dark">📍 Punto Exacto GPS: {{ order.latitude }}, {{ order.longitude }}</span>
+                <span class="small font-weight-bold text-dark">📍 Punto Exacto GPS: {{ order.lat_str }}, {{ order.lng_str }}</span>
                 <div>
-                  <a href="https://www.google.com/maps?q={{ order.latitude }},{{ order.longitude }}" target="_blank" class="btn btn-xs btn-outline-danger py-1 px-2 font-weight-bold">
+                  <a href="{{ order.google_maps_url }}" target="_blank" class="btn btn-xs btn-outline-danger py-1 px-2 font-weight-bold">
                     🗺️ Google Maps
                   </a>
-                  <a href="https://waze.com/ul?ll={{ order.latitude }},{{ order.longitude }}&navigate=yes" target="_blank" class="btn btn-xs btn-outline-info py-1 px-2 font-weight-bold ml-1">
+                  <a href="{{ order.waze_url }}" target="_blank" class="btn btn-xs btn-outline-info py-1 px-2 font-weight-bold ml-1">
                     🚗 Waze
                   </a>
                 </div>
@@ -155,11 +171,45 @@
               <div id="staff-delivery-map" style="height: 200px; border-radius: 6px;" class="border"></div>
             </div>
             {% endif %}
+
           </div>
         </div>
       </div>
     </div>
 
+    <!-- Ficha de Información de Pago y Voucher -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+        <h5 class="font-weight-bold mb-0 text-dark">💳 Información de Pago</h5>
+        {% if order.paid %}
+        <span class="badge badge-success px-3 py-1 font-weight-bold">Pagado</span>
+        {% else %}
+        <span class="badge badge-warning px-3 py-1 font-weight-bold">Pendiente</span>
+        {% endif %}
+      </div>
+      <div class="card-body p-4 small">
+        <div class="row">
+          <div class="col-md-6 mb-2">
+            <div><span class="text-muted">Método de Pago:</span> <strong>{{ order.get_payment_method_display }}</strong></div>
+            <div><span class="text-muted">Monto Total:</span> <strong class="text-primary font-weight-bold">$ {{ order.total_amount }}</strong></div>
+            {% if order.payment_card_last4 %}
+            <div><span class="text-muted">Tarjeta:</span> {{ order.payment_card_type }} (**** {{ order.payment_card_last4 }})</div>
+            {% endif %}
+          </div>
+          <div class="col-md-6 mb-2">
+            {% if order.payment_auth_code %}
+            <div><span class="text-muted">Cód. Autorización:</span> <code class="text-success font-weight-bold">{{ order.payment_auth_code }}</code></div>
+            {% endif %}
+            {% if order.payment_transaction_id %}
+            <div><span class="text-muted">ID Transacción:</span> <code>{{ order.payment_transaction_id }}</code></div>
+            {% endif %}
+            {% if order.payment_date %}
+            <div><span class="text-muted">Fecha de Pago:</span> {{ order.payment_date|date:"d/m/Y H:i:s" }}</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Resumen de Productos Comprados -->
     <div class="card shadow-sm border-0 mb-4">
@@ -200,11 +250,18 @@
               {% endfor %}
             </tbody>
             <tfoot>
+              {% if order.discount_amount > 0 %}
+              <tr>
+                <th colspan="3" class="text-right text-success small">Descuento Cupón ({% if order.coupon %}{{ order.coupon.code }}{% else %}Promocional{% endif %}):</th>
+                <th class="text-right text-success font-weight-bold">-$ {{ order.discount_amount }}</th>
+              </tr>
+              {% endif %}
               <tr>
                 <th colspan="3" class="text-right font-weight-bold">Total a Cobrar / Pagado:</th>
                 <th class="text-right font-weight-bold text-primary h5 mb-0">$ {{ order.total_amount }}</th>
               </tr>
             </tfoot>
+
           </table>
         </div>
       </div>
@@ -218,13 +275,16 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    var lat = {{ order.latitude }};
-    var lng = {{ order.longitude }};
+    var lat = {{ order.lat_str }};
+    var lng = {{ order.lng_str }};
+
     var map = L.map('staff-delivery-map').setView([lat, lng], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
-      attribution: '© OpenStreetMap'
+      subdomains: 'abcd',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(map);
+
     var marker = L.marker([lat, lng]).addTo(map);
     marker.bindPopup("<b>📍 Destino de Entrega</b><br>{{ order.address }}").openPopup();
   });

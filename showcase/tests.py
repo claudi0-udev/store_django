@@ -6,8 +6,10 @@ from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory, TestCase, override_settings
 
-from .models import Category, Order, OrderItem, Product, ProductAuditLog
+User = get_user_model()
+from .models import Brand, Category, Distributor, Manufacturer, Order, OrderItem, Product, ProductAuditLog
 from .views import AddNewProduct, HomePage, ListProducts, ProductDetail
+
 
 
 
@@ -25,8 +27,10 @@ class TestHomePageView(TestCase):
         response = HomePage(request)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Descubre tu próxima compra')
-        self.assertContains(response, 'Explorar catálogo')
+        self.assertContains(response, 'Bienvenido a nuestra tienda')
+        self.assertContains(response, 'Explorar Catálogo')
+
+
 
 
 @override_settings(MEDIA_ROOT=tempfile.gettempdir())
@@ -262,7 +266,7 @@ class TestOrdersAndCheckout(TestCase):
         # 1. Add product to cart
         self.client.post(f'/cart/add/{self.product.id}/', {'quantity': '2'})
 
-        # 2. Submit checkout
+        # 2. Submit checkout with transfer
         self.client.login(username='buyer', password='buyerpassword')
         response = self.client.post('/orders/checkout/', {
             'first_name': 'Juan',
@@ -272,14 +276,18 @@ class TestOrdersAndCheckout(TestCase):
             'address': 'Av. Libertador 1234',
             'city': 'Santiago',
             'postal_code': '8320000',
+            'payment_method': 'transfer',
         })
 
         self.assertEqual(response.status_code, 302)
         order = Order.objects.get(email='juan@example.com')
         self.assertEqual(order.user, self.user)
-        self.assertEqual(order.total_amount, Decimal('300.00'))
-        self.assertTrue(order.paid)
-        self.assertEqual(order.status, 'paid')
+        self.assertEqual(order.total_amount, Decimal('6290.00'))
+        self.assertEqual(order.shipping_cost, Decimal('5990.00'))
+        self.assertFalse(order.paid)
+        self.assertEqual(order.status, 'pending')
+        self.assertEqual(order.payment_method, 'transfer')
+
 
         # Verify order items
         self.assertEqual(order.items.count(), 1)
@@ -614,8 +622,10 @@ class TestOrderConfirmationEmail(TestCase):
             'address': 'Av. Providencia 1234',
             'city': 'Santiago',
             'postal_code': '7500000',
+            'payment_method': 'transfer',
         })
         self.assertEqual(response.status_code, 302)
+
 
         # 3. Verify email sent
         self.assertEqual(len(mail.outbox), 1)
@@ -775,6 +785,318 @@ class TestStaffOrderManagement(TestCase):
         self.assertEqual(legacy_order.phone, '+56987654321')
 
 
+class BuyerExperienceEnhancementsTests(TestCase):
+    def setUp(self):
+        self.brand = Brand.objects.create(name='TechCorp')
+        self.category = Category.objects.create(name='Computación', parent_category_id=0)
+        self.category_other = Category.objects.create(name='Audio', parent_category_id=0)
+        self.manufacturer = Manufacturer.objects.create(name='TechFactory')
+        self.distributor = Distributor.objects.create(name='TechDistro')
+
+        self.p1 = Product.objects.create(
+            name='Laptop Pro 15',
+            description='Potente laptop con procesador de última generación.',
+            price=Decimal('1200.00'),
+            units=5,
+            category=self.category,
+            brand=self.brand,
+            manufacturer=self.manufacturer,
+            distributor=self.distributor,
+            is_active=True,
+        )
+        self.p2 = Product.objects.create(
+            name='Laptop Slim 13',
+            description='Laptop ultraligera y delgada para movilidad.',
+            price=Decimal('900.00'),
+            units=2,
+            category=self.category,
+            brand=self.brand,
+            manufacturer=self.manufacturer,
+            distributor=self.distributor,
+            is_active=True,
+        )
+        self.p3 = Product.objects.create(
+            name='Auriculares Bluetooth',
+            description='Auriculares inalámbricos con cancelación de ruido.',
+            price=Decimal('80.00'),
+            units=10,
+            category=self.category_other,
+            brand=self.brand,
+            manufacturer=self.manufacturer,
+            distributor=self.distributor,
+            is_active=True,
+        )
+
+
+        self.user = User.objects.create_user(
+            username='shopper',
+            email='shopper@example.com',
+            password='password123',
+            first_name='Claudio',
+            last_name='Aviles',
+        )
+
+    def test_ajax_add_to_cart_returns_json(self):
+        response = self.client.post(
+            f'/cart/add/{self.p1.id}/',
+            {'quantity': 2},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            HTTP_ACCEPT='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['cart_total_quantity'], 2)
+        self.assertEqual(data['cart_total_price'], '2400.00')
+        self.assertEqual(data['product_name'], 'Laptop Pro 15')
+
+    def test_ajax_cart_update_and_remove_returns_json(self):
+        # Add item first
+        self.client.post(f'/cart/add/{self.p1.id}/', {'quantity': 1})
+
+        # AJAX increment
+        res_inc = self.client.post(
+            f'/cart/update/{self.p1.id}/',
+            {'action': 'increment'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(res_inc.status_code, 200)
+        data_inc = res_inc.json()
+        self.assertTrue(data_inc['success'])
+        self.assertEqual(data_inc['item_quantity'], 2)
+        self.assertEqual(data_inc['cart_total_quantity'], 2)
+        self.assertEqual(data_inc['cart_total_price'], '2400.00')
+
+        # AJAX remove
+        res_rem = self.client.post(
+            f'/cart/remove/{self.p1.id}/',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(res_rem.status_code, 200)
+        data_rem = res_rem.json()
+        self.assertTrue(data_rem['success'])
+        self.assertEqual(data_rem['cart_total_quantity'], 0)
+        self.assertEqual(data_rem['cart_total_price'], '0.00')
+
+    def test_live_product_search_api(self):
+        # Query matching 'Laptop'
+        response = self.client.get('/products/live-search/?q=Lap')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('results', data)
+        self.assertEqual(len(data['results']), 2)
+        names = [item['name'] for item in data['results']]
+        self.assertIn('Laptop Pro 15', names)
+        self.assertIn('Laptop Slim 13', names)
+
+        # Short query (< 2 chars) returns empty results
+        response_short = self.client.get('/products/live-search/?q=L')
+        self.assertEqual(response_short.json(), {'results': []})
+
+    def test_product_detail_includes_related_products(self):
+        response = self.client.get(f'/products/detail/{self.p1.id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('related_products', response.context)
+        related_ids = [p.id for p in response.context['related_products']]
+        self.assertNotIn(self.p1.id, related_ids)
+        self.assertIn(self.p2.id, related_ids)
+
+    def test_checkout_last_order_passed_to_context_for_autofill(self):
+        # Create a previous order
+        prev_order = Order.objects.create(
+            user=self.user,
+            first_name='Claudio',
+            last_name='Aviles',
+            email='shopper@example.com',
+            phone='+56912345678',
+            address='Av. Siempre Viva 742',
+            city='Santiago',
+            postal_code='8320000',
+            latitude=Decimal('-33.450000'),
+            longitude=Decimal('-70.660000'),
+            total_amount=Decimal('500.00'),
+            status='completed',
+            paid=True,
+        )
+
+        # Add item to cart
+        self.client.post(f'/cart/add/{self.p1.id}/', {'quantity': 1})
+
+        # Login and access checkout
+        self.client.login(username='shopper', password='password123')
+        response = self.client.get('/orders/checkout/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['last_order'], prev_order)
+        self.assertContains(response, 'Usar mi dirección habitual')
+        self.assertContains(response, 'Av. Siempre Viva 742')
+
+    def test_complete_address_structure_saved_in_order(self):
+        self.client.post(f'/cart/add/{self.p1.id}/', {'quantity': 1})
+        self.client.login(username='shopper', password='password123')
+
+        response = self.client.post('/orders/checkout/', {
+            'first_name': 'Claudio',
+            'last_name': 'Aviles',
+            'email': 'shopper@example.com',
+            'phone': '+56912345678',
+            'address': 'Av. Libertador Bernardo O\'Higgins 1058',
+            'city': 'Santiago',
+            'region': 'Región Metropolitana de Santiago',
+            'country': 'Chile',
+            'postal_code': '8320000',
+            'latitude': '-33.448900',
+            'longitude': '-70.669300',
+        })
+        self.assertEqual(response.status_code, 302)
+
+        order = Order.objects.filter(email='shopper@example.com').latest('created_at')
+        self.assertEqual(order.address, 'Av. Libertador Bernardo O\'Higgins 1058')
+        self.assertEqual(order.city, 'Santiago')
+        self.assertEqual(order.region, 'Región Metropolitana de Santiago')
+        self.assertEqual(order.country, 'Chile')
+        self.assertEqual(order.latitude, Decimal('-33.448900'))
+        self.assertEqual(order.longitude, Decimal('-70.669300'))
+        self.assertIn('Santiago, Región Metropolitana de Santiago, Chile', order.get_full_address())
+
+
+class PaymentGatewaysSuiteTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username='payuser', password='password123')
+        self.category = Category.objects.create(name='Smartphones')
+        self.product = Product.objects.create(
+            name='Galaxy S24 Ultra',
+            description='Smartphone de alta gama con IA avanzada',
+            category=self.category,
+            price=Decimal('1200.00'),
+            units=10,
+            is_active=True,
+        )
+
+
+    def test_online_gateway_checkout_creates_pending_order_and_redirects_to_portal(self):
+        self.client.post(f'/cart/add/{self.product.id}/', {'quantity': 1})
+        self.client.login(username='payuser', password='password123')
+
+        response = self.client.post('/orders/checkout/', {
+            'first_name': 'Carlos',
+            'last_name': 'Mendoza',
+            'email': 'carlos@example.com',
+            'phone': '+56987654321',
+            'address': 'Av. Apoquindo 4500',
+            'city': 'Las Condes',
+            'region': 'Región Metropolitana',
+            'country': 'Chile',
+            'payment_method': 'webpay',
+        })
+        self.assertEqual(response.status_code, 302)
+
+        order = Order.objects.get(email='carlos@example.com')
+        self.assertRedirects(response, f'/payments/portal/{order.id}/')
+        self.assertFalse(order.paid)
+        self.assertEqual(order.status, 'pending')
+        self.assertEqual(order.payment_method, 'webpay')
+
+        # Portal view renders correctly
+        portal_response = self.client.get(f'/payments/portal/{order.id}/')
+        self.assertEqual(portal_response.status_code, 200)
+        self.assertContains(portal_response, 'Webpay Plus (Transbank)')
+        self.assertContains(portal_response, '4690')
+
+
+    def test_payment_process_approval_sets_paid_and_voucher(self):
+        order = Order.objects.create(
+            user=self.user,
+            first_name='Carlos',
+            last_name='Mendoza',
+            email='carlos@example.com',
+            phone='+56987654321',
+            address='Av. Apoquindo 4500',
+            city='Las Condes',
+            total_amount=Decimal('1200.00'),
+            payment_method='webpay',
+            status='pending',
+            paid=False,
+        )
+
+        response = self.client.post(f'/payments/process/{order.id}/', {
+            'action': 'approve',
+            'card_type': 'Visa Crédito',
+            'card_number': '4532 8765 4321 9999',
+            'installments': '3',
+            'gateway': 'webpay',
+        })
+        self.assertRedirects(response, f'/orders/confirmation/{order.id}/')
+
+        order.refresh_from_db()
+        self.assertTrue(order.paid)
+        self.assertEqual(order.status, 'paid')
+        self.assertEqual(order.payment_card_last4, '9999')
+        self.assertEqual(order.payment_card_type, 'Visa Crédito')
+        self.assertEqual(order.payment_installments, 3)
+        self.assertTrue(len(order.payment_auth_code) >= 6)
+        self.assertIsNotNone(order.payment_date)
+
+        # Voucher is rendered in confirmation
+        conf_response = self.client.get(f'/orders/confirmation/{order.id}/')
+        self.assertEqual(conf_response.status_code, 200)
+        self.assertContains(conf_response, 'Voucher Bancario de Pago')
+        self.assertContains(conf_response, '9999')
+
+    def test_payment_process_rejection_redirects_to_failure(self):
+        order = Order.objects.create(
+            user=self.user,
+            first_name='Carlos',
+            last_name='Mendoza',
+            email='carlos@example.com',
+            phone='+56987654321',
+            address='Av. Apoquindo 4500',
+            city='Las Condes',
+            total_amount=Decimal('1200.00'),
+            payment_method='webpay',
+            status='pending',
+            paid=False,
+        )
+
+        response = self.client.post(f'/payments/process/{order.id}/', {
+            'action': 'reject',
+            'reject_reason': 'Fondos insuficientes',
+        })
+        self.assertRedirects(response, f'/payments/failure/{order.id}/')
+
+        order.refresh_from_db()
+        self.assertFalse(order.paid)
+        self.assertEqual(order.status, 'pending')
+
+        # Failure page renders with retry options
+        fail_response = self.client.get(f'/payments/failure/{order.id}/')
+        self.assertEqual(fail_response.status_code, 200)
+        self.assertContains(fail_response, 'No pudimos procesar tu pago')
+        self.assertContains(fail_response, 'Continuar con el pago')
+
+    def test_payment_retry_switches_to_transfer(self):
+        order = Order.objects.create(
+            user=self.user,
+            first_name='Carlos',
+            last_name='Mendoza',
+            email='carlos@example.com',
+            phone='+56987654321',
+            address='Av. Apoquindo 4500',
+            city='Las Condes',
+            total_amount=Decimal('1200.00'),
+            payment_method='webpay',
+            status='pending',
+            paid=False,
+        )
+
+        response = self.client.post(f'/payments/retry/{order.id}/', {
+            'payment_method': 'transfer',
+        })
+        self.assertRedirects(response, f'/orders/confirmation/{order.id}/')
+
+        order.refresh_from_db()
+        self.assertEqual(order.payment_method, 'transfer')
+        self.assertFalse(order.paid)
 
 
 
@@ -784,3 +1106,904 @@ class TestStaffOrderManagement(TestCase):
 
 
 
+
+
+
+
+
+
+
+class AnalyticsDashboardTests(TestCase):
+    def setUp(self):
+        Order.objects.all().delete()
+        self.staff_user = User.objects.create_user(
+
+            username='staffuser', password='testpass123', is_staff=True
+        )
+        self.regular_user = User.objects.create_user(
+            username='regularuser', password='testpass123', is_staff=False
+        )
+        self.category = Category.objects.create(name='Electrónica')
+        self.product = Product.objects.create(
+            name='Laptop Pro', description='Laptop de prueba', price=Decimal('500000.00'),
+            units=10, category=self.category,
+        )
+        # Create a paid order with an item
+        self.paid_order = Order.objects.create(
+            user=self.staff_user, first_name='Admin', last_name='Prueba',
+            email='admin@test.com', phone='+56912345678',
+            address='Av. Las Condes 100', city='Las Condes',
+            total_amount=Decimal('500000.00'), status='completed',
+            paid=True, payment_method='webpay',
+        )
+        OrderItem.objects.create(
+            order=self.paid_order, product=self.product,
+            price=Decimal('500000.00'), quantity=1,
+        )
+        # Create a pending order
+        Order.objects.create(
+            user=self.regular_user, first_name='Cliente', last_name='Test',
+            email='cliente@test.com', phone='+56987654321',
+            address='Calle Falsa 123', city='Santiago',
+            total_amount=Decimal('200000.00'), status='pending',
+            paid=False, payment_method='transfer',
+        )
+
+    def test_dashboard_redirects_unauthenticated(self):
+        response = self.client.get('/manage/dashboard/')
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login', response['Location'])
+
+    def test_dashboard_redirects_non_staff(self):
+        self.client.login(username='regularuser', password='testpass123')
+        response = self.client.get('/manage/dashboard/')
+        self.assertEqual(response.status_code, 302)
+
+    def test_dashboard_accessible_for_staff(self):
+        self.client.login(username='staffuser', password='testpass123')
+        response = self.client.get('/manage/dashboard/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_dashboard_contains_kpi_elements(self):
+        self.client.login(username='staffuser', password='testpass123')
+        response = self.client.get('/manage/dashboard/')
+        self.assertContains(response, 'Dashboard Analytics')
+        self.assertContains(response, 'Ingresos')
+        self.assertContains(response, 'Stock')
+
+    def test_dashboard_contains_chart_canvases(self):
+        self.client.login(username='staffuser', password='testpass123')
+        response = self.client.get('/manage/dashboard/')
+        self.assertContains(response, 'chartMonthlySales')
+        self.assertContains(response, 'chartStatusDoughnut')
+        self.assertContains(response, 'chartDailyOrders')
+        self.assertContains(response, 'chartPaymentMethods')
+        self.assertContains(response, 'chartTopProducts')
+        self.assertContains(response, 'chartCategoryRevenue')
+
+    def test_dashboard_context_has_correct_kpis(self):
+        self.client.login(username='staffuser', password='testpass123')
+        response = self.client.get('/manage/dashboard/')
+        self.assertEqual(response.context['total_orders'], 2)
+        self.assertEqual(response.context['completed_count'], 1)
+        self.assertEqual(response.context['pending_count'], 1)
+        self.assertEqual(response.context['total_revenue'], Decimal('500000.00'))
+
+    def test_export_csv_redirects_unauthenticated(self):
+        response = self.client.get('/manage/dashboard/export-csv/')
+        self.assertEqual(response.status_code, 302)
+
+    def test_export_csv_returns_csv_for_staff(self):
+        self.client.login(username='staffuser', password='testpass123')
+        response = self.client.get('/manage/dashboard/export-csv/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv')
+        self.assertIn('ventas_mensuales.csv', response['Content-Disposition'])
+
+    def test_low_stock_products_appear_in_context(self):
+        # Create a low-stock product
+        low = Product.objects.create(
+            name='Producto Escaso', description='Stock bajo', price=Decimal('100.00'),
+            units=2, category=self.category,
+        )
+        self.client.login(username='staffuser', password='testpass123')
+        response = self.client.get('/manage/dashboard/')
+        low_stock_ids = [p.id for p in response.context['low_stock_products']]
+        self.assertIn(low.id, low_stock_ids)
+
+    def test_recent_orders_appear_in_context(self):
+        self.client.login(username='staffuser', password='testpass123')
+        response = self.client.get('/manage/dashboard/')
+        recent_ids = [o.id for o in response.context['recent_orders']]
+        self.assertIn(self.paid_order.id, recent_ids)
+
+
+class ShippingCalculatorTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(
+            username='shippingstaff', password='testpass123', is_staff=True
+        )
+        self.pay_user = User.objects.create_user(
+            username='shippingpayuser', password='testpass123'
+        )
+        self.category = Category.objects.create(name='Test Cat Shipping')
+        self.product = Product.objects.create(
+            name='Producto Envio Test', description='Test producto envio',
+            price=Decimal('10000.00'), units=50, category=self.category,
+            weight_kg=Decimal('2.000'),
+        )
+        self.client.login(username='shippingpayuser', password='testpass123')
+        # Add product to cart
+        self.client.post(f'/cart/add/{self.product.id}/', {'quantity': 1, 'override': 'False'})
+
+    def test_store_settings_singleton(self):
+        from showcase.models import StoreSettings
+        s1 = StoreSettings.get_solo()
+        s2 = StoreSettings.get_solo()
+        self.assertEqual(s1.pk, s2.pk)
+        self.assertEqual(StoreSettings.objects.count(), 1)
+
+    def test_store_settings_default_origin(self):
+        from showcase.models import StoreSettings
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        self.assertEqual(settings.origin_commune, 'Pichidegua')
+
+    def test_free_shipping_threshold_default(self):
+        from showcase.models import StoreSettings
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        self.assertEqual(settings.free_shipping_threshold, Decimal('59990.00'))
+
+    def test_calculator_returns_internal_rate_for_rm(self):
+        from showcase.shipping.calculator import calculate_shipping, normalize_region
+        from showcase.cart import Cart
+        # normalize_region should map RM strings correctly
+        self.assertEqual(normalize_region('Región Metropolitana de Santiago'), 'Región Metropolitana')
+        self.assertEqual(normalize_region('Metropolitana'), 'Región Metropolitana')
+
+    def test_normalize_region_ohiggins(self):
+        from showcase.shipping.calculator import normalize_region
+        self.assertEqual(normalize_region("Libertador General Bernardo O'Higgins"), "O'Higgins")
+        self.assertEqual(normalize_region('Rancagua'), "O'Higgins")
+
+    def test_normalize_region_default(self):
+        from showcase.shipping.calculator import normalize_region
+        self.assertEqual(normalize_region('Alguna Region Desconocida'), 'default')
+        self.assertEqual(normalize_region(''), 'default')
+
+    def test_shipping_quote_ajax_endpoint_empty_cart(self):
+        self.client.post('/cart/clear/')
+        response = self.client.get('/shipping/quote/?region=Regi%C3%B3n+Metropolitana')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('price', data)
+
+    def test_shipping_quote_ajax_returns_json(self):
+        response = self.client.get('/shipping/quote/?region=Regi%C3%B3n+Metropolitana')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('price', data)
+        self.assertIn('courier', data)
+        self.assertIn('days', data)
+        self.assertIn('is_free', data)
+
+    def test_shipping_quote_free_for_large_order(self):
+        # Add many units to exceed free shipping threshold
+        from showcase.models import StoreSettings
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        settings.free_shipping_threshold = Decimal('5000.00')
+        settings.save()
+        response = self.client.get('/shipping/quote/?region=Regi%C3%B3n+Metropolitana')
+        data = response.json()
+        self.assertTrue(data['is_free'])
+
+    def test_manage_settings_accessible_for_staff(self):
+        self.client.logout()
+        self.client.login(username='shippingstaff', password='testpass123')
+        response = self.client.get('/manage/settings/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Configuración')
+
+
+    def test_manage_settings_redirects_non_staff(self):
+        response = self.client.get('/manage/settings/')
+        self.assertEqual(response.status_code, 302)
+
+    def test_manage_settings_saves_origin_commune(self):
+        self.client.logout()
+        self.client.login(username='shippingstaff', password='testpass123')
+        response = self.client.post('/manage/settings/', {
+            'action': 'settings',
+            'store_name': 'Mi Tienda',
+            'origin_commune': 'Rancagua',
+            'free_shipping_threshold': '49990',
+        })
+        self.assertEqual(response.status_code, 302)
+        from showcase.models import StoreSettings
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        self.assertEqual(settings.origin_commune, 'Rancagua')
+        self.assertEqual(settings.free_shipping_threshold, Decimal('49990'))
+
+    def test_shipping_rate_creation_and_deletion(self):
+        self.client.logout()
+        self.client.login(username='shippingstaff', password='testpass123')
+        # Add a rate
+        self.client.post('/manage/settings/', {
+            'action': 'add_rate',
+            'region': 'Test Region',
+            'weight_min_kg': '0',
+            'weight_max_kg': '5',
+            'price': '3990',
+            'courier_name': 'Starken',
+            'estimated_days': '3-5 días hábiles',
+        })
+        from showcase.models import ShippingRate
+        rate = ShippingRate.objects.filter(region='Test Region').first()
+        self.assertIsNotNone(rate)
+        self.assertEqual(rate.price, Decimal('3990'))
+        # Delete it
+        self.client.post('/manage/settings/', {
+            'action': 'delete_rate',
+            'rate_id': rate.id,
+        })
+        self.assertFalse(ShippingRate.objects.filter(region='Test Region').exists())
+
+
+class ProductGalleryTests(TestCase):
+    def setUp(self):
+        from showcase.models import ProductImage
+        self.staff_user = User.objects.create_user(
+            username='gallerystaff', password='testpass123', is_staff=True
+        )
+        self.category = Category.objects.create(name='Camaras')
+        self.product = Product.objects.create(
+            name='Camara DSLR Pro', description='Camara profesional',
+            price=Decimal('450000.00'), units=5, category=self.category,
+        )
+        self.img1 = ProductImage.objects.create(
+            product=self.product,
+            image=SimpleUploadedFile('test1.jpg', b'fake_image_bytes', content_type='image/jpeg')
+        )
+        self.img2 = ProductImage.objects.create(
+            product=self.product,
+            image=SimpleUploadedFile('test2.jpg', b'fake_image_bytes', content_type='image/jpeg')
+        )
+
+    def test_get_all_images_returns_main_and_extra_images(self):
+        imgs = self.product.get_all_images()
+        # No main image set, but 2 extra images
+        self.assertEqual(len(imgs), 2)
+        self.assertFalse(imgs[0]['is_main'])
+
+    def test_product_detail_renders_gallery_thumbnails(self):
+        response = self.client.get(f'/products/detail/{self.product.id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'gallery-thumb-btn')
+        self.assertContains(response, 'mainProductImage')
+
+    def test_delete_product_image_staff(self):
+        from showcase.models import ProductImage
+        self.client.login(username='gallerystaff', password='testpass123')
+        response = self.client.get(f'/products/images/{self.img1.id}/delete/')
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(ProductImage.objects.filter(pk=self.img1.id).exists())
+
+    def test_delete_product_image_unauthenticated_redirects(self):
+        from showcase.models import ProductImage
+        response = self.client.get(f'/products/images/{self.img2.id}/delete/')
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(ProductImage.objects.filter(pk=self.img2.id).exists())
+
+
+class PopularCategoriesTests(TestCase):
+    def setUp(self):
+        self.cat1 = Category.objects.create(name='Smartphones')
+        self.cat2 = Category.objects.create(name='Laptops')
+        self.product1 = Product.objects.create(
+            name='Teléfono X', description='Descripción teléfono',
+            price=Decimal('200000.00'), units=10, category=self.cat1,
+        )
+        self.product2 = Product.objects.create(
+            name='Laptop Z', description='Descripción laptop',
+            price=Decimal('500000.00'), units=5, category=self.cat2,
+        )
+
+    def test_product_detail_increments_views_count(self):
+        self.assertEqual(self.product1.views_count, 0)
+        self.assertEqual(self.cat1.views_count, 0)
+        
+        response = self.client.get(f'/products/detail/{self.product1.id}/')
+        self.assertEqual(response.status_code, 200)
+        
+        self.product1.refresh_from_db()
+        self.cat1.refresh_from_db()
+        self.assertEqual(self.product1.views_count, 1)
+        self.assertEqual(self.cat1.views_count, 1)
+
+    def test_home_page_popular_categories_context(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('popular_categories', response.context)
+        pop_cats = response.context['popular_categories']
+        cat_ids = [c.id for c in pop_cats]
+        self.assertIn(self.cat1.id, cat_ids)
+        self.assertIn(self.cat2.id, cat_ids)
+
+    def test_home_page_category_filtering(self):
+        response = self.client.get(f'/?category={self.cat1.id}')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['category_id'], str(self.cat1.id))
+        
+        filtered_products = list(response.context['products'])
+        filtered_ids = [p.id for p in filtered_products]
+        self.assertIn(self.product1.id, filtered_ids)
+        self.assertNotIn(self.product2.id, filtered_ids)
+        
+        # Verify category view incremented when filtered
+        self.cat1.refresh_from_db()
+        self.assertEqual(self.cat1.views_count, 1)
+
+
+
+class StoreBrandingTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(
+            username='brandingstaff', password='testpass123', is_staff=True
+        )
+
+    def test_store_settings_context_processor_injected(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('store_settings', response.context)
+        self.assertEqual(response.context['store_settings'].store_name, 'Store Django')
+
+    def test_manage_settings_updates_branding_and_banners(self):
+        self.client.login(username='brandingstaff', password='testpass123')
+        response = self.client.post('/manage/settings/', {
+            'action': 'settings',
+            'store_name': 'Mi Tienda Personalizada',
+            'footer_text': 'Derechos reservados 2026.',
+            'banner1_title': 'Super Ofertas',
+            'banner1_subtitle': 'Descuentos de hasta 50%',
+            'banner1_bg_color': 'bg-dark text-white',
+        })
+        self.assertEqual(response.status_code, 302)
+        from showcase.models import StoreSettings
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        self.assertEqual(settings.store_name, 'Mi Tienda Personalizada')
+        self.assertEqual(settings.footer_text, 'Derechos reservados 2026.')
+        self.assertEqual(settings.banner1_title, 'Super Ofertas')
+        self.assertEqual(settings.banner1_bg_color, 'bg-dark text-white')
+
+
+class ProductReviewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='buyer1', password='testpass123')
+        self.category = Category.objects.create(name='Audio')
+        self.product = Product.objects.create(
+            name='Audífonos Hi-Fi', description='Excelente sonido studio',
+            price=Decimal('79990.00'), units=10, category=self.category,
+        )
+
+    def test_add_review_authenticated_user(self):
+        self.client.login(username='buyer1', password='testpass123')
+        response = self.client.post(f'/products/detail/{self.product.id}/review/', {
+            'rating': '5',
+            'title': 'Increíble calidad',
+            'comment': 'Los mejores audífonos que he tenido.',
+        })
+        self.assertEqual(response.status_code, 302)
+        from showcase.models import ProductReview
+        review = ProductReview.objects.get(product=self.product, user=self.user)
+        self.assertEqual(review.rating, 5)
+        self.assertEqual(review.title, 'Increíble calidad')
+        self.assertFalse(review.is_verified_purchase)
+        self.assertEqual(self.product.get_average_rating(), 5.0)
+        self.assertEqual(self.product.get_review_count(), 1)
+
+    def test_verified_purchase_flag_when_order_paid(self):
+        # Create a paid order for buyer1
+        order = Order.objects.create(
+            user=self.user, first_name='Juan', last_name='Pérez',
+            email='juan@test.com', address='Av 123', city='Pichidegua',
+            total_amount=Decimal('79990.00'), paid=True,
+        )
+        from showcase.models import OrderItem, ProductReview
+        OrderItem.objects.create(order=order, product=self.product, price=self.product.price, quantity=1)
+
+        self.client.login(username='buyer1', password='testpass123')
+        self.client.post(f'/products/detail/{self.product.id}/review/', {
+            'rating': '4',
+            'title': 'Muy buen sonido',
+            'comment': 'Sonido claro y graves potentes.',
+        })
+        review = ProductReview.objects.get(product=self.product, user=self.user)
+        self.assertTrue(review.is_verified_purchase)
+
+    def test_product_detail_renders_reviews_and_form(self):
+        response = self.client.get(f'/products/detail/{self.product.id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Opiniones de Clientes')
+
+
+class DispatchNotificationTests(TestCase):
+    def setUp(self):
+        from django.core import mail
+        self.mail = mail
+        self.staff_user = User.objects.create_user(
+            username='dispatchstaff', password='testpass123', is_staff=True
+        )
+        self.order = Order.objects.create(
+            first_name='María', last_name='Gómez', email='maria@example.com',
+            phone='+56912345678', address='Calle Flor 45', city='Pichidegua',
+            total_amount=Decimal('49990.00'), status='paid', paid=True,
+        )
+
+    def test_send_dispatch_notification_email(self):
+        from showcase.emails import send_dispatch_notification_email
+        self.order.tracking_number = 'STK-123456'
+        self.order.shipping_courier = 'Starken'
+        self.order.save()
+
+        sent = send_dispatch_notification_email(self.order)
+        self.assertTrue(sent)
+        self.assertEqual(len(self.mail.outbox), 1)
+        email = self.mail.outbox[0]
+        self.assertIn('STK-123456', email.body)
+        self.assertIn('maria@example.com', email.to)
+
+    def test_order_status_update_triggers_email_when_shipped(self):
+        self.client.login(username='dispatchstaff', password='testpass123')
+        response = self.client.post(f'/manage/orders/{self.order.id}/update/', {
+
+            'status': 'shipped',
+            'paid': 'true',
+            'phone': '+56912345678',
+            'tracking_company': 'Starken',
+            'tracking_number': 'STK-999',
+            'notify_email': 'on',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'shipped')
+        self.assertEqual(self.order.tracking_number, 'STK-999')
+        self.assertEqual(len(self.mail.outbox), 1)
+
+    def test_whatsapp_link_in_manage_order_detail(self):
+        self.client.login(username='dispatchstaff', password='testpass123')
+        response = self.client.get(f'/manage/orders/{self.order.id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Notificar por WhatsApp')
+        self.assertContains(response, 'wa.me/56912345678')
+
+
+class CouponTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(username='couponstaff', password='testpass123', is_staff=True)
+        self.category = Category.objects.create(name='Gadgets')
+        self.product = Product.objects.create(
+            name='Reloj Smart', description='Smartwatch deportivo',
+            price=Decimal('100000.00'), units=10, category=self.category,
+        )
+        from showcase.models import Coupon
+        self.percentage_coupon = Coupon.objects.create(
+            code='OFERTA20', discount_type='percentage',
+            discount_value=Decimal('20.00'), min_purchase_amount=Decimal('50000.00'),
+            is_active=True,
+        )
+        self.fixed_coupon = Coupon.objects.create(
+            code='DESCUENTO10K', discount_type='fixed',
+            discount_value=Decimal('10000.00'), min_purchase_amount=Decimal('30000.00'),
+            is_active=True,
+        )
+
+    def test_coupon_validation_and_calculations(self):
+        valid, msg = self.percentage_coupon.is_valid(Decimal('60000.00'))
+        self.assertTrue(valid)
+        self.assertEqual(self.percentage_coupon.calculate_discount(Decimal('100000.00')), Decimal('20000.00'))
+
+        valid, msg = self.percentage_coupon.is_valid(Decimal('10000.00'))
+        self.assertFalse(valid)
+        self.assertIn('monto mínimo', msg)
+
+    def test_apply_and_remove_coupon_in_cart(self):
+        self.client.post(f'/cart/add/{self.product.id}/', {'quantity': 1})
+        response = self.client.post('/cart/coupon/apply/', {'code': 'OFERTA20'})
+        self.assertEqual(response.status_code, 302)
+
+        # Check cart detail has discount line
+        cart_resp = self.client.get('/cart/')
+        self.assertContains(cart_resp, 'OFERTA20')
+        self.assertContains(cart_resp, 'Descuento (OFERTA20)')
+
+        # Remove coupon
+        rem_resp = self.client.post('/cart/coupon/remove/')
+        self.assertEqual(rem_resp.status_code, 302)
+
+    def test_checkout_with_coupon_applies_discount(self):
+        self.client.post(f'/cart/add/{self.product.id}/', {'quantity': 1})
+        self.client.post('/cart/coupon/apply/', {'code': 'OFERTA20'})
+
+        response = self.client.post('/orders/checkout/', {
+            'first_name': 'Carlos', 'last_name': 'Vidal',
+            'email': 'carlos@example.com', 'phone': '+56911223344',
+            'address': 'Av Providencia 500', 'city': 'Pichidegua',
+            'region': "Región de O'Higgins", 'payment_method': 'transfer',
+
+        })
+        self.assertEqual(response.status_code, 302)
+        order = Order.objects.get(email='carlos@example.com')
+        self.assertEqual(order.coupon, self.percentage_coupon)
+        self.assertEqual(order.discount_amount, Decimal('20000.00'))
+        self.percentage_coupon.refresh_from_db()
+        self.assertEqual(self.percentage_coupon.used_count, 1)
+
+
+    def test_manage_coupons_view_staff_crud(self):
+        self.client.login(username='couponstaff', password='testpass123')
+        # Create coupon
+        res = self.client.post('/manage/coupons/', {
+            'action': 'create', 'code': 'SUPER50',
+            'discount_type': 'percentage', 'discount_value': '50',
+            'min_purchase_amount': '0', 'is_active': 'on',
+        })
+        self.assertEqual(res.status_code, 302)
+        from showcase.models import Coupon
+        coupon = Coupon.objects.get(code='SUPER50')
+        self.assertEqual(coupon.discount_value, Decimal('50.00'))
+
+        # Toggle active
+        self.client.post('/manage/coupons/', {'action': 'toggle_active', 'coupon_id': coupon.id})
+        coupon.refresh_from_db()
+        self.assertFalse(coupon.is_active)
+
+        # Delete coupon
+        self.client.post('/manage/coupons/', {'action': 'delete', 'coupon_id': coupon.id})
+        self.assertFalse(Coupon.objects.filter(code='SUPER50').exists())
+
+
+class LiveSalesNotificationTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(username='livesalesstaff', password='testpass123', is_staff=True)
+        self.category = Category.objects.create(name='Audio')
+        self.product = Product.objects.create(
+            name='Parlante Bluetooth Pro', description='Sonido envolvente 360',
+            price=Decimal('49990.00'), units=15, category=self.category,
+        )
+        self.order = Order.objects.create(
+            first_name='Gabriel', last_name='Navarro',
+            email='gabriel@example.com', phone='+56988776655',
+            address='Calle Los Andes 88', city='Pichidegua',
+            total_amount=Decimal('49990.00'), status='completed', paid=True,
+        )
+        OrderItem.objects.create(order=self.order, product=self.product, price=self.product.price, quantity=1)
+
+    def test_recent_sales_api_returns_json(self):
+        response = self.client.get('/api/recent-sales/')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['enabled'])
+        self.assertGreaterEqual(len(data['notifications']), 1)
+        item = data['notifications'][0]
+        self.assertEqual(item['buyer_name'], 'Gabriel N.')
+        self.assertEqual(item['city'], 'Pichidegua')
+        self.assertEqual(item['product_name'], 'Parlante Bluetooth Pro')
+
+    def test_toggle_live_sales_notifications_settings(self):
+        self.client.login(username='livesalesstaff', password='testpass123')
+        # Disable live sales notifications
+        self.client.post('/manage/settings/', {
+            'action': 'settings',
+            'store_name': 'Store Django',
+            'origin_commune': 'Pichidegua',
+            'free_shipping_threshold': '59990',
+            # enable_live_sales_notifications not in POST means False
+        })
+        from showcase.models import StoreSettings
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        self.assertFalse(settings.enable_live_sales_notifications)
+
+        # Verify API returns enabled=False
+        response = self.client.get('/api/recent-sales/')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertFalse(data['enabled'])
+        self.assertEqual(len(data['notifications']), 0)
+
+
+class PWATests(TestCase):
+    def test_manifest_json_endpoint(self):
+        response = self.client.get('/manifest.json')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['display'], 'standalone')
+        self.assertIn('name', data)
+        self.assertIn('icons', data)
+
+    def test_serviceworker_js_endpoint(self):
+        response = self.client.get('/serviceworker.js')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/javascript')
+        self.assertIn('Service-Worker-Allowed', response)
+        self.assertEqual(response['Service-Worker-Allowed'], '/')
+        self.assertIn('CACHE_NAME', response.content.decode('utf-8'))
+
+    def test_offline_page_rendering(self):
+        response = self.client.get('/offline/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Sin Conexión a Internet')
+
+
+class WhatsAppWidgetTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(username='wastaff', password='testpass123', is_staff=True)
+        self.category = Category.objects.create(name='Telefonía')
+        self.product = Product.objects.create(
+            name='Smartphone Pro Max', description='Teléfono de alta gama',
+            price=Decimal('899990.00'), units=5, category=self.category,
+        )
+
+    def test_whatsapp_widget_rendered_on_home_and_product_detail(self):
+        # Home page render
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="whatsapp-widget-container"')
+        self.assertContains(response, 'wa.me/56912345678')
+
+        # Product detail contextual message
+        prod_resp = self.client.get(f'/products/detail/{self.product.id}/')
+        self.assertEqual(prod_resp.status_code, 200)
+        self.assertContains(prod_resp, 'id="whatsapp-widget-container"')
+        self.assertContains(prod_resp, 'Smartphone%20Pro%20Max')
+
+    def test_whatsapp_widget_admin_settings_toggle(self):
+        self.client.login(username='wastaff', password='testpass123')
+        # Disable WhatsApp widget in settings
+        self.client.post('/manage/settings/', {
+            'action': 'settings',
+            'store_name': 'Store Django',
+            'origin_commune': 'Pichidegua',
+            'free_shipping_threshold': '59990',
+            'whatsapp_number': '+56999887766',
+            'whatsapp_default_message': 'Consulta de prueba',
+            # enable_whatsapp_widget omitted -> False
+        })
+        from showcase.models import StoreSettings
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        self.assertFalse(settings.enable_whatsapp_widget)
+        self.assertEqual(settings.whatsapp_number, '+56999887766')
+
+        # Verify widget is not rendered on home page
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'id="whatsapp-widget-container"')
+
+
+class WishlistTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='wishlistuser', password='testpass123')
+        self.category = Category.objects.create(name='Accesorios')
+        self.product = Product.objects.create(
+            name='Audífonos Inalámbricos', description='Cancelación de ruido activa',
+            price=Decimal('79990.00'), units=10, category=self.category,
+        )
+
+    def test_toggle_wishlist_add_and_remove(self):
+        self.client.login(username='wishlistuser', password='testpass123')
+        # Add to wishlist via POST
+        res1 = self.client.post(f'/wishlist/toggle/{self.product.id}/')
+        self.assertEqual(res1.status_code, 302)
+        from showcase.models import WishlistItem
+        self.assertTrue(WishlistItem.objects.filter(user=self.user, product=self.product).exists())
+
+        # Remove from wishlist via POST
+        res2 = self.client.post(f'/wishlist/toggle/{self.product.id}/')
+        self.assertEqual(res2.status_code, 302)
+        self.assertFalse(WishlistItem.objects.filter(user=self.user, product=self.product).exists())
+
+    def test_wishlist_ajax_toggle(self):
+        self.client.login(username='wishlistuser', password='testpass123')
+        res = self.client.post(
+            f'/wishlist/toggle/{self.product.id}/',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue(data['success'])
+        self.assertTrue(data['in_wishlist'])
+        self.assertEqual(data['wishlist_count'], 1)
+
+    def test_wishlist_detail_page_rendering(self):
+        self.client.login(username='wishlistuser', password='testpass123')
+        from showcase.models import WishlistItem
+        WishlistItem.objects.create(user=self.user, product=self.product)
+
+        response = self.client.get('/wishlist/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Audífonos Inalámbricos')
+        self.assertContains(response, 'Mover al Carrito')
+
+
+class BatchImportTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(username='importstaff', password='testpass123', is_staff=True)
+
+    def test_download_import_template(self):
+        self.client.login(username='importstaff', password='testpass123')
+        response = self.client.get('/manage/products/import/template/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv; charset=utf-8-sig')
+        self.assertContains(response, 'nombre,descripcion,precio,unidades,categoria,marca,sku,imagen_url')
+
+    def test_csv_batch_import_creates_products(self):
+        self.client.login(username='importstaff', password='testpass123')
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        csv_data = (
+            "nombre,descripcion,precio,unidades,categoria,marca,sku,imagen_url\n"
+            "Teclado Gamer,Teclado mecánico,45000,10,Periféricos,Logitech,TEC-01,\n"
+            "Mouse Wireless,Mouse óptico 16000 DPI,25000,5,Periféricos,Razer,MOU-02,\n"
+        ).encode('utf-8')
+        uploaded_file = SimpleUploadedFile('test_import.csv', csv_data, content_type='text/csv')
+
+        response = self.client.post('/manage/products/import/', {'import_file': uploaded_file})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Teclado Gamer')
+        self.assertContains(response, 'Mouse Wireless')
+
+
+
+        from showcase.models import Product, Category, Brand
+        self.assertTrue(Product.objects.filter(name='Teclado Gamer', price=Decimal('45000.00')).exists())
+        self.assertTrue(Product.objects.filter(name='Mouse Wireless', price=Decimal('25000.00')).exists())
+        self.assertTrue(Category.objects.filter(name='Periféricos').exists())
+        self.assertTrue(Brand.objects.filter(name='Logitech').exists())
+
+
+class ThemeCustomizerTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(username='themestaff', password='testpass123', is_staff=True)
+
+    def test_update_theme_settings_saves_colors_and_texts(self):
+        self.client.login(username='themestaff', password='testpass123')
+        response = self.client.post('/manage/settings/', {
+            'action': 'settings',
+            'store_name': 'Store Custom Theme',
+            'origin_commune': 'Pichidegua',
+            'free_shipping_threshold': '59990',
+            'primary_color': '#e63946',
+            'font_family': 'poppins',
+            'card_style': 'elevated',
+            'announcement_bar_enabled': 'on',
+            'announcement_bar_text': '🚀 ¡Mega Descuentos de Aniversario!',
+            'hero_title': 'Nueva Colección 2026',
+            'hero_subtitle': 'Encuentra las mejores tendencias',
+            'hero_button_text': 'Ver Ahora 🔥',
+            'hero_button_link': '/products/',
+        })
+        self.assertEqual(response.status_code, 302)
+
+
+        from showcase.models import StoreSettings
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        self.assertEqual(settings.primary_color, '#e63946')
+        self.assertEqual(settings.font_family, 'poppins')
+        self.assertEqual(settings.card_style, 'elevated')
+        self.assertTrue(settings.announcement_bar_enabled)
+        self.assertEqual(settings.announcement_bar_text, '🚀 ¡Mega Descuentos de Aniversario!')
+        self.assertEqual(settings.hero_title, 'Nueva Colección 2026')
+
+    def test_announcement_bar_and_hero_rendered_on_home(self):
+        from showcase.models import StoreSettings
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        settings.primary_color = '#2a9d8f'
+        settings.announcement_bar_text = '🎉 Envío Gratis en todo Chile'
+        settings.hero_title = 'Tecnología e Innovación'
+        settings.save()
+
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '#2a9d8f')
+        self.assertContains(response, '🎉 Envío Gratis en todo Chile')
+        self.assertContains(response, 'Tecnología e Innovación')
+
+
+class HomePageSearchFixTests(TestCase):
+    def setUp(self):
+        self.cat = Category.objects.create(name='Computación')
+        self.prod1 = Product.objects.create(name='Laptop HP Pavilion', description='Excelente laptop para trabajo', price=Decimal('450000.00'), category=self.cat, units=5, is_active=True)
+        self.prod2 = Product.objects.create(name='Audífonos Sony', description='Cancelación de ruido activo', price=Decimal('120000.00'), category=self.cat, units=3, is_active=True)
+
+    def test_search_on_home_page_renders_results_section(self):
+        response = self.client.get('/?q=Laptop')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['is_search_active'])
+        self.assertContains(response, 'Resultados de Búsqueda')
+        self.assertContains(response, 'Laptop HP Pavilion')
+        search_products = list(response.context['products'])
+        self.assertIn(self.prod1, search_products)
+        self.assertNotIn(self.prod2, search_products)
+
+
+    def test_search_with_no_matches_displays_empty_notice(self):
+        response = self.client.get('/?q=Inexistente12345')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['is_search_active'])
+        self.assertContains(response, 'No encontramos productos que coincidan con tu búsqueda')
+
+
+class GoogleMapsCoordinateFormattingTests(TestCase):
+    def test_order_lat_lng_formatting_uses_dot_decimal_separator(self):
+        order = Order.objects.create(
+            first_name='Claudio',
+            last_name='Pérez',
+            email='claudio@example.com',
+            phone='+56912345678',
+            address='Av. O’Higgins 123',
+            city='Pichidegua',
+            latitude=Decimal('-34.305504'),
+            longitude=Decimal('-71.393342'),
+        )
+        self.assertEqual(order.lat_str, '-34.305504')
+        self.assertEqual(order.lng_str, '-71.393342')
+        self.assertEqual(order.google_maps_url, 'https://www.google.com/maps?q=-34.305504,-71.393342')
+        self.assertEqual(order.waze_url, 'https://waze.com/ul?ll=-34.305504,-71.393342&navigate=yes')
+
+
+class ProductBackupExportTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(username='backupstaff', password='pass1234', is_staff=True)
+        self.cat = Category.objects.create(name='Audio y Sonido')
+        self.prod = Product.objects.create(
+            name='Audífonos Respaldo Test',
+            description='Prueba de exportación',
+            price=Decimal('29990.00'),
+            category=self.cat,
+            units=10,
+            is_active=True
+        )
+
+    def test_export_products_csv_downloads_file(self):
+        self.client.login(username='backupstaff', password='pass1234')
+        response = self.client.get('/manage/products/export/csv/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv; charset=utf-8-sig')
+        self.assertContains(response, 'Audífonos Respaldo Test')
+        self.assertContains(response, '29990')
+
+    def test_export_products_zip_downloads_zip_archive(self):
+        self.client.login(username='backupstaff', password='pass1234')
+        response = self.client.get('/manage/products/export/zip/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/zip')
+
+
+class StoreSettingsImageURLTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(username='settingsstaff', password='pass1234', is_staff=True)
+
+    def test_saving_custom_image_urls_in_settings(self):
+        self.client.login(username='settingsstaff', password='pass1234')
+        response = self.client.post('/manage/settings/', {
+            'action': 'settings',
+            'store_name': 'Tienda Personalizada',
+            'site_logo_url': 'https://example.com/custom_logo.jpg',
+            'site_favicon_url': 'https://example.com/custom_favicon.ico',
+            'banner1_image_url': 'https://example.com/banner1.jpg',
+            'banner2_image_url': 'https://example.com/banner2.jpg',
+            'banner3_image_url': 'https://example.com/banner3.jpg',
+        })
+        self.assertIn(response.status_code, [200, 302])
+        from showcase.models import StoreSettings
+        settings = StoreSettings.get_solo()
+        self.assertEqual(settings.site_logo_url, 'https://example.com/custom_logo.jpg')
+        self.assertEqual(settings.get_site_logo_url, 'https://example.com/custom_logo.jpg')
+        self.assertEqual(settings.get_site_favicon_url, 'https://example.com/custom_favicon.ico')
+        self.assertEqual(settings.get_banner1_image_url, 'https://example.com/banner1.jpg')

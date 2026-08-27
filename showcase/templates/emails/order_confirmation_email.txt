@@ -19,7 +19,8 @@ TOTAL PAGADO: $ {{ order.total_amount }}
 
 DATOS DE ENVÍO:
 Destinatario: {{ order.first_name }} {{ order.last_name }}
-Dirección: {{ order.address }}, {{ order.city }}
+Dirección: {{ order.address }}
+Comuna / Ciudad: {{ order.city }}{% if order.region %}, {{ order.region }}{% endif %}{% if order.country %}, {{ order.country }}{% endif %}
 Correo: {{ order.email }}
 {% if order.phone %}Teléfono: {{ order.phone }}{% endif %}
 

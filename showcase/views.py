@@ -1,4 +1,11 @@
+import csv
+import io
+import json
+import os
+import zipfile
+from datetime import datetime, timedelta
 from decimal import Decimal
+
 
 from django.contrib import messages
 from django.contrib.auth import login
@@ -6,29 +13,41 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Q, Sum
+from django.db.models import Avg, Count, F, Q, Sum
+from django.db.models.functions import Coalesce, TruncDate, TruncMonth
+
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 
 from .cart import Cart
-from .emails import send_order_confirmation_email
+from .emails import send_dispatch_notification_email, send_order_confirmation_email
+
 from .forms import OrderCreateForm, ProductForm, UserLoginForm, UserRegistrationForm
 
 
 from .models import (
     Brand,
     Category,
+    Coupon,
     Distributor,
     Feature,
+
     FeatureValue,
     Manufacturer,
     Order,
     OrderItem,
     Product,
     ProductAuditLog,
+    ProductImage,
+    ProductReview,
+    ShippingRate,
+
+    StoreSettings,
+    WishlistItem,
 )
+
 
 
 
@@ -41,37 +60,67 @@ def HomePage(request):
     featured_products = Product.objects.filter(is_active=True).select_related('category', 'brand', 'manufacturer', 'distributor').order_by('-id')[:6]
     best_selling_products = Product.objects.filter(is_active=True).select_related('category').order_by('-units')[:4]
     new_products = Product.objects.filter(is_active=True).select_related('category').order_by('-id')[:4]
-    categories = Category.objects.order_by('name')[:8]
 
-    search_query = (request.GET.get('q') or '').strip()
+    # Categorías Populares dinámicas con métricas de ventas y visitas
+    categories_qs = Category.objects.filter(Q(parent_category_id=0) | Q(parent_category_id__isnull=True)).annotate(
+        product_count=Count('product', filter=Q(product__is_active=True)),
+        total_sold=Coalesce(Sum('product__order_items__quantity', filter=Q(product__is_active=True, product__order_items__order__paid=True)), 0),
+        product_views=Coalesce(Sum('product__views_count', filter=Q(product__is_active=True)), 0),
+    ).annotate(
+        total_views=F('views_count') + F('product_views')
+    )
+
+
+
+    popular_categories = categories_qs.order_by('-total_sold', '-total_views', '-product_count', 'name')[:8]
+    all_categories = Category.objects.order_by('name')
+
+    search_query = (request.GET.get('q') or request.GET.get('search') or '').strip()
     category_id = request.GET.get('category')
     ordering = request.GET.get('ordering') or '-id'
 
     products_query = Product.objects.filter(is_active=True).select_related('category', 'brand', 'manufacturer', 'distributor')
 
     if search_query:
-        products_query = products_query.filter(name__icontains=search_query)
+        products_query = products_query.filter(
+            Q(name__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(brand__name__icontains=search_query) |
+            Q(category__name__icontains=search_query)
+        )
 
     if category_id:
         products_query = products_query.filter(category_id=category_id)
+        Category.objects.filter(pk=category_id).update(views_count=F('views_count') + 1)
 
     if ordering in {'-id', 'id', '-price', 'price', '-units', 'units'}:
         products_query = products_query.order_by(ordering)
     else:
         products_query = products_query.order_by('-id')
 
-    products = products_query[:8]
+    total_search_results = products_query.count()
+    products = products_query[:12]
+
+    selected_category = None
+    if category_id:
+        selected_category = Category.objects.filter(pk=category_id).first()
 
     return render(request, 'home.html', {
         'featured_products': featured_products,
         'best_selling_products': best_selling_products,
         'new_products': new_products,
-        'categories': categories,
+        'popular_categories': popular_categories,
+        'categories': all_categories,
         'search_query': search_query,
         'category_id': category_id,
+        'selected_category': selected_category,
         'ordering': ordering,
         'products': products,
+        'total_search_results': total_search_results,
+        'is_search_active': bool(search_query or category_id),
     })
+
+
 
 
 def staff_required(view_func):
@@ -83,21 +132,57 @@ def ListProducts(request):
     user = getattr(request, 'user', None)
     is_staff = bool(user and user.is_authenticated and user.is_staff)
     show_archived = request.GET.get('archived') == '1' and is_staff
-    if show_archived:
-        products = Product.objects.filter(is_active=False).select_related('category', 'brand', 'manufacturer', 'distributor').order_by('-deleted_at')
-    else:
-        products = Product.objects.filter(is_active=True).select_related('category', 'brand', 'manufacturer', 'distributor').order_by('-id')
 
-    paginator = Paginator(products, 5)
+    search_query = (request.GET.get('q') or request.GET.get('search') or '').strip()
+    category_id = request.GET.get('category')
+    brand_id = request.GET.get('brand')
+    ordering = request.GET.get('ordering') or '-id'
+
+    if show_archived:
+        products_qs = Product.objects.filter(is_active=False).select_related('category', 'brand', 'manufacturer', 'distributor').order_by('-deleted_at')
+    else:
+        products_qs = Product.objects.filter(is_active=True).select_related('category', 'brand', 'manufacturer', 'distributor')
+
+    if search_query:
+        products_qs = products_qs.filter(
+            Q(name__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(brand__name__icontains=search_query) |
+            Q(category__name__icontains=search_query)
+        )
+
+    if category_id:
+        products_qs = products_qs.filter(category_id=category_id)
+
+    if brand_id:
+        products_qs = products_qs.filter(brand_id=brand_id)
+
+    if not show_archived:
+        if ordering in {'-id', 'id', '-price', 'price', '-units', 'units'}:
+            products_qs = products_qs.order_by(ordering)
+        else:
+            products_qs = products_qs.order_by('-id')
+
+    paginator = Paginator(products_qs, 8)
     page_number = request.GET.get('page')
     page_products = paginator.get_page(page_number)
     archived_count = Product.objects.filter(is_active=False).count() if is_staff else 0
+    categories = Category.objects.order_by('name')
+    brands = Brand.objects.order_by('name')
 
     return render(request, 'products_list.html', {
         'products': page_products,
         'show_archived': show_archived,
         'archived_count': archived_count,
+        'search_query': search_query,
+        'category_id': category_id,
+        'brand_id': brand_id,
+        'ordering': ordering,
+        'categories': categories,
+        'brands': brands,
+        'total_results': paginator.count,
     })
+
 
 
 def ProductDetail(request, productId):
@@ -108,13 +193,109 @@ def ProductDetail(request, productId):
         messages.error(request, 'El producto solicitado no se encuentra disponible en el catálogo.')
         return redirect('products')
 
+    # Incrementar vistas de producto y categoría
+    Product.objects.filter(pk=productId).update(views_count=F('views_count') + 1)
+    if product.category_id:
+        Category.objects.filter(pk=product.category_id).update(views_count=F('views_count') + 1)
+
     category = Category.objects.filter(id=product.category_id)
     feature_values = FeatureValue.objects.filter(product_id=productId).select_related('feature')
+
+    # Reseñas y Calificaciones
+    reviews = list(product.reviews.select_related('user').all())
+    review_count = len(reviews)
+    avg_rating = product.get_average_rating()
+
+    # Comprobar si el usuario actual ya opinó y si tiene compra verificada
+    user_review = None
+    is_verified_buyer = False
+    if user and user.is_authenticated:
+        user_review = next((r for r in reviews if r.user_id == user.id), None)
+        is_verified_buyer = Order.objects.filter(user=user, paid=True, items__product=product).exists()
+
+    # Desglose de estrellas (porcentajes de 1 a 5)
+    rating_counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    for r in reviews:
+        if 1 <= r.rating <= 5:
+            rating_counts[r.rating] += 1
+
+    rating_breakdown = []
+    for star in range(5, 0, -1):
+        count = rating_counts[star]
+        percent = int((count / review_count * 100)) if review_count > 0 else 0
+        rating_breakdown.append({
+            'star': star,
+            'count': count,
+            'percent': percent,
+        })
+
+    # Productos relacionados (Cross-selling)
+    related_qs = Product.objects.filter(is_active=True, category=product.category).exclude(id=product.id)[:4]
+    related_products = list(related_qs)
+    if len(related_products) < 4:
+        extra_needed = 4 - len(related_products)
+        excluded_ids = [product.id] + [p.id for p in related_products]
+        extra_qs = Product.objects.filter(is_active=True).exclude(id__in=excluded_ids)[:extra_needed]
+        related_products.extend(list(extra_qs))
+
+    whatsapp_msg = f"Hola! Quisiera consultar sobre el producto: {product.name}"
+
     return render(request, 'product_detail.html', {
         'product': product,
         'category': category,
         'featureValues': feature_values,
+        'related_products': related_products,
+        'reviews': reviews,
+        'review_count': review_count,
+        'avg_rating': avg_rating,
+        'user_review': user_review,
+        'is_verified_buyer': is_verified_buyer,
+        'rating_breakdown': rating_breakdown,
+        'whatsapp_custom_message': whatsapp_msg,
     })
+
+
+
+@login_required(login_url='login')
+def AddProductReview(request, productId):
+    """Permite a un usuario autenticado calificar y opinar sobre un producto."""
+    if request.method != 'POST':
+        return redirect('productDetail', productId=productId)
+
+    product = get_object_or_404(Product, pk=productId, is_active=True)
+    rating_raw = request.POST.get('rating', '5')
+    title = request.POST.get('title', '').strip()
+    comment = request.POST.get('comment', '').strip()
+
+    try:
+        rating = int(rating_raw)
+        if rating < 1 or rating > 5:
+            rating = 5
+    except ValueError:
+        rating = 5
+
+    if not title or not comment:
+        messages.error(request, 'Por favor completa el título y el comentario de tu opinión.')
+        return redirect('productDetail', productId=productId)
+
+    # Verificar si el usuario compró el producto
+    is_verified = Order.objects.filter(user=request.user, paid=True, items__product=product).exists()
+
+    ProductReview.objects.update_or_create(
+        product=product,
+        user=request.user,
+        defaults={
+            'rating': rating,
+            'title': title,
+            'comment': comment,
+            'is_verified_purchase': is_verified,
+        }
+    )
+
+    messages.success(request, '¡Gracias! Tu opinión ha sido publicada exitosamente.')
+    return redirect('productDetail', productId=productId)
+
+
 
 
 
@@ -163,6 +344,9 @@ def AddNewProduct(request):
 
     if form.is_valid():
         product = form.save()
+        extra_files = request.FILES.getlist('extra_images')
+        for f in extra_files:
+            ProductImage.objects.create(product=product, image=f)
         if product.category_id is not None:
             features_found = Feature.objects.filter(category_id=product.category_id)
             for feature in features_found:
@@ -175,6 +359,7 @@ def AddNewProduct(request):
                     )
         messages.success(request, 'Producto creado exitosamente.')
         return redirect('products')
+
 
     errors = []
     for field_errors in form.errors.values():
@@ -254,6 +439,9 @@ def EditProduct(request, productId):
 
     if form.is_valid():
         product = form.save()
+        extra_files = request.FILES.getlist('extra_images')
+        for f in extra_files:
+            ProductImage.objects.create(product=product, image=f)
         if product.category_id is not None:
             features_found = Feature.objects.filter(category_id=product.category_id)
             for feature in features_found:
@@ -282,6 +470,16 @@ def EditProduct(request, productId):
         'form_data': form_data,
         'form': form,
     })
+
+
+@user_passes_test(lambda u: u.is_staff, login_url='login')
+def DeleteProductImage(request, imageId):
+    image = get_object_or_404(ProductImage, pk=imageId)
+    product_id = image.product_id
+    image.delete()
+    messages.success(request, 'Imagen secundaria eliminada exitosamente.')
+    return redirect('editProduct', productId=product_id)
+
 
 
 @user_passes_test(lambda u: u.is_staff, login_url='login')
@@ -513,6 +711,34 @@ def CartDetail(request):
     return render(request, 'cart_detail.html', {'cart': cart})
 
 
+def LiveProductSearch(request):
+    query = (request.GET.get('q') or '').strip()
+    if len(query) < 2:
+        return JsonResponse({'results': []})
+
+    products = Product.objects.filter(is_active=True).filter(
+        Q(name__icontains=query) |
+        Q(description__icontains=query) |
+        Q(category__name__icontains=query) |
+        Q(brand__name__icontains=query)
+    ).select_related('category', 'brand')[:6]
+
+    results = []
+    for p in products:
+        results.append({
+            'id': p.id,
+            'name': p.name,
+            'price': str(p.price),
+            'image': p.image.url if p.image else '',
+            'category': p.category.name if p.category else '',
+            'brand': p.brand.name if p.brand else '',
+            'units': p.units,
+            'url': f'/products/detail/{p.id}/',
+        })
+
+    return JsonResponse({'results': results})
+
+
 def CartAdd(request, productId):
     cart = Cart(request)
     product = get_object_or_404(Product, pk=productId)
@@ -527,8 +753,20 @@ def CartAdd(request, productId):
         override = False
 
     cart.add(product=product, quantity=quantity, override_quantity=override)
-    messages.success(request, f'Se agregó "{product.name}" al carrito.')
 
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
+        return JsonResponse({
+            'success': True,
+            'message': f'"{product.name}" agregado al carrito.',
+            'product_id': product.id,
+            'product_name': product.name,
+            'product_image': product.image.url if product.image else '',
+            'product_price': str(product.price),
+            'cart_total_quantity': cart.get_total_quantity(),
+            'cart_total_price': str(cart.get_total_price()),
+        })
+
+    messages.success(request, f'Se agregó "{product.name}" al carrito.')
     next_url = request.POST.get('next') or request.GET.get('next')
     if next_url:
         return redirect(next_url)
@@ -539,6 +777,16 @@ def CartRemove(request, productId):
     cart = Cart(request)
     product = get_object_or_404(Product, pk=productId)
     cart.remove(product)
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
+        return JsonResponse({
+            'success': True,
+            'product_id': product.id,
+            'message': f'"{product.name}" eliminado del carrito.',
+            'cart_total_quantity': cart.get_total_quantity(),
+            'cart_total_price': str(cart.get_total_price()),
+        })
+
     messages.info(request, f'Se eliminó "{product.name}" del carrito.')
     return redirect('cartDetail')
 
@@ -557,6 +805,23 @@ def CartUpdate(request, productId):
             cart.add(product, quantity=qty, override_quantity=True)
         except (ValueError, TypeError):
             pass
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
+        item_qty = 0
+        item_subtotal = '0.00'
+        product_id_str = str(product.id)
+        if product_id_str in cart.cart:
+            item_qty = cart.cart[product_id_str]['quantity']
+            item_subtotal = str(Decimal(cart.cart[product_id_str]['price']) * item_qty)
+        return JsonResponse({
+            'success': True,
+            'product_id': product.id,
+            'item_quantity': item_qty,
+            'item_subtotal': item_subtotal,
+            'cart_total_quantity': cart.get_total_quantity(),
+            'cart_total_price': str(cart.get_total_price()),
+        })
+
     return redirect('cartDetail')
 
 
@@ -567,11 +832,41 @@ def CartClear(request):
     return redirect('cartDetail')
 
 
+def ApplyCoupon(request):
+    if request.method == 'POST':
+        code = request.POST.get('code', '').strip()
+        cart = Cart(request)
+        success, message = cart.apply_coupon(code)
+        if success:
+            messages.success(request, message)
+        else:
+            messages.error(request, message)
+    next_url = request.POST.get('next') or request.META.get('HTTP_REFERER') or 'cartDetail'
+    return redirect(next_url)
+
+
+def RemoveCoupon(request):
+    if request.method == 'POST':
+        cart = Cart(request)
+        cart.remove_coupon()
+        messages.info(request, 'Cupón removido del carrito.')
+    next_url = request.POST.get('next') or request.META.get('HTTP_REFERER') or 'cartDetail'
+    return redirect(next_url)
+
+
+
+from .payments.gateways import confirm_order_payment, get_gateway_display_info
+
+
 def OrderCreate(request):
     cart = Cart(request)
     if len(cart) == 0:
         messages.warning(request, 'Tu carrito de compras está vacío.')
         return redirect('products')
+
+    last_order = None
+    if request.user.is_authenticated:
+        last_order = Order.objects.filter(user=request.user).order_by('-created_at').first()
 
     if request.method == 'POST':
         form = OrderCreateForm(request.POST)
@@ -579,10 +874,29 @@ def OrderCreate(request):
             order = form.save(commit=False)
             if request.user.is_authenticated:
                 order.user = request.user
-            order.total_amount = cart.get_total_price()
-            order.status = 'paid'
-            order.paid = True
+
+            # Calculate shipping cost based on destination region
+            from showcase.shipping.calculator import calculate_shipping
+            shipping = calculate_shipping(cart, form.cleaned_data.get('region', ''))
+            order.shipping_cost = shipping.price
+            order.shipping_courier = shipping.courier
+            order.shipping_estimated_days = shipping.days
+
+            # Aplicar cupón de descuento si está activo en el carrito
+            coupon = cart.get_coupon()
+            discount_amount = cart.get_discount()
+            if coupon and discount_amount > Decimal('0.00'):
+                order.coupon = coupon
+                order.discount_amount = discount_amount
+                coupon.used_count += 1
+                coupon.save()
+
+            order.total_amount = max(Decimal('0.00'), cart.get_total_price() - discount_amount) + shipping.price
+
+            order.status = 'pending'
+            order.paid = False
             order.save()
+
 
             for item in cart:
                 OrderItem.objects.create(
@@ -599,9 +913,13 @@ def OrderCreate(request):
                 product.save()
 
             cart.clear()
-            send_order_confirmation_email(order)
-            messages.success(request, f'¡Pedido #{order.id} realizado con éxito! Te enviamos un correo de confirmación con el detalle a {order.email}.')
-            return redirect('orderConfirmation', orderId=order.id)
+
+            if order.payment_method == 'transfer':
+                send_order_confirmation_email(order)
+                messages.success(request, f'¡Pedido #{order.id} registrado con éxito! Por favor realiza la transferencia según los datos indicados.')
+                return redirect('orderConfirmation', orderId=order.id)
+            else:
+                return redirect('paymentPortal', orderId=order.id)
     else:
         initial_data = {}
         if request.user.is_authenticated:
@@ -610,17 +928,125 @@ def OrderCreate(request):
                 'last_name': request.user.last_name,
                 'email': request.user.email,
             }
+            if last_order:
+                initial_data.update({
+                    'phone': last_order.phone,
+                    'address': last_order.address,
+                    'city': last_order.city,
+                    'region': last_order.region,
+                    'country': last_order.country,
+                    'postal_code': last_order.postal_code,
+                    'latitude': last_order.latitude,
+                    'longitude': last_order.longitude,
+                    'payment_method': last_order.payment_method,
+                })
         form = OrderCreateForm(initial=initial_data)
 
+    store_settings = StoreSettings.get_solo()
     return render(request, 'order_create.html', {
         'cart': cart,
         'form': form,
+        'last_order': last_order,
+        'free_shipping_threshold': store_settings.free_shipping_threshold,
     })
+
+
+
+def PaymentPortal(request, orderId):
+    order = get_object_or_404(Order.objects.prefetch_related('items__product'), pk=orderId)
+    if order.paid:
+        messages.info(request, f'El pedido #{order.id} ya se encuentra pagado.')
+        return redirect('orderConfirmation', orderId=order.id)
+
+    gateway_info = get_gateway_display_info(order.payment_method)
+    return render(request, 'payments/payment_portal.html', {
+        'order': order,
+        'gateway_info': gateway_info,
+    })
+
+
+def PaymentProcess(request, orderId):
+    import random
+    import uuid
+    order = get_object_or_404(Order, pk=orderId)
+    if order.paid:
+        return redirect('orderConfirmation', orderId=order.id)
+
+    if request.method == 'POST':
+        action = request.POST.get('action', 'approve')
+        card_type = request.POST.get('card_type', 'Visa Crédito')
+        card_number = request.POST.get('card_number', '4532 8765 4321 8890')
+        installments = request.POST.get('installments', '1')
+        gateway = request.POST.get('gateway', order.payment_method)
+
+        if action == 'approve':
+            card_last4 = card_number.replace(' ', '')[-4:] if card_number else '8890'
+            auth_code = str(random.randint(100000, 999999))
+            txn_id = f"TXN-{uuid.uuid4().hex[:12].upper()}"
+
+            confirm_order_payment(
+                order=order,
+                auth_code=auth_code,
+                card_last4=card_last4,
+                card_type=card_type,
+                installments=installments,
+                transaction_id=txn_id,
+                gateway_name=gateway
+            )
+            messages.success(request, f'¡Pago aprobado exitosamente! N° de Autorización: {auth_code}.')
+            return redirect('orderConfirmation', orderId=order.id)
+
+        elif action == 'reject':
+            reason = request.POST.get('reject_reason', 'Fondos insuficientes o límite excedido')
+            messages.error(request, f'Tu transacción no pudo ser autorizada: {reason}.')
+            return redirect('paymentFailure', orderId=order.id)
+
+        elif action == 'cancel':
+            messages.warning(request, 'Has cancelado el proceso de pago. Puedes reintentar cuando gustes.')
+            return redirect('paymentFailure', orderId=order.id)
+
+    return redirect('paymentPortal', orderId=order.id)
+
+
+def PaymentFailure(request, orderId):
+    order = get_object_or_404(Order.objects.prefetch_related('items__product'), pk=orderId)
+    if order.paid:
+        return redirect('orderConfirmation', orderId=order.id)
+
+    return render(request, 'payments/payment_failure.html', {
+        'order': order,
+    })
+
+
+def PaymentRetry(request, orderId):
+    from .models import PAYMENT_METHOD_CHOICES
+    order = get_object_or_404(Order, pk=orderId)
+    if order.paid:
+        return redirect('orderConfirmation', orderId=order.id)
+
+    if request.method == 'POST':
+        new_method = request.POST.get('payment_method')
+        valid_methods = [k for k, v in PAYMENT_METHOD_CHOICES]
+        if new_method in valid_methods:
+            order.payment_method = new_method
+            order.save()
+            if new_method == 'transfer':
+                send_order_confirmation_email(order)
+                messages.info(request, 'Se ha seleccionado transferencia bancaria como medio de pago.')
+                return redirect('orderConfirmation', orderId=order.id)
+            return redirect('paymentPortal', orderId=order.id)
+
+    return redirect('paymentPortal', orderId=order.id)
 
 
 def OrderConfirmation(request, orderId):
     order = get_object_or_404(Order.objects.prefetch_related('items__product'), pk=orderId)
-    return render(request, 'order_confirmation.html', {'order': order})
+    gateway_info = get_gateway_display_info(order.payment_method)
+    return render(request, 'order_confirmation.html', {
+        'order': order,
+        'gateway_info': gateway_info,
+    })
+
 
 
 @login_required(login_url='login')
@@ -707,6 +1133,7 @@ def ManageOrderDetail(request, orderId):
 def ManageOrderUpdateStatus(request, orderId):
     order = get_object_or_404(Order, pk=orderId)
     if request.method == 'POST':
+        old_status = order.status
         new_status = request.POST.get('status')
         if new_status in dict(Order._meta.get_field('status').choices):
             order.status = new_status
@@ -721,6 +1148,16 @@ def ManageOrderUpdateStatus(request, orderId):
         try:
             order.save()
             messages.success(request, f'Orden #{order.id} actualizada exitosamente a "{order.get_status_display()}".')
+
+            # Enviar correo si el estado cambió a despachado/entregado o si se solicitó explícitamente
+            should_notify = request.POST.get('notify_email') == 'on' or (
+                old_status != new_status and new_status in ('shipped', 'delivered')
+            )
+            if should_notify:
+                sent = send_dispatch_notification_email(order)
+                if sent:
+                    messages.info(request, f'📧 Notificación de despacho enviada a {order.email}.')
+
         except ValidationError as e:
             error_msg = '; '.join(sum(e.message_dict.values(), [])) if hasattr(e, 'message_dict') else str(e)
             messages.error(request, f'No se pudo actualizar la orden #{order.id}: {error_msg}')
@@ -731,6 +1168,819 @@ def ManageOrderUpdateStatus(request, orderId):
         return redirect('manageOrderDetail', orderId=order.id)
 
     return redirect('manageOrderDetail', orderId=order.id)
+
+
+
+
+
+
+
+@user_passes_test(lambda u: u.is_staff, login_url="login")
+def ManageAnalyticsDashboard(request):
+    now = timezone.now()
+    today = now.date()
+    twelve_months_ago = now - timedelta(days=365)
+    thirty_days_ago = now - timedelta(days=30)
+
+    # KPIs
+    total_orders = Order.objects.count()
+    paid_orders = Order.objects.filter(paid=True)
+    total_revenue = paid_orders.aggregate(t=Sum("total_amount"))["t"] or Decimal("0.00")
+    completed_count = Order.objects.filter(status="completed").count()
+    pending_count = Order.objects.filter(status="pending").count()
+    orders_today = Order.objects.filter(created_at__date=today).count()
+    paid_count = paid_orders.count()
+    avg_ticket = (total_revenue / paid_count) if paid_count > 0 else Decimal("0.00")
+
+    # Ventas mensuales (últimos 12 meses)
+    monthly_qs = (
+        Order.objects
+        .filter(paid=True, created_at__gte=twelve_months_ago)
+        .annotate(month=TruncMonth("created_at"))
+        .values("month")
+        .annotate(total=Sum("total_amount"), count=Count("id"))
+        .order_by("month")
+    )
+    monthly_labels = [item["month"].strftime("%b %Y") for item in monthly_qs]
+    monthly_revenue = [float(item["total"]) for item in monthly_qs]
+    monthly_counts = [item["count"] for item in monthly_qs]
+
+    # Pedidos diarios (últimos 30 días)
+    daily_qs = (
+        Order.objects
+        .filter(created_at__date__gte=thirty_days_ago)
+        .annotate(day=TruncDate("created_at"))
+        .values("day")
+        .annotate(count=Count("id"))
+        .order_by("day")
+    )
+    daily_labels = [item["day"].strftime("%d/%m") for item in daily_qs]
+    daily_counts = [item["count"] for item in daily_qs]
+
+    # Distribución de estados
+    status_qs = (
+        Order.objects
+        .values("status")
+        .annotate(count=Count("id"))
+        .order_by("-count")
+    )
+    status_display = {
+        "pending": "Pendiente",
+        "paid": "Pagada/Preparación",
+        "shipped": "En Camino",
+        "completed": "Completada",
+        "cancelled": "Cancelada",
+    }
+    status_labels = [status_display.get(s["status"], s["status"]) for s in status_qs]
+    status_counts = [s["count"] for s in status_qs]
+
+    # Métodos de pago
+    payment_qs = (
+        Order.objects
+        .filter(paid=True)
+        .values("payment_method")
+        .annotate(count=Count("id"))
+        .order_by("-count")
+    )
+    payment_display = {
+        "webpay": "Webpay Plus",
+        "mercadopago": "Mercado Pago",
+        "sandbox_card": "Tarjeta Directa",
+        "transfer": "Transferencia",
+    }
+    payment_labels = [payment_display.get(p["payment_method"], p["payment_method"]) for p in payment_qs]
+    payment_counts = [p["count"] for p in payment_qs]
+
+    # Top 5 productos más vendidos
+    top_products_qs = (
+        OrderItem.objects
+        .values("product__name")
+        .annotate(total_qty=Sum("quantity"), total_revenue=Sum("price"))
+        .order_by("-total_qty")[:5]
+    )
+    top_product_labels = [p["product__name"] or "Producto retirado" for p in top_products_qs]
+    top_product_qty = [p["total_qty"] for p in top_products_qs]
+
+    # Ingresos por categoría
+    category_qs = (
+        OrderItem.objects
+        .filter(order__paid=True)
+        .values("product__category__name")
+        .annotate(revenue=Sum("price"))
+        .order_by("-revenue")[:6]
+    )
+    category_labels = [c["product__category__name"] or "Sin categoría" for c in category_qs]
+    category_revenue = [float(c["revenue"]) for c in category_qs]
+
+    # Stock crítico
+    low_stock_products = (
+        Product.objects
+        .filter(is_active=True, units__lte=5)
+        .select_related("category")
+        .order_by("units")[:10]
+    )
+
+    # Últimas 5 órdenes
+    recent_orders = (
+        Order.objects
+        .prefetch_related("items")
+        .order_by("-created_at")[:5]
+    )
+
+    context = {
+        "total_orders": total_orders,
+        "total_revenue": total_revenue,
+        "completed_count": completed_count,
+        "pending_count": pending_count,
+        "orders_today": orders_today,
+        "avg_ticket": avg_ticket,
+        "monthly_labels_json": json.dumps(monthly_labels),
+        "monthly_revenue_json": json.dumps(monthly_revenue),
+        "monthly_counts_json": json.dumps(monthly_counts),
+        "daily_labels_json": json.dumps(daily_labels),
+        "daily_counts_json": json.dumps(daily_counts),
+        "status_labels_json": json.dumps(status_labels),
+        "status_counts_json": json.dumps(status_counts),
+        "payment_labels_json": json.dumps(payment_labels),
+        "payment_counts_json": json.dumps(payment_counts),
+        "top_product_labels_json": json.dumps(top_product_labels),
+        "top_product_qty_json": json.dumps(top_product_qty),
+        "category_labels_json": json.dumps(category_labels),
+        "category_revenue_json": json.dumps(category_revenue),
+        "low_stock_products": low_stock_products,
+        "recent_orders": recent_orders,
+        "now": now,
+    }
+    return render(request, "analytics_dashboard.html", context)
+
+
+@user_passes_test(lambda u: u.is_staff, login_url="login")
+def ManageAnalyticsExportCSV(request):
+    now = timezone.now()
+    twelve_months_ago = now - timedelta(days=365)
+
+    monthly_qs = (
+        Order.objects
+        .filter(paid=True, created_at__gte=twelve_months_ago)
+        .annotate(month=TruncMonth("created_at"))
+        .values("month")
+        .annotate(total=Sum("total_amount"), count=Count("id"))
+        .order_by("month")
+    )
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = "attachment; filename=ventas_mensuales.csv"
+
+    writer = csv.writer(response)
+    writer.writerow(["Mes", "Ingresos (CLP)", "Numero de Pedidos"])
+    for row in monthly_qs:
+        writer.writerow([
+            row["month"].strftime("%B %Y"),
+            "{:.2f}".format(float(row["total"])),
+            row["count"],
+        ])
+
+    return response
+
+
+def ShippingQuote(request):
+    """AJAX endpoint — returns shipping cost JSON for a given region and cart."""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    region = request.GET.get('region', '')
+    cart = Cart(request)
+    if not cart:
+        return JsonResponse({'price': 0, 'courier': '', 'days': '', 'is_free': False})
+    from showcase.shipping.calculator import calculate_shipping
+    result = calculate_shipping(cart, region)
+    return JsonResponse(result.to_dict())
+
+
+@user_passes_test(lambda u: u.is_staff, login_url='login')
+def ManageSettings(request):
+    """Admin panel to configure global store settings and shipping rates."""
+    settings = StoreSettings.get_solo()
+    shipping_rates = ShippingRate.objects.all()
+
+    if request.method == 'POST':
+        action = request.POST.get('action', 'settings')
+
+        if action == 'settings':
+            settings.store_name = request.POST.get('store_name', settings.store_name).strip() or settings.store_name
+            settings.store_email = request.POST.get('store_email', '').strip()
+            settings.store_phone = request.POST.get('store_phone', '').strip()
+            settings.origin_commune = request.POST.get('origin_commune', settings.origin_commune).strip() or settings.origin_commune
+            settings.origin_address = request.POST.get('origin_address', '').strip()
+            threshold_raw = request.POST.get('free_shipping_threshold', '').strip()
+            if threshold_raw:
+                try:
+                    settings.free_shipping_threshold = Decimal(threshold_raw.replace(',', '.'))
+                except Exception:
+                    pass
+            settings.shipit_email = request.POST.get('shipit_email', '').strip()
+            settings.shipit_token = request.POST.get('shipit_token', '').strip()
+            settings.shipit_enabled = request.POST.get('shipit_enabled') == 'on'
+
+            # Branding y Personalización de Marca
+            if 'site_logo' in request.FILES:
+                settings.site_logo = request.FILES['site_logo']
+            if 'site_logo_url' in request.POST:
+                settings.site_logo_url = request.POST.get('site_logo_url', '').strip()
+            if 'site_favicon' in request.FILES:
+                settings.site_favicon = request.FILES['site_favicon']
+            if 'site_favicon_url' in request.POST:
+                settings.site_favicon_url = request.POST.get('site_favicon_url', '').strip()
+            if 'footer_text' in request.POST:
+                settings.footer_text = request.POST.get('footer_text', settings.footer_text).strip()
+
+            # Banners del Carrusel
+            settings.banner1_title = request.POST.get('banner1_title', settings.banner1_title).strip()
+            settings.banner1_subtitle = request.POST.get('banner1_subtitle', settings.banner1_subtitle).strip()
+            settings.banner1_bg_color = request.POST.get('banner1_bg_color', settings.banner1_bg_color).strip()
+            if 'banner1_image' in request.FILES:
+                settings.banner1_image = request.FILES['banner1_image']
+            if 'banner1_image_url' in request.POST:
+                settings.banner1_image_url = request.POST.get('banner1_image_url', '').strip()
+
+            settings.banner2_title = request.POST.get('banner2_title', settings.banner2_title).strip()
+            settings.banner2_subtitle = request.POST.get('banner2_subtitle', settings.banner2_subtitle).strip()
+            settings.banner2_bg_color = request.POST.get('banner2_bg_color', settings.banner2_bg_color).strip()
+            if 'banner2_image' in request.FILES:
+                settings.banner2_image = request.FILES['banner2_image']
+            if 'banner2_image_url' in request.POST:
+                settings.banner2_image_url = request.POST.get('banner2_image_url', '').strip()
+
+            settings.banner3_title = request.POST.get('banner3_title', settings.banner3_title).strip()
+            settings.banner3_subtitle = request.POST.get('banner3_subtitle', settings.banner3_subtitle).strip()
+            settings.banner3_bg_color = request.POST.get('banner3_bg_color', settings.banner3_bg_color).strip()
+            if 'banner3_image' in request.FILES:
+                settings.banner3_image = request.FILES['banner3_image']
+            if 'banner3_image_url' in request.POST:
+                settings.banner3_image_url = request.POST.get('banner3_image_url', '').strip()
+
+
+            settings.enable_live_sales_notifications = request.POST.get('enable_live_sales_notifications') == 'on'
+
+            # WhatsApp Live Support Widget
+            if 'whatsapp_number' in request.POST:
+                settings.whatsapp_number = request.POST.get('whatsapp_number', settings.whatsapp_number).strip()
+            if 'whatsapp_default_message' in request.POST:
+                settings.whatsapp_default_message = request.POST.get('whatsapp_default_message', settings.whatsapp_default_message).strip()
+            settings.enable_whatsapp_widget = request.POST.get('enable_whatsapp_widget') == 'on'
+
+            # Personalización Estética y Temas Visuales
+            if 'primary_color' in request.POST:
+                settings.primary_color = request.POST.get('primary_color', settings.primary_color).strip()
+            if 'theme_preset' in request.POST:
+                settings.theme_preset = request.POST.get('theme_preset', settings.theme_preset).strip()
+            settings.announcement_bar_enabled = request.POST.get('announcement_bar_enabled') == 'on'
+            if 'announcement_bar_text' in request.POST:
+                settings.announcement_bar_text = request.POST.get('announcement_bar_text', settings.announcement_bar_text).strip()
+            if 'announcement_bar_bg_color' in request.POST:
+                settings.announcement_bar_bg_color = request.POST.get('announcement_bar_bg_color', settings.announcement_bar_bg_color).strip()
+            if 'announcement_bar_text_color' in request.POST:
+                settings.announcement_bar_text_color = request.POST.get('announcement_bar_text_color', settings.announcement_bar_text_color).strip()
+            if 'font_family' in request.POST:
+                settings.font_family = request.POST.get('font_family', settings.font_family).strip()
+            if 'card_style' in request.POST:
+                settings.card_style = request.POST.get('card_style', settings.card_style).strip()
+            if 'hero_title' in request.POST:
+                settings.hero_title = request.POST.get('hero_title', settings.hero_title).strip()
+            if 'hero_subtitle' in request.POST:
+                settings.hero_subtitle = request.POST.get('hero_subtitle', settings.hero_subtitle).strip()
+            if 'hero_button_text' in request.POST:
+                settings.hero_button_text = request.POST.get('hero_button_text', settings.hero_button_text).strip()
+            if 'hero_button_link' in request.POST:
+                settings.hero_button_link = request.POST.get('hero_button_link', settings.hero_button_link).strip()
+
+            settings.save()
+            messages.success(request, 'Configuración y personalización de marca guardadas exitosamente.')
+
+
+
+
+
+        elif action == 'add_rate':
+            try:
+                ShippingRate.objects.create(
+                    region=request.POST.get('region', '').strip(),
+                    weight_min_kg=Decimal(request.POST.get('weight_min_kg', '0').replace(',', '.')),
+                    weight_max_kg=Decimal(request.POST.get('weight_max_kg', '5').replace(',', '.')),
+                    price=Decimal(request.POST.get('price', '0').replace(',', '.')),
+                    courier_name=request.POST.get('courier_name', 'Starken').strip(),
+                    estimated_days=request.POST.get('estimated_days', '3-5 días hábiles').strip(),
+                    is_active=request.POST.get('is_active') != 'off',
+                )
+                messages.success(request, 'Tarifa de envío añadida.')
+            except Exception as e:
+                messages.error(request, f'Error al añadir tarifa: {e}')
+
+        elif action == 'delete_rate':
+            rate_id = request.POST.get('rate_id')
+            ShippingRate.objects.filter(pk=rate_id).delete()
+            messages.success(request, 'Tarifa eliminada.')
+
+        return redirect('manageSettings')
+
+    return render(request, 'manage_settings.html', {
+        'store_settings': settings,
+        'shipping_rates': shipping_rates,
+    })
+
+
+@user_passes_test(lambda u: u.is_staff, login_url='login')
+def ManageCoupons(request):
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'create':
+            code = request.POST.get('code', '').strip().upper()
+            discount_type = request.POST.get('discount_type', 'percentage')
+            discount_value = Decimal(request.POST.get('discount_value', '0.00') or '0.00')
+            min_purchase_amount = Decimal(request.POST.get('min_purchase_amount', '0.00') or '0.00')
+            max_uses_raw = request.POST.get('max_uses', '').strip()
+            max_uses = int(max_uses_raw) if max_uses_raw.isdigit() else None
+            is_active = request.POST.get('is_active') == 'on'
+
+            if not code or discount_value <= Decimal('0.00'):
+                messages.error(request, 'El código y el valor del descuento deben ser válidos.')
+            else:
+                try:
+                    Coupon.objects.create(
+                        code=code,
+                        discount_type=discount_type,
+                        discount_value=discount_value,
+                        min_purchase_amount=min_purchase_amount,
+                        max_uses=max_uses,
+                        is_active=is_active,
+                    )
+                    messages.success(request, f'Cupón "{code}" creado exitosamente.')
+                except Exception as e:
+                    messages.error(request, f'Error al crear el cupón: {e}')
+
+        elif action == 'toggle_active':
+            coupon_id = request.POST.get('coupon_id')
+            coupon = get_object_or_404(Coupon, pk=coupon_id)
+            coupon.is_active = not coupon.is_active
+            coupon.save()
+            state_str = 'activado' if coupon.is_active else 'desactivado'
+            messages.info(request, f'Cupón "{coupon.code}" {state_str}.')
+
+        elif action == 'delete':
+            coupon_id = request.POST.get('coupon_id')
+            coupon = get_object_or_404(Coupon, pk=coupon_id)
+            code_str = coupon.code
+            coupon.delete()
+            messages.success(request, f'Cupón "{code_str}" eliminado exitosamente.')
+
+        return redirect('manageCoupons')
+
+    coupons = Coupon.objects.all()
+    return render(request, 'manage_coupons.html', {
+        'coupons': coupons,
+    })
+
+
+def RecentSalesNotificationAPI(request):
+    """
+    API endpoint que retorna un listado en JSON de las compras recientes
+    realizadas en la tienda para alimentar los avisos emergentes (toasts).
+    """
+    settings = StoreSettings.get_solo()
+    if not settings.enable_live_sales_notifications:
+        return JsonResponse({'enabled': False, 'notifications': []})
+
+    from django.urls import reverse
+
+    recent_items = (
+        OrderItem.objects
+        .select_related('order', 'product')
+        .filter(order__paid=True, product__is_active=True, product__deleted_at__isnull=True)
+        .order_by('-order__created_at')[:10]
+    )
+
+    notifications = []
+    now = timezone.now()
+
+    for item in recent_items:
+        order = item.order
+        product = item.product
+        if not product:
+            continue
+
+        first_name = (order.first_name or 'Cliente').strip()
+        last_initial = order.last_name[0].upper() + '.' if order.last_name else ''
+        buyer_display = f"{first_name} {last_initial}".strip()
+        city_display = order.city or 'Pichidegua'
+
+        diff = now - order.created_at
+        if diff.total_seconds() < 3600:
+            mins = max(1, int(diff.total_seconds() // 60))
+            time_ago = f"hace {mins} min"
+        elif diff.total_seconds() < 86400:
+            hours = int(diff.total_seconds() // 3600)
+            time_ago = f"hace {hours} h"
+        else:
+            days = int(diff.total_seconds() // 86400)
+            time_ago = f"hace {days} d"
+
+        image_url = product.image.url if product.image else None
+
+        notifications.append({
+            'buyer_name': buyer_display,
+            'city': city_display,
+            'product_name': product.name,
+            'product_url': reverse('productDetail', kwargs={'productId': product.id}),
+            'product_image': image_url,
+            'time_ago': time_ago,
+        })
+
+    return JsonResponse({'enabled': True, 'notifications': notifications})
+
+
+def ManifestJSON(request):
+    """
+    Retorna el archivo manifest.json para habilitar la instalación PWA.
+    """
+    settings = StoreSettings.get_solo()
+    store_name = settings.store_name or 'Store Django'
+
+    logo_url = settings.site_logo.url if settings.site_logo else '/static/images/logo_icon.png'
+
+    manifest_data = {
+        "name": store_name,
+        "short_name": store_name[:12],
+        "description": settings.footer_text or "Tienda en línea con despacho y seguimiento",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#007bff",
+        "icons": [
+            {
+                "src": logo_url,
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any maskable"
+            },
+            {
+                "src": logo_url,
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any maskable"
+            }
+        ]
+    }
+    return JsonResponse(manifest_data)
+
+
+def ServiceWorkerJS(request):
+    """
+    Retorna el JavaScript del Service Worker para almacenamiento en caché y offline PWA.
+    """
+    sw_code = """
+const CACHE_NAME = 'store-django-pwa-v1';
+const ASSETS_TO_CACHE = [
+  '/',
+  '/offline/',
+  'https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css',
+  'https://code.jquery.com/jquery-3.3.1.min.js'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS_TO_CACHE);
+    })
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
+          }
+        })
+      );
+    })
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return caches.match('/offline/');
+      })
+    );
+  } else {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        return cachedResponse || fetch(event.request);
+      })
+    );
+  }
+});
+"""
+    response = HttpResponse(sw_code.strip(), content_type='application/javascript')
+    response['Service-Worker-Allowed'] = '/'
+    return response
+
+
+def OfflinePage(request):
+    """
+    Página de contingencia mostrada cuando el usuario está sin conexión.
+    """
+    return render(request, 'offline.html')
+
+
+@login_required(login_url='login')
+def WishlistToggle(request, productId):
+    """
+    Alterna un producto en la lista de deseos del usuario.
+    Soporta AJAX (retorna JSON) o peticiones HTTP estándar (redirecciona).
+    """
+    product = get_object_or_404(Product, pk=productId, is_active=True, deleted_at__isnull=True)
+    item, created = WishlistItem.objects.get_or_create(user=request.user, product=product)
+
+    if not created:
+        item.delete()
+        in_wishlist = False
+        msg = f'"{product.name}" fue quitado de tus favoritos.'
+    else:
+        in_wishlist = True
+        msg = f'"{product.name}" fue agregado a tus favoritos.'
+
+    wishlist_count = WishlistItem.objects.filter(user=request.user).count()
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+
+    if is_ajax:
+        return JsonResponse({
+            'success': True,
+            'in_wishlist': in_wishlist,
+            'wishlist_count': wishlist_count,
+            'message': msg,
+        })
+
+    if in_wishlist:
+        messages.success(request, msg)
+    else:
+        messages.info(request, msg)
+
+    from django.urls import reverse
+    next_url = request.META.get('HTTP_REFERER') or reverse('wishlistDetail')
+    return redirect(next_url)
+
+
+
+@login_required(login_url='login')
+def WishlistDetail(request):
+    """
+    Muestra la lista de deseos (favoritos) del usuario autenticado.
+    """
+    wishlist_items = WishlistItem.objects.filter(user=request.user).select_related('product', 'product__category')
+    return render(request, 'wishlist_detail.html', {
+        'wishlist_items': wishlist_items,
+    })
+
+
+@user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='login')
+def DownloadImportTemplate(request):
+    """
+    Genera y descarga un catálogo completo de productos de muestra en formato CSV listo para importar.
+    """
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = 'attachment; filename="catalogo_demo_productos_chile.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['nombre', 'descripcion', 'precio', 'unidades', 'categoria', 'marca', 'sku', 'imagen_url'])
+    
+    sample_products = [
+        ['iPhone 15 Pro Max 256GB', 'Smartphone flagship de Apple con cuerpo de titanio, cámara de 48MP y chip A17 Pro.', '1299990', '10', 'Tecnología', 'Apple', 'IPH-15PRO-256', 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=600'],
+        ['MacBook Air M2 13" 256GB', 'Laptop ultra delgada y potente con procesador Apple M2 y pantalla Liquid Retina.', '999990', '8', 'Tecnología', 'Apple', 'MAC-AIR-M2', 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600'],
+        ['Audífonos Sony WH-1000XM5', 'Audífonos inalámbricos de diadema con la mejor cancelación de ruido del mercado.', '299990', '15', 'Audio y Sonido', 'Sony', 'SNY-XM5-BLK', 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600'],
+        ['Zapatillas Nike Pegasus 40', 'Zapatillas de running ergonómicas con amortiguación React para máximo confort.', '89990', '20', 'Calzado y Moda', 'Nike', 'NKE-PEG-40', 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600'],
+        ['Cafetera Espresso Philips 2200', 'Cafetera superautomática de grano a la taza con espumador de leche clásico.', '349990', '5', 'Hogar y Electro', 'Philips', 'PHL-ESP-2200', 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600'],
+        ['Smartwatch Samsung Galaxy Watch 6', 'Reloj inteligente con monitoreo de salud, ECG, análisis de sueño y GPS.', '219990', '12', 'Tecnología', 'Samsung', 'SAM-WCH-6', 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600'],
+        ['Silla Gamer Ergonómica Premium', 'Silla ergonómica reclinable 180° con cojín lumbar y reposabrazos 4D.', '159990', '7', 'Muebles y Oficina', 'Cougar', 'CHR-GMR-4D', 'https://images.unsplash.com/photo-1580481072645-022f9a6d8310?w=600'],
+        ['Consola PlayStation 5 Slim 1TB', 'Consola de juegos de última generación con disco SSD ultra rápido y mando DualSense.', '549990', '6', 'Videojuegos', 'Sony', 'PS5-SLM-1TB', 'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=600'],
+        ['Mochila Ejecutiva Impermeable USB', 'Mochila ergonómica para laptop de 15.6" con puerto de carga USB integrado.', '29990', '30', 'Accesorios', 'Samsonite', 'MC-EJEC-USB', 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600'],
+        ['Monitor Gamer LG UltraGear 27" 144Hz', 'Monitor IPS QHD de 27 pulgadas con 1ms de respuesta y G-Sync Compatible.', '249990', '9', 'Computación', 'LG', 'MON-LG-27-144', 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=600'],
+        ['Teclado Mecánico Keychron K2', 'Teclado mecánico compacto al 75% con switches Gateron Brown y Bluetooth.', '84990', '18', 'Computación', 'Keychron', 'KEY-K2-BRN', 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=600'],
+        ['Parlante Portátil JBL Charge 5', 'Parlante Bluetooth resistente al agua IP67 con batería para 20 horas de música.', '129990', '14', 'Audio y Sonido', 'JBL', 'JBL-CHG-5', 'https://images.unsplash.com/photo-1545454675-3531b543be5d?w=600'],
+        ['Lámpara LED Escritorio Inteligente', 'Lámpara táctil con temperatura de luz regulable, temporizador y carga Qi.', '34990', '22', 'Hogar y Decoración', 'Xiaomi', 'LMP-LED-QI', 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=600'],
+        ['Freidora de Aire Ninja 5.2L', 'Freidora sin aceite con 6 funciones de cocción y cesta cerámica antiadherente.', '119990', '11', 'Hogar y Electro', 'Ninja', 'NJ-AF-52L', 'https://images.unsplash.com/photo-1585515320310-259814833e62?w=600'],
+        ['Chaqueta Térmica Impermeable', 'Chaqueta cortaviento de alta montaña con forro polar interior.', '69990', '16', 'Calzado y Moda', 'Columbia', 'CHQ-OUT-TRM', 'https://images.unsplash.com/photo-1544441893-675973e31985?w=600']
+    ]
+
+    for prod in sample_products:
+        writer.writerow(prod)
+
+    return response
+
+
+
+@user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='login')
+def ManageImportProducts(request):
+    """
+    Procesa la importación masiva de productos por archivo CSV o ZIP (CSV + imágenes).
+    """
+    import io
+    import urllib.request
+    import zipfile
+    from django.core.files.base import ContentFile
+
+    success_count = 0
+    errors = []
+    created_products = []
+
+    if request.method == 'POST' and request.FILES.get('import_file'):
+        uploaded_file = request.FILES['import_file']
+        filename = uploaded_file.name.lower()
+
+        csv_content = None
+        extracted_images = {}
+
+        try:
+            if filename.endswith('.zip'):
+                with zipfile.ZipFile(uploaded_file, 'r') as zf:
+                    for name in zf.namelist():
+                        if name.lower().endswith('.csv') and not name.startswith('__MACOSX'):
+                            csv_content = zf.read(name).decode('utf-8-sig')
+                        elif any(name.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.webp', '.gif']):
+                            clean_name = name.split('/')[-1]
+                            extracted_images[clean_name.lower()] = ContentFile(zf.read(name))
+            else:
+                csv_content = uploaded_file.read().decode('utf-8-sig')
+
+            if not csv_content:
+                messages.error(request, 'No se encontró ningún archivo CSV válido para procesar.')
+                return redirect('manageImportProducts')
+
+            reader = csv.DictReader(io.StringIO(csv_content))
+
+            for line_idx, row in enumerate(reader, start=2):
+                name = (row.get('nombre') or row.get('name') or '').strip()
+                if not name:
+                    continue
+
+                price_raw = (row.get('precio') or row.get('price') or '0').strip()
+                try:
+                    price = Decimal(price_raw.replace(',', '.'))
+                except Exception:
+                    errors.append(f"Línea {line_idx}: Precio inválido '{price_raw}' para el producto '{name}'.")
+                    continue
+
+                units_raw = (row.get('unidades') or row.get('units') or '0').strip()
+                try:
+                    units = int(float(units_raw))
+                except Exception:
+                    units = 0
+
+                description = (row.get('descripcion') or row.get('description') or '').strip()
+                if len(description) < 10:
+                    description = f"{description} (Producto importado por lote)".strip()
+                if len(description) < 10:
+                    description = "Producto de tienda sin descripción detallada."
+
+                cat_name = (row.get('categoria') or row.get('category') or 'General').strip()
+                brand_name = (row.get('marca') or row.get('brand') or '').strip()
+                sku = (row.get('sku') or row.get('SKU') or '').strip()
+                image_url = (row.get('imagen_url') or row.get('image_url') or '').strip()
+
+                category = None
+                if cat_name:
+                    category, _ = Category.objects.get_or_create(name=cat_name)
+
+                brand = None
+                if brand_name:
+                    brand, _ = Brand.objects.get_or_create(name=brand_name)
+
+                product = Product.objects.create(
+                    name=name,
+                    description=description,
+                    price=price,
+                    units=units,
+                    category=category,
+                    brand=brand,
+                    is_active=True,
+                )
+
+
+                if image_url:
+                    image_filename = image_url.split('/')[-1].split('?')[0].lower()
+                    if image_filename in extracted_images:
+                        product.image.save(image_filename, extracted_images[image_filename], save=True)
+                    elif image_url.startswith('http://') or image_url.startswith('https://'):
+                        try:
+                            req = urllib.request.Request(image_url, headers={'User-Agent': 'Mozilla/5.0'})
+                            with urllib.request.urlopen(req, timeout=5) as resp:
+                                img_data = resp.read()
+                                file_ext = image_filename.split('.')[-1] if '.' in image_filename else 'jpg'
+                                product.image.save(f"imported_{product.id}.{file_ext}", ContentFile(img_data), save=True)
+                        except Exception as img_err:
+                            errors.append(f"Línea {line_idx}: No se pudo descargar la imagen desde URL ({img_err}).")
+
+                success_count += 1
+                created_products.append(product)
+
+            if success_count > 0:
+                messages.success(request, f'¡Éxito! Se importaron {success_count} productos correctamente.')
+            if errors:
+                for err in errors[:5]:
+                    messages.warning(request, err)
+
+        except Exception as e:
+            messages.error(request, f'Error crítico al procesar el archivo: {e}')
+
+    return render(request, 'manage_import_products.html', {
+        'success_count': success_count,
+        'errors': errors,
+        'created_products': created_products,
+    })
+
+
+@user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='login')
+def ManageExportProductsCSV(request):
+    """
+    Exporta todos los productos de la tienda en un archivo CSV formateado para respaldo o reimportación.
+    """
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = f'attachment; filename="respaldo_productos_{today_str}.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['nombre', 'descripcion', 'precio', 'unidades', 'categoria', 'marca', 'sku', 'imagen_url'])
+
+    products = Product.objects.all().select_related('category', 'brand').order_by('id')
+    for p in products:
+        img_url = p.image.url if p.image else ''
+        if request and img_url and not img_url.startswith('http'):
+            img_url = request.build_absolute_uri(img_url)
+        writer.writerow([
+            p.name,
+            p.description,
+            str(int(p.price)),
+            str(p.units),
+            p.category.name if p.category else '',
+            p.brand.name if p.brand else '',
+            getattr(p, 'sku', f'PRD-{p.id:04d}'),
+            img_url,
+        ])
+
+    return response
+
+
+@user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='login')
+def ManageExportProductsZIP(request):
+    """
+    Exporta un archivo ZIP completo con el CSV de productos y todas las imágenes locales adjuntas.
+    """
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    buffer = io.BytesIO()
+
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        csv_buffer = io.StringIO()
+        writer = csv.writer(csv_buffer)
+        writer.writerow(['nombre', 'descripcion', 'precio', 'unidades', 'categoria', 'marca', 'sku', 'imagen_url'])
+
+        products = Product.objects.all().select_related('category', 'brand').order_by('id')
+        for p in products:
+            img_name = ''
+            if p.image and p.image.name:
+                try:
+                    img_path = p.image.path
+                    if os.path.exists(img_path):
+                        img_filename = os.path.basename(img_path)
+                        zip_img_path = f"imagenes/{img_filename}"
+                        zf.write(img_path, zip_img_path)
+                        img_name = zip_img_path
+                except Exception:
+                    pass
+
+            writer.writerow([
+                p.name,
+                p.description,
+                str(int(p.price)),
+                str(p.units),
+                p.category.name if p.category else '',
+                p.brand.name if p.brand else '',
+                getattr(p, 'sku', f'PRD-{p.id:04d}'),
+                img_name,
+            ])
+
+        zf.writestr('productos.csv', csv_buffer.getvalue().encode('utf-8-sig'))
+
+    buffer.seek(0)
+    response = HttpResponse(buffer.getvalue(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="respaldo_completo_productos_{today_str}.zip"'
+    return response
+
+
 
 
 

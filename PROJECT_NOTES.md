@@ -1,7 +1,11 @@
 # Notas del proyecto - store_django
 
+> [!IMPORTANT]
+> **Regla de Desarrollo de Git**: Todos los cambios, nuevas funcionalidades, pruebas, commits y pushes deben realizarse **SIEMPRE en la rama `testing`**. La rama `master` o `main` solo se actualiza cuando el usuario lo solicite explícitamente.
+
 ## Contexto general
-- Proyecto Django de tienda en fase de prototipo/mi-ecommerce con la app `showcase`.
+- Proyecto Django de tienda con la app `showcase`.
+
 - El objetivo principal ha sido convertirlo en una base más realista y mantenible, con validaciones, datos de ejemplo, autenticación y una experiencia de inicio más completa.
 
 ## Cambios implementados
@@ -91,29 +95,37 @@
 - `showcase/models.py`: modelos de catálogo, atributos dinámicos, `Order`, `OrderItem`, `Product` y `ProductAuditLog`.
 - `showcase/cart.py`: clase `Cart` que gestiona la lógica y cálculos del carrito en sesión.
 - `showcase/context_processors.py`: inyector del carrito para renderizado global en plantillas.
-- `showcase/views.py`: control de catálogo, CRUD de productos, soft delete, registro, autenticación, gestión de pedidos y checkout.
+- `showcase/views.py`: control de catálogo, CRUD de productos, soft delete, registro, autenticación, gestión de pedidos, checkout y live search.
 - `showcase/templates/registration/login.html`: interfaz moderna de inicio de sesión.
 - `showcase/templates/register.html`: interfaz completa de creación de cuenta.
 - `showcase/templates/registration/logged_out.html`: pantalla de despedida / cierre de sesión.
 - `showcase/templates/edit_product.html`: formulario de edición de productos.
 - `showcase/templates/delete_product_confirm.html`: diálogo de confirmación de eliminación lógica.
 - `showcase/templates/archived_products.html`: panel de productos archivados y registro de auditoría de respaldos.
-- `showcase/templates/cart_detail.html`: vista interactiva del carrito de compras.
-- `showcase/templates/order_create.html`: pantalla de Checkout y formulario de despacho.
-- `showcase/templates/order_confirmation.html`: pantalla de confirmación y detalle de pedido.
-- `showcase/templates/order_history.html`: panel de historial de pedidos para clientes.
-- `showcase/templates/base_layout.html`: layout base con enlaces dinámicos de navegación.
+- `showcase/templates/cart_detail.html`: carrito de compras con actualización dinámica AJAX, selector de cantidad y banner de envío gratis.
+- `showcase/templates/order_create.html`: checkout con stepper, autollenado de dirección habitual (1 clic) y selector de punto en mapa interactivo.
+- `showcase/templates/order_confirmation.html`: comprobante con tracking timeline visual, enlace a WhatsApp e impresión de recibo.
+- `showcase/templates/order_history.html`: panel de historial de pedidos con stepper gráfico de avance del despacho y soporte directo.
+- `showcase/templates/base_layout.html`: layout base con live search predictivo en navbar, toasts de adición al carrito y badge reactivo.
 
 ## Estado actual
-- El flujo completo de e-commerce, selección de entrega en mapa interactivo GPS, panel de gestión y despacho, checkout seguro y notificaciones por correo están 100% operativos y probados.
-- La app pasa todas las comprobaciones de Django y la suite de pruebas unitarias (`36/36 tests OK`).
+- Suite de Pasarelas de Pago y Experiencia del Comprador 100% implementada y verificada:
+  1. **Pasarelas de Pago en Línea:** Integración de **Webpay Plus (Transbank)**, **Mercado Pago**, **Tarjeta Directa (Pago Seguro)** y **Transferencia Bancaria Manual**.
+  2. **Portal Seguro y Simulador Interactivo (`/payments/portal/<order_id>/`):** Procesamiento de tarjetas con selector de cuotas, aprobación con código de autorización y voucher oficial.
+  3. **Manejo de Transacciones Fallidas y Reintentos (`/payments/failure/<order_id>/`):** Pantalla amigable para reintentar el pago o cambiar el medio de pago a transferencia.
+  4. **Geolocalización GPS Completa:** Captura estructurada de calle, comuna, región, país, código postal y coordenadas GPS con selector interactivo en Leaflet.js.
+  5. **Voucher Bancario Oficial:** Código de autorización, tipo de tarjeta, últimos 4 dígitos y número de cuotas en confirmación y dashboard de despacho.
+- La app pasa todas las comprobaciones de Django y la suite de pruebas unitarias (`46/46 tests OK`).
 - Servidor de desarrollo activo en `http://127.0.0.1:8000/`.
 
-
 ## Próximos pasos sugeridos
-- Mejorar la navegación por categorías y filtros jerárquicos en el catálogo.
-- Permitir la personalización de branding, logo y colores de la tienda (Theme / Store settings).
-- Integración con pasarela de pagos en línea externa (Webpay / Stripe / MercadoPago).
+- Cupones y Descuentos promocionales aplicables en el carrito o checkout.
+- Sistema de Calificaciones y Reseñas de productos por compradores (★ 1-5 estrellas).
+- Personalización de temas y colores de la tienda (Store Branding / Settings).
+
+
+
+
 
 
 

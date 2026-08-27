@@ -7,7 +7,7 @@
 
 <style>
   #delivery-map {
-    height: 320px;
+    height: 330px;
     width: 100%;
     border-radius: 8px;
     z-index: 1;
@@ -16,7 +16,7 @@
     background: #f8f9fa;
     border: 1px solid #dee2e6;
     border-radius: 8px;
-    padding: 14px;
+    padding: 16px;
   }
   .highlight-pulse {
     animation: fieldHighlight 1.5s ease-out;
@@ -24,6 +24,63 @@
   @keyframes fieldHighlight {
     0% { background-color: #e8f4fd; border-color: #007bff; }
     100% { background-color: #ffffff; border-color: #ced4da; }
+  }
+
+  /* Stepper */
+  .checkout-stepper {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 25px;
+    position: relative;
+  }
+  .stepper-item {
+    flex: 1;
+    text-align: center;
+    position: relative;
+  }
+  .stepper-item::before {
+    content: '';
+    position: absolute;
+    top: 18px;
+    left: -50%;
+    right: 50%;
+    height: 2px;
+    background-color: #dee2e6;
+    z-index: 0;
+  }
+  .stepper-item:first-child::before {
+    content: none;
+  }
+  .stepper-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #e9ecef;
+    color: #6c757d;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-bottom: 6px;
+    position: relative;
+    z-index: 1;
+  }
+  .stepper-item.completed .stepper-circle {
+    background: #28a745;
+    color: #ffffff;
+  }
+  .stepper-item.active .stepper-circle {
+    background: #007bff;
+    color: #ffffff;
+    box-shadow: 0 0 0 4px rgba(0,123,255,0.2);
+  }
+  .stepper-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6c757d;
+  }
+  .stepper-item.active .stepper-label {
+    color: #007bff;
   }
 </style>
 
@@ -35,7 +92,23 @@
   </ol>
 </nav>
 
-<h1 class="h2 font-weight-bold mb-4">Finalizar Compra (Checkout)</h1>
+<!-- Checkout Stepper -->
+<div class="checkout-stepper px-2 py-3 bg-white rounded shadow-sm border mb-4">
+  <div class="stepper-item completed">
+    <div class="stepper-circle">✓</div>
+    <div class="stepper-label">1. Carrito</div>
+  </div>
+  <div class="stepper-item active">
+    <div class="stepper-circle">2</div>
+    <div class="stepper-label">2. Despacho y Ubicación</div>
+  </div>
+  <div class="stepper-item">
+    <div class="stepper-circle">3</div>
+    <div class="stepper-label">3. Confirmación</div>
+  </div>
+</div>
+
+<h1 class="h2 font-weight-bold mb-4">Finalizar Compra</h1>
 
 <form method="post" id="checkoutForm" novalidate>
   {% csrf_token %}
@@ -45,8 +118,22 @@
   <div class="row">
     <div class="col-lg-7 mb-4">
       <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-white border-0 py-3">
-          <h5 class="font-weight-bold mb-0">1. Datos de Contacto y Envío</h5>
+        <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+          <h5 class="font-weight-bold mb-0">1. Datos de Contacto y Entrega</h5>
+          {% if last_order %}
+          <button type="button" class="btn btn-xs btn-outline-primary py-1 px-2 font-weight-bold" id="btnUseSavedAddress"
+            data-phone="{{ last_order.phone }}"
+            data-address="{{ last_order.address }}"
+            data-city="{{ last_order.city }}"
+            data-region="{{ last_order.region }}"
+            data-country="{{ last_order.country }}"
+            data-postal="{{ last_order.postal_code }}"
+            data-lat="{{ last_order.lat_str|default:'' }}"
+            data-lng="{{ last_order.lng_str|default:'' }}">
+
+            📍 Usar mi dirección habitual
+          </button>
+          {% endif %}
         </div>
         <div class="card-body pt-0">
           {% if form.errors %}
@@ -88,8 +175,8 @@
           <div class="map-helper-box mb-4">
             <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-2">
               <div>
-                <strong class="text-dark small font-weight-bold">📍 Selecciona el Lugar de Entrega en el Mapa</strong>
-                <div class="text-muted" style="font-size: 12px;">Haz clic o arrastra el pin: la dirección se escribirá automáticamente abajo.</div>
+                <strong class="text-dark small font-weight-bold">📍 Selecciona el Lugar Exacto en el Mapa</strong>
+                <div class="text-muted" style="font-size: 12px;">Haz clic o arrastra el pin: se obtendrán <strong>calle, comuna, región y país</strong> automáticamente.</div>
               </div>
               <div class="mt-2 mt-sm-0">
                 <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 font-weight-bold" id="btnGeolocate">
@@ -102,26 +189,39 @@
             </div>
 
             <div id="delivery-map" class="shadow-sm border"></div>
-            <div id="map-status" class="small text-muted mt-2">
-              📌 Mueve el pin o haz clic en el mapa para fijar tu ubicación y autocompletar la dirección.
+            <div id="map-status" class="mt-2">
+              <div class="small text-muted">
+                📌 Mueve el pin o haz clic en el mapa para fijar tu ubicación y autocompletar la dirección completa.
+              </div>
             </div>
           </div>
 
           <div class="form-group">
             <label for="{{ form.address.id_for_label }}">
-              Dirección de entrega <span class="text-danger">*</span>
+              Dirección de entrega (Calle y número) <span class="text-danger">*</span>
               <span class="badge badge-light border text-muted ml-1" style="font-weight: normal; font-size: 11px;">Editable</span>
             </label>
             {{ form.address }}
-            <small class="form-text text-muted">Se llena desde el mapa. Puedes editarla para agregar depto, block, torre o villa.</small>
+            <small class="form-text text-muted">Se llena desde el mapa. Puedes editarla para añadir depto, block, torre o villa.</small>
           </div>
 
           <div class="form-row">
-            <div class="form-group col-md-7">
-              <label for="{{ form.city.id_for_label }}">Ciudad / Comuna <span class="text-danger">*</span></label>
+            <div class="form-group col-md-4">
+              <label for="{{ form.city.id_for_label }}">Comuna / Ciudad <span class="text-danger">*</span></label>
               {{ form.city }}
             </div>
-            <div class="form-group col-md-5">
+            <div class="form-group col-md-4">
+              <label for="{{ form.region.id_for_label }}">Región / Estado</label>
+              {{ form.region }}
+            </div>
+            <div class="form-group col-md-4">
+              <label for="{{ form.country.id_for_label }}">País</label>
+              {{ form.country }}
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-6">
               <label for="{{ form.postal_code.id_for_label }}">Código postal</label>
               {{ form.postal_code }}
             </div>
@@ -134,19 +234,50 @@
           <h5 class="font-weight-bold mb-0">2. Método de Pago</h5>
         </div>
         <div class="card-body pt-0">
-          <div class="custom-control custom-radio mb-2">
-            <input type="radio" id="paymentOnline" name="payment_method" class="custom-control-input" checked>
-            <label class="custom-control-label font-weight-bold" for="paymentOnline">
-              💳 Pago con Tarjeta (Crédito / Débito / Webpay)
+          <div class="list-group">
+            <label class="list-group-item list-group-item-action d-flex align-items-center justify-content-between cursor-pointer border rounded mb-2">
+              <div class="custom-control custom-radio">
+                <input type="radio" id="payWebpay" name="payment_method" value="webpay" class="custom-control-input" {% if not form.payment_method.value or form.payment_method.value == 'webpay' %}checked{% endif %}>
+                <label class="custom-control-label font-weight-bold" for="payWebpay">
+                  💳 Webpay Plus (Transbank)
+                </label>
+                <div class="small text-muted ml-4">Crédito, Débito (Redcompra) y Prepago en Chile.</div>
+              </div>
+              <span class="badge badge-danger">Transbank</span>
             </label>
-            <div class="small text-muted ml-4">Transacción segura procesada al instante.</div>
-          </div>
-          <div class="custom-control custom-radio">
-            <input type="radio" id="paymentTransfer" name="payment_method" class="custom-control-input">
-            <label class="custom-control-label font-weight-bold" for="paymentTransfer">
-              🏦 Transferencia Bancaria
+
+            <label class="list-group-item list-group-item-action d-flex align-items-center justify-content-between cursor-pointer border rounded mb-2">
+              <div class="custom-control custom-radio">
+                <input type="radio" id="payMP" name="payment_method" value="mercadopago" class="custom-control-input" {% if form.payment_method.value == 'mercadopago' %}checked{% endif %}>
+                <label class="custom-control-label font-weight-bold" for="payMP">
+                  🤝 Mercado Pago
+                </label>
+                <div class="small text-muted ml-4">Saldo en cuenta, tarjetas bancarias y cuotas.</div>
+              </div>
+              <span class="badge badge-info">Mercado Pago</span>
             </label>
-            <div class="small text-muted ml-4">Envío tras verificación del comprobante.</div>
+
+            <label class="list-group-item list-group-item-action d-flex align-items-center justify-content-between cursor-pointer border rounded mb-2">
+              <div class="custom-control custom-radio">
+                <input type="radio" id="payCard" name="payment_method" value="sandbox_card" class="custom-control-input" {% if form.payment_method.value == 'sandbox_card' %}checked{% endif %}>
+                <label class="custom-control-label font-weight-bold" for="payCard">
+                  🔒 Tarjeta Directa (Pago Seguro)
+                </label>
+                <div class="small text-muted ml-4">Procesamiento instantáneo con cifrado SSL.</div>
+              </div>
+              <span class="badge badge-primary">Directo</span>
+            </label>
+
+            <label class="list-group-item list-group-item-action d-flex align-items-center justify-content-between cursor-pointer border rounded mb-0">
+              <div class="custom-control custom-radio">
+                <input type="radio" id="payTransfer" name="payment_method" value="transfer" class="custom-control-input" {% if form.payment_method.value == 'transfer' %}checked{% endif %}>
+                <label class="custom-control-label font-weight-bold" for="payTransfer">
+                  🏦 Transferencia Bancaria Manual
+                </label>
+                <div class="small text-muted ml-4">Envío tras validación manual del comprobante.</div>
+              </div>
+              <span class="badge badge-secondary">Transferencia</span>
+            </label>
           </div>
         </div>
       </div>
@@ -179,22 +310,50 @@
             <span class="text-muted">Subtotal</span>
             <span class="font-weight-bold">$ {{ cart.get_total_price }}</span>
           </div>
-          <div class="d-flex justify-content-between mb-2">
-            <span class="text-muted">Envío</span>
-            <span class="text-success font-weight-bold">Gratis</span>
+          {% if cart.get_coupon %}
+          <div class="d-flex justify-content-between mb-2 text-success">
+            <span>Descuento ({{ cart.get_coupon.code }})</span>
+            <span class="font-weight-bold">-$ {{ cart.get_discount }}</span>
           </div>
+          {% endif %}
+
+
+          <!-- Envío dinámico -->
+          <div class="d-flex justify-content-between mb-1 align-items-center">
+            <span class="text-muted">Envío</span>
+            <span id="shippingDisplay" class="font-weight-bold text-muted small">
+              <span class="spinner-border spinner-border-sm" role="status"></span> Calculando...
+            </span>
+          </div>
+          <div id="shippingInfo" class="text-muted small mb-2" style="display:none;"></div>
+
+          {% if free_shipping_threshold %}
+          <div class="text-muted small mb-2">
+            <span id="freeShippingNote">
+              🎁 Envío gratis en compras sobre <strong>$ {{ free_shipping_threshold|floatformat:0 }}</strong>
+            </span>
+          </div>
+          {% endif %}
+
           <hr>
           <div class="d-flex justify-content-between align-items-baseline mb-4">
             <span class="h5 font-weight-bold mb-0">Total a Pagar</span>
-            <span class="h4 text-primary font-weight-bold mb-0">$ {{ cart.get_total_price }}</span>
+            <span id="totalDisplay" class="h4 text-primary font-weight-bold mb-0">$ {{ cart.get_total_price }}</span>
           </div>
+
 
           <button type="submit" class="btn btn-primary btn-block btn-lg font-weight-bold py-3 shadow-sm">
             Confirmar y Realizar Pedido
           </button>
 
-          <div class="text-center mt-3 small text-muted">
-            🔒 Compra 100% segura con cifrado SSL.
+          <!-- Sellos de Seguridad en Resumen -->
+          <div class="mt-4 pt-3 border-top text-center text-muted small">
+            <div class="d-flex justify-content-around mb-2">
+              <div>🔒 <strong>SSL Seguro</strong></div>
+              <div>🚚 <strong>GPS Tracking</strong></div>
+              <div>🛡️ <strong>Garantía</strong></div>
+            </div>
+            <div style="font-size: 11px;">Tus datos viajan 100% cifrados y protegidos.</div>
           </div>
         </div>
       </div>
@@ -209,8 +368,11 @@
 
     var inputLat = document.getElementById('id_latitude');
     var inputLng = document.getElementById('id_longitude');
+    var inputPhone = document.getElementById('id_phone');
     var inputAddress = document.getElementById('id_address');
     var inputCity = document.getElementById('id_city');
+    var inputRegion = document.getElementById('id_region');
+    var inputCountry = document.getElementById('id_country');
     var inputPostal = document.getElementById('id_postal_code');
     var statusEl = document.getElementById('map-status');
 
@@ -220,10 +382,12 @@
     // Inicializar mapa de Leaflet con OpenStreetMap
     var map = L.map('delivery-map').setView([currentLat, currentLng], 14);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      subdomains: 'abcd',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(map);
+
 
     // Marcador arrastrable (Pin)
     var marker = L.marker([currentLat, currentLng], {
@@ -240,18 +404,14 @@
     }
 
     function updateCoordinates(lat, lng, fetchAddress) {
-      // 1. Guardar siempre las coordenadas exactas en los campos ocultos
       if (inputLat) inputLat.value = lat.toFixed(6);
       if (inputLng) inputLng.value = lng.toFixed(6);
 
-      if (statusEl) {
-        statusEl.innerHTML = '📍 Coordenadas fijadas: <strong>' + lat.toFixed(5) + ', ' + lng.toFixed(5) + '</strong>';
-      }
-
       if (fetchAddress) {
-        if (statusEl) statusEl.innerHTML = '⌛ Obteniendo dirección de calle para (' + lat.toFixed(4) + ', ' + lng.toFixed(4) + ')...';
+        if (statusEl) {
+          statusEl.innerHTML = '<div class="alert alert-warning py-2 px-3 mb-0 small">⌛ Obteniendo dirección completa para (' + lat.toFixed(4) + ', ' + lng.toFixed(4) + ')...</div>';
+        }
 
-        // Geocodificación inversa con Nominatim (OSM)
         fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng + '&zoom=18&addressdetails=1')
           .then(function(res) { return res.json(); })
           .then(function(data) {
@@ -259,20 +419,19 @@
               var addrObj = data.address;
               var road = addrObj.road || addrObj.pedestrian || addrObj.footway || addrObj.street || addrObj.suburb || addrObj.neighbourhood || '';
               var houseNumber = addrObj.house_number || '';
-              var city = addrObj.city || addrObj.town || addrObj.municipality || addrObj.county || addrObj.village || addrObj.city_district || '';
+              var city = addrObj.city || addrObj.town || addrObj.municipality || addrObj.suburb || addrObj.city_district || addrObj.county || addrObj.village || '';
+              var region = addrObj.state || addrObj.region || addrObj.province || addrObj.state_district || '';
+              var country = addrObj.country || 'Chile';
               var postcode = addrObj.postcode || '';
 
               var streetAddress = road;
               if (houseNumber) {
                 streetAddress += ' ' + houseNumber;
               }
-
-              // Fallback si road no vino explícito
               if (!streetAddress && data.display_name) {
                 streetAddress = data.display_name.split(',')[0];
               }
 
-              // 2. Colocar el nombre de la dirección en la casilla de texto para que el usuario la pueda editar
               if (streetAddress && inputAddress) {
                 inputAddress.value = streetAddress;
                 triggerHighlight(inputAddress);
@@ -281,44 +440,60 @@
                 inputCity.value = city;
                 triggerHighlight(inputCity);
               }
+              if (region && inputRegion) {
+                inputRegion.value = region;
+                triggerHighlight(inputRegion);
+              }
+              if (country && inputCountry) {
+                inputCountry.value = country;
+                triggerHighlight(inputCountry);
+              }
               if (postcode && inputPostal) {
                 inputPostal.value = postcode;
                 triggerHighlight(inputPostal);
               }
 
               var label = streetAddress || (data.display_name ? data.display_name.split(',')[0] : 'Ubicación seleccionada');
+              
               if (statusEl) {
-                statusEl.innerHTML = '✅ Dirección autocompletada: <strong>' + label + '</strong>. <em>(Puedes editarla en la casilla si necesitas agregar depto/torre).</em>';
+                statusEl.innerHTML = `
+                  <div class="alert alert-success py-2 px-3 mb-0 small shadow-sm">
+                    <strong class="d-block mb-1">✅ Dirección Completa Detectada:</strong>
+                    <div>🏠 <strong>Calle:</strong> ${streetAddress || 'S/N'}</div>
+                    <div>📍 <strong>Comuna:</strong> ${city || '-'} &bull; <strong>Región:</strong> ${region || '-'} &bull; <strong>País:</strong> ${country || 'Chile'}</div>
+                    <div class="text-muted mt-1" style="font-size: 11px;">📌 Coordenadas GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)} &bull; <em>Puedes editar los campos de texto si necesitas detallar depto o torre.</em></div>
+                  </div>
+                `;
               }
-              marker.bindPopup("<b>📍 " + label + "</b><br><small>Dirección copiada al formulario. Puedes editarla en la casilla de texto.</small>").openPopup();
+              marker.bindPopup("<b>📍 " + label + "</b><br><small>" + [city, region, country].filter(Boolean).join(', ') + "</small>").openPopup();
             }
           })
           .catch(function(err) {
             console.log('Error reverse geocoding:', err);
-            if (statusEl) {
-              statusEl.innerHTML = '📍 Coordenadas guardadas (' + lat.toFixed(5) + ', ' + lng.toFixed(5) + '). Escribe tu dirección en el formulario.';
-            }
           });
+      } else {
+        if (statusEl) {
+          statusEl.innerHTML = '<div class="small text-muted">📍 Coordenadas fijadas: <strong>' + lat.toFixed(5) + ', ' + lng.toFixed(5) + '</strong></div>';
+        }
       }
     }
 
-    // Evento al arrastrar el marcador
+    // Eventos de movimiento
     marker.on('dragend', function(e) {
       var pos = marker.getLatLng();
       updateCoordinates(pos.lat, pos.lng, true);
     });
 
-    // Evento al hacer clic en el mapa
     map.on('click', function(e) {
       marker.setLatLng(e.latlng);
       updateCoordinates(e.latlng.lat, e.latlng.lng, true);
     });
 
-    // Botón: Mi ubicación actual (GPS)
+    // Botón GPS
     var btnGeo = document.getElementById('btnGeolocate');
     if (btnGeo && navigator.geolocation) {
       btnGeo.addEventListener('click', function() {
-        if (statusEl) statusEl.innerHTML = '⌛ Obteniendo tu ubicación GPS...';
+        if (statusEl) statusEl.innerHTML = '<div class="alert alert-warning py-2 px-3 mb-0 small">⌛ Obteniendo tu ubicación GPS...</div>';
         navigator.geolocation.getCurrentPosition(function(pos) {
           var userLat = pos.coords.latitude;
           var userLng = pos.coords.longitude;
@@ -327,25 +502,26 @@
           updateCoordinates(userLat, userLng, true);
         }, function(err) {
           alert('No se pudo acceder a tu ubicación GPS. Por favor selecciona el punto en el mapa directamente.');
-          if (statusEl) statusEl.innerHTML = '⚠️ GPS no disponible. Por favor haz clic en el mapa.';
         }, { enableHighAccuracy: true, timeout: 8000 });
       });
     }
 
-    // Botón: Buscar dirección escrita en el mapa
+    // Botón Buscar Dirección Escrita
     var btnSearch = document.getElementById('btnSearchAddress');
     if (btnSearch) {
       btnSearch.addEventListener('click', function() {
         var addr = inputAddress ? inputAddress.value.trim() : '';
         var city = inputCity ? inputCity.value.trim() : '';
-        var query = [addr, city, 'Chile'].filter(Boolean).join(', ');
+        var region = inputRegion ? inputRegion.value.trim() : '';
+        var country = inputCountry ? inputCountry.value.trim() : 'Chile';
+        var query = [addr, city, region, country].filter(Boolean).join(', ');
 
         if (!query || query === 'Chile') {
-          alert('Por favor escribe tu dirección o ciudad en el formulario primero.');
+          alert('Por favor escribe tu dirección o comuna en el formulario primero.');
           return;
         }
 
-        if (statusEl) statusEl.innerHTML = '⌛ Buscando "' + query + '" en el mapa...';
+        if (statusEl) statusEl.innerHTML = '<div class="alert alert-warning py-2 px-3 mb-0 small">⌛ Buscando "' + query + '" en el mapa...</div>';
 
         fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query))
           .then(function(res) { return res.json(); })
@@ -356,14 +532,9 @@
               var lon = parseFloat(first.lon);
               map.setView([lat, lon], 16);
               marker.setLatLng([lat, lon]);
-              updateCoordinates(lat, lon, false);
-              if (statusEl) {
-                statusEl.innerHTML = '✅ Ubicado en el mapa: <strong>' + first.display_name.split(',').slice(0, 2).join(',') + '</strong>';
-              }
-              marker.bindPopup("<b>📍 " + first.display_name.split(',')[0] + "</b>").openPopup();
+              updateCoordinates(lat, lon, true);
             } else {
               alert('No encontramos la dirección exacta en el mapa. Por favor haz clic directamente en tu calle.');
-              if (statusEl) statusEl.innerHTML = '⚠️ Dirección no encontrada. Haz clic en el mapa para ubicarla.';
             }
           })
           .catch(function(err) {
@@ -372,10 +543,97 @@
       });
     }
 
+    // Botón: Usar mi dirección habitual (1 clic)
+    var btnSavedAddr = document.getElementById('btnUseSavedAddress');
+    if (btnSavedAddr) {
+      btnSavedAddr.addEventListener('click', function() {
+        var phone = this.getAttribute('data-phone');
+        var address = this.getAttribute('data-address');
+        var city = this.getAttribute('data-city');
+        var region = this.getAttribute('data-region');
+        var country = this.getAttribute('data-country');
+        var postal = this.getAttribute('data-postal');
+        var lat = parseFloat(this.getAttribute('data-lat'));
+        var lng = parseFloat(this.getAttribute('data-lng'));
+
+        if (phone && inputPhone) { inputPhone.value = phone; triggerHighlight(inputPhone); }
+        if (address && inputAddress) { inputAddress.value = address; triggerHighlight(inputAddress); }
+        if (city && inputCity) { inputCity.value = city; triggerHighlight(inputCity); }
+        if (region && inputRegion) { inputRegion.value = region; triggerHighlight(inputRegion); }
+        if (country && inputCountry) { inputCountry.value = country; triggerHighlight(inputCountry); }
+        if (postal && inputPostal) { inputPostal.value = postal; triggerHighlight(inputPostal); }
+
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+          map.setView([lat, lng], 16);
+          marker.setLatLng([lat, lng]);
+          updateCoordinates(lat, lng, false);
+          marker.bindPopup("<b>📍 Tu dirección habitual</b><br>" + address + "<br><small>" + [city, region, country].filter(Boolean).join(', ') + "</small>").openPopup();
+        }
+      });
+    }
+
     // Inicializar coordenadas si no estaban seteadas
     if (!inputLat.value || !inputLng.value) {
       updateCoordinates(currentLat, currentLng, false);
     }
   });
+</script>
+
+<script>
+  // ── Shipping Quote AJAX ─────────────────────────────────────────────────
+  var subtotal = parseFloat("{{ cart.get_total_price }}") || 0;
+  var shippingDisplay = document.getElementById('shippingDisplay');
+  var shippingInfo = document.getElementById('shippingInfo');
+  var totalDisplay = document.getElementById('totalDisplay');
+  var regionInput = document.getElementById('id_region');
+  var shippingTimeout = null;
+
+  function formatCLP(amount) {
+    return '$ ' + Math.round(amount).toLocaleString('es-CL');
+  }
+
+  function fetchShippingQuote(region) {
+    if (!shippingDisplay) return;
+    shippingDisplay.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Calculando...';
+    if (shippingInfo) shippingInfo.style.display = 'none';
+
+    fetch('/shipping/quote/?region=' + encodeURIComponent(region || ''))
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (data.is_free) {
+          shippingDisplay.innerHTML = '<span class="text-success font-weight-bold">🎁 ¡Gratis!</span>';
+          if (shippingInfo) { shippingInfo.textContent = ''; shippingInfo.style.display = 'none'; }
+          if (totalDisplay) totalDisplay.textContent = formatCLP(subtotal);
+        } else if (data.price > 0) {
+          shippingDisplay.innerHTML = '<span class="font-weight-bold text-dark">' + formatCLP(data.price) + '</span>';
+          if (shippingInfo && data.courier) {
+            shippingInfo.textContent = data.courier + (data.days ? ' · ' + data.days : '');
+            shippingInfo.style.display = 'block';
+          }
+          if (totalDisplay) totalDisplay.textContent = formatCLP(subtotal + data.price);
+        } else {
+          shippingDisplay.innerHTML = '<span class="text-muted small">Ingresa tu región para calcular</span>';
+        }
+      })
+      .catch(function() {
+        if (shippingDisplay) shippingDisplay.innerHTML = '<span class="text-muted small">No disponible</span>';
+      });
+  }
+
+  // Trigger on region change
+  if (regionInput) {
+    regionInput.addEventListener('input', function() {
+      clearTimeout(shippingTimeout);
+      shippingTimeout = setTimeout(function() {
+        fetchShippingQuote(regionInput.value.trim());
+      }, 600);
+    });
+    // Initial load
+    if (regionInput.value.trim()) {
+      fetchShippingQuote(regionInput.value.trim());
+    } else {
+      if (shippingDisplay) shippingDisplay.innerHTML = '<span class="text-muted small">Ingresa tu región</span>';
+    }
+  }
 </script>
 {% endblock %}

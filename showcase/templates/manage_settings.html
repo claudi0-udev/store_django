@@ -1,0 +1,394 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent px-0">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'manageOrders' %}">Panel de Gestión</a></li>
+    <li class="breadcrumb-item active">⚙️ Configuración y Marca</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h2 font-weight-bold mb-1">⚙️ Configuración y Personalización de Marca</h1>
+    <p class="text-muted mb-0 small">Administra la identidad de tu tienda, logo, banners del carrusel, tarifas de envío e integraciones.</p>
+  </div>
+  <div>
+    <a href="{% url 'manageAnalyticsDashboard' %}" class="btn btn-outline-info btn-sm mr-2">📊 Analytics</a>
+    <a href="{% url 'manageOrders' %}" class="btn btn-outline-secondary btn-sm">🚚 Pedidos</a>
+  </div>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}{{ msg.tags }}{% endif %} alert-dismissible fade show" role="alert">
+  {{ msg }} <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="row">
+  <!-- Configuración General + Branding + Banners -->
+  <div class="col-lg-7 mb-4">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white border-bottom py-3">
+        <span class="font-weight-bold">🏪 Datos Principales de la Tienda</span>
+      </div>
+      <div class="card-body">
+        <form method="post" action="{% url 'manageSettings' %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="settings">
+
+          <div class="form-group p-3 bg-light rounded border border-primary mb-3">
+            <label class="font-weight-bold text-primary mb-1">🏷️ Nombre de la Tienda</label>
+            <input type="text" name="store_name" class="form-control form-control-lg font-weight-bold" value="{{ store_settings.store_name }}" required>
+            <small class="form-text text-muted">Este nombre se mostrará públicamente en la barra de navegación, correos de compras y títulos.</small>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label class="small font-weight-bold">Email de contacto</label>
+              <input type="email" name="store_email" class="form-control" value="{{ store_settings.store_email }}">
+            </div>
+            <div class="form-group col-md-6">
+              <label class="small font-weight-bold">Teléfono de contacto</label>
+              <input type="text" name="store_phone" class="form-control" value="{{ store_settings.store_phone }}">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="small font-weight-bold">🚚 Comuna de despacho (origen)</label>
+            <input type="text" name="origin_commune" class="form-control" value="{{ store_settings.origin_commune }}" placeholder="Ej: Pichidegua">
+            <small class="text-muted">Ciudad desde donde se despachan los pedidos.</small>
+          </div>
+          <div class="form-group">
+            <label class="small font-weight-bold">Dirección de bodega</label>
+            <input type="text" name="origin_address" class="form-control" value="{{ store_settings.origin_address }}" placeholder="Ej: Calle Los Robles 123">
+          </div>
+          <div class="form-group">
+            <label class="small font-weight-bold">🎁 Monto mínimo para envío gratis (CLP)</label>
+            <div class="input-group">
+              <div class="input-group-prepend"><span class="input-group-text">$</span></div>
+              <input type="number" name="free_shipping_threshold" class="form-control" value="{{ store_settings.free_shipping_threshold|floatformat:0 }}" min="0">
+            </div>
+          </div>
+
+          <div class="form-group mb-3">
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="id_enable_live_sales" name="enable_live_sales_notifications" {% if store_settings.enable_live_sales_notifications %}checked{% endif %}>
+              <label class="custom-control-label font-weight-bold text-dark small" for="id_enable_live_sales">
+                🔔 Mostrar avisos emergentes de compras en vivo en la tienda (Social Proof Toasts)
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group mb-3">
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="id_enable_whatsapp" name="enable_whatsapp_widget" {% if store_settings.enable_whatsapp_widget %}checked{% endif %}>
+              <label class="custom-control-label font-weight-bold text-dark small" for="id_enable_whatsapp">
+                💬 Mostrar botón flotante de WhatsApp Live Support en la tienda
+              </label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label class="small font-weight-bold">📱 Número de WhatsApp de atención</label>
+              <input type="text" name="whatsapp_number" class="form-control" value="{{ store_settings.whatsapp_number }}" placeholder="Ej: +56912345678">
+            </div>
+            <div class="form-group col-md-6">
+              <label class="small font-weight-bold">💬 Mensaje inicial predeterminado</label>
+              <input type="text" name="whatsapp_default_message" class="form-control" value="{{ store_settings.whatsapp_default_message }}" placeholder="Ej: Hola! Quisiera más información.">
+            </div>
+          </div>
+
+          <hr>
+
+
+          <p class="font-weight-bold small text-primary text-uppercase mb-3">🎨 Personalización de Marca (Branding)</p>
+          <div class="form-row mb-3">
+            <div class="form-group col-md-6">
+              <label class="small font-weight-bold">Logo de la tienda</label>
+              {% if store_settings.get_site_logo_url %}
+              <div class="mb-2 p-2 border rounded bg-light text-center">
+                <img src="{{ store_settings.get_site_logo_url }}" alt="Logo" style="max-height: 50px; object-fit: contain;">
+              </div>
+              {% endif %}
+              <label class="small text-muted mb-1">Subir Archivo:</label>
+              <input type="file" name="site_logo" class="form-control-file small mb-2" accept="image/*">
+              <label class="small text-muted mb-1">o Ingresar URL de Imagen Directa:</label>
+              <input type="url" name="site_logo_url" class="form-control form-control-sm" value="{{ store_settings.site_logo_url }}" placeholder="https://ejemplo.com/logo.jpg">
+            </div>
+
+            <div class="form-group col-md-6">
+              <label class="small font-weight-bold">Favicon (Ícono pestaña)</label>
+              {% if store_settings.get_site_favicon_url %}
+              <div class="mb-2 p-2 border rounded bg-light text-center">
+                <img src="{{ store_settings.get_site_favicon_url }}" alt="Favicon" style="max-height: 32px;">
+              </div>
+              {% endif %}
+              <label class="small text-muted mb-1">Subir Archivo:</label>
+              <input type="file" name="site_favicon" class="form-control-file small mb-2" accept="image/*">
+              <label class="small text-muted mb-1">o Ingresar URL de Imagen Directa:</label>
+              <input type="url" name="site_favicon_url" class="form-control form-control-sm" value="{{ store_settings.site_favicon_url }}" placeholder="https://ejemplo.com/favicon.ico">
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="small font-weight-bold">Texto del Pie de Página (Footer)</label>
+            <input type="text" name="footer_text" class="form-control" value="{{ store_settings.footer_text }}">
+          </div>
+
+          <hr>
+          <p class="font-weight-bold small text-primary text-uppercase mb-3">🎠 Carrusel Promocional de Inicio (Banners e Imágenes)</p>
+          
+          <!-- Banner 1 -->
+          <div class="card border p-3 mb-3 bg-light">
+            <span class="font-weight-bold small text-muted mb-2 d-block">🖼️ Banner 1</span>
+            {% if store_settings.get_banner1_image_url %}
+            <div class="mb-2 rounded overflow-hidden text-center border bg-white">
+              <img src="{{ store_settings.get_banner1_image_url }}" alt="Banner 1" style="max-height: 120px; width: 100%; object-fit: cover;">
+            </div>
+            {% endif %}
+            <div class="form-row mb-2">
+              <div class="col-md-6 mb-2 mb-md-0">
+                <label class="small text-muted mb-1">Subir Archivo de Imagen:</label>
+                <input type="file" name="banner1_image" class="form-control-file small" accept="image/*">
+              </div>
+              <div class="col-md-6">
+                <label class="small text-muted mb-1">o URL de Imagen Directa:</label>
+                <input type="url" name="banner1_image_url" class="form-control form-control-sm" value="{{ store_settings.banner1_image_url }}" placeholder="https://images.unsplash.com/...">
+              </div>
+            </div>
+            <div class="form-group mb-2">
+              <input type="text" name="banner1_title" class="form-control form-control-sm font-weight-bold" value="{{ store_settings.banner1_title }}" placeholder="Título Banner 1">
+            </div>
+            <div class="form-group mb-0">
+              <input type="text" name="banner1_subtitle" class="form-control form-control-sm" value="{{ store_settings.banner1_subtitle }}" placeholder="Subtítulo Banner 1">
+            </div>
+          </div>
+
+          <!-- Banner 2 -->
+          <div class="card border p-3 mb-3 bg-light">
+            <span class="font-weight-bold small text-muted mb-2 d-block">🖼️ Banner 2</span>
+            {% if store_settings.get_banner2_image_url %}
+            <div class="mb-2 rounded overflow-hidden text-center border bg-white">
+              <img src="{{ store_settings.get_banner2_image_url }}" alt="Banner 2" style="max-height: 120px; width: 100%; object-fit: cover;">
+            </div>
+            {% endif %}
+            <div class="form-row mb-2">
+              <div class="col-md-6 mb-2 mb-md-0">
+                <label class="small text-muted mb-1">Subir Archivo de Imagen:</label>
+                <input type="file" name="banner2_image" class="form-control-file small" accept="image/*">
+              </div>
+              <div class="col-md-6">
+                <label class="small text-muted mb-1">o URL de Imagen Directa:</label>
+                <input type="url" name="banner2_image_url" class="form-control form-control-sm" value="{{ store_settings.banner2_image_url }}" placeholder="https://images.unsplash.com/...">
+              </div>
+            </div>
+            <div class="form-group mb-2">
+              <input type="text" name="banner2_title" class="form-control form-control-sm font-weight-bold" value="{{ store_settings.banner2_title }}" placeholder="Título Banner 2">
+            </div>
+            <div class="form-group mb-0">
+              <input type="text" name="banner2_subtitle" class="form-control form-control-sm" value="{{ store_settings.banner2_subtitle }}" placeholder="Subtítulo Banner 2">
+            </div>
+          </div>
+
+          <!-- Banner 3 -->
+          <div class="card border p-3 mb-3 bg-light">
+            <span class="font-weight-bold small text-muted mb-2 d-block">🖼️ Banner 3</span>
+            {% if store_settings.get_banner3_image_url %}
+            <div class="mb-2 rounded overflow-hidden text-center border bg-white">
+              <img src="{{ store_settings.get_banner3_image_url }}" alt="Banner 3" style="max-height: 120px; width: 100%; object-fit: cover;">
+            </div>
+            {% endif %}
+            <div class="form-row mb-2">
+              <div class="col-md-6 mb-2 mb-md-0">
+                <label class="small text-muted mb-1">Subir Archivo de Imagen:</label>
+                <input type="file" name="banner3_image" class="form-control-file small" accept="image/*">
+              </div>
+              <div class="col-md-6">
+                <label class="small text-muted mb-1">o URL de Imagen Directa:</label>
+                <input type="url" name="banner3_image_url" class="form-control form-control-sm" value="{{ store_settings.banner3_image_url }}" placeholder="https://images.unsplash.com/...">
+              </div>
+            </div>
+            <div class="form-group mb-2">
+              <input type="text" name="banner3_title" class="form-control form-control-sm font-weight-bold" value="{{ store_settings.banner3_title }}" placeholder="Título Banner 3">
+            </div>
+            <div class="form-group mb-0">
+              <input type="text" name="banner3_subtitle" class="form-control form-control-sm" value="{{ store_settings.banner3_subtitle }}" placeholder="Subtítulo Banner 3">
+            </div>
+          </div>
+
+          <hr>
+
+          <p class="font-weight-bold small text-muted text-uppercase mb-2">🔌 Integración Shipit (Futuro)</p>
+          <div class="form-group">
+            <label class="small font-weight-bold">Email cuenta Shipit</label>
+            <input type="email" name="shipit_email" class="form-control" value="{{ store_settings.shipit_email }}" placeholder="tu@correo.com">
+          </div>
+          <div class="form-group">
+            <label class="small font-weight-bold">Token API Shipit</label>
+            <input type="text" name="shipit_token" class="form-control" value="{{ store_settings.shipit_token }}" placeholder="Token de acceso">
+          </div>
+          <!-- Sección de Personalización Visual y Estética -->
+          <div class="card border border-info mb-4 bg-light">
+            <div class="card-header bg-info text-white font-weight-bold">
+              🎨 Personalización Visual y Estética del Sitio
+            </div>
+            <div class="card-body">
+              <div class="form-row align-items-center mb-3">
+                <div class="form-group col-md-6 mb-2">
+                  <label class="small font-weight-bold">Color Primario de la Marca</label>
+                  <div class="input-group">
+                    <input type="color" name="primary_color" class="form-control form-control-color p-1" value="{{ store_settings.primary_color|default:'#007bff' }}" style="height: 38px; width: 60px;">
+                    <input type="text" class="form-control font-weight-bold" value="{{ store_settings.primary_color|default:'#007bff' }}" readonly>
+                  </div>
+                </div>
+                <div class="form-group col-md-6 mb-2">
+                  <label class="small font-weight-bold">Tipografía de la Tienda</label>
+                  <select name="font_family" class="form-control font-weight-bold">
+                    <option value="inter" {% if store_settings.font_family == 'inter' %}selected{% endif %}>Inter (Moderna y Limpia)</option>
+                    <option value="roboto" {% if store_settings.font_family == 'roboto' %}selected{% endif %}>Roboto (Estándar Google)</option>
+                    <option value="poppins" {% if store_settings.font_family == 'poppins' %}selected{% endif %}>Poppins (Geométrica)</option>
+                    <option value="montserrat" {% if store_settings.font_family == 'montserrat' %}selected{% endif %}>Montserrat (Moderna)</option>
+                    <option value="playfair" {% if store_settings.font_family == 'playfair' %}selected{% endif %}>Playfair Display (Elegante)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group mb-3">
+                <label class="small font-weight-bold">Estilo de Tarjetas de Producto</label>
+                <select name="card_style" class="form-control">
+                  <option value="rounded" {% if store_settings.card_style == 'rounded' %}selected{% endif %}>Bordes Redondeados Suaves (Moderno - 12px)</option>
+                  <option value="elevated" {% if store_settings.card_style == 'elevated' %}selected{% endif %}>Tarjetas Flotantes Elevadas (Con Sombra Elegante)</option>
+                  <option value="flat" {% if store_settings.card_style == 'flat' %}selected{% endif %}>Estilo Plano Minimalista (Sin Sombras, Bordes Rectos)</option>
+                </select>
+              </div>
+
+              <hr>
+              <h6 class="font-weight-bold text-dark mb-3">📣 Barra Promocional Superior (Announcement Bar)</h6>
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" name="announcement_bar_enabled" id="announcementBarEnabled" {% if store_settings.announcement_bar_enabled %}checked{% endif %}>
+                <label class="form-check-label font-weight-bold" for="announcementBarEnabled">
+                  Mostrar barra promocional superior
+                </label>
+              </div>
+              <div class="form-group mb-2">
+                <input type="text" name="announcement_bar_text" class="form-control" value="{{ store_settings.announcement_bar_text }}" placeholder="Mensaje de promoción...">
+              </div>
+              <div class="form-row mb-3">
+                <div class="form-group col-md-6 mb-2">
+                  <label class="small font-weight-bold">Color Fondo Barra</label>
+                  <input type="color" name="announcement_bar_bg_color" class="form-control p-1" value="{{ store_settings.announcement_bar_bg_color|default:'#007bff' }}" style="height: 38px;">
+                </div>
+                <div class="form-group col-md-6 mb-2">
+                  <label class="small font-weight-bold">Color Texto Barra</label>
+                  <input type="color" name="announcement_bar_text_color" class="form-control p-1" value="{{ store_settings.announcement_bar_text_color|default:'#ffffff' }}" style="height: 38px;">
+                </div>
+              </div>
+
+              <hr>
+              <h6 class="font-weight-bold text-dark mb-3">🖼️ Hero Banner Principal de Portada</h6>
+              <div class="form-group mb-2">
+                <label class="small font-weight-bold">Título Principal</label>
+                <input type="text" name="hero_title" class="form-control font-weight-bold" value="{{ store_settings.hero_title }}">
+              </div>
+              <div class="form-group mb-2">
+                <label class="small font-weight-bold">Subtítulo</label>
+                <input type="text" name="hero_subtitle" class="form-control" value="{{ store_settings.hero_subtitle }}">
+              </div>
+              <div class="form-row">
+                <div class="form-group col-md-6 mb-2">
+                  <label class="small font-weight-bold">Texto del Botón</label>
+                  <input type="text" name="hero_button_text" class="form-control" value="{{ store_settings.hero_button_text }}">
+                </div>
+                <div class="form-group col-md-6 mb-2">
+                  <label class="small font-weight-bold">Enlace del Botón</label>
+                  <input type="text" name="hero_button_link" class="form-control" value="{{ store_settings.hero_button_link }}">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block btn-lg font-weight-bold shadow-sm">💾 Guardar Configuración y Marca</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Tarifas de Envío -->
+  <div class="col-lg-5 mb-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+        <span class="font-weight-bold">📦 Tarifas de Envío Internas</span>
+        <span class="badge badge-info badge-pill">{{ shipping_rates.count }} tarifas</span>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive" style="max-height:320px;overflow-y:auto;">
+          <table class="table table-sm table-hover mb-0 small">
+            <thead class="thead-light sticky-top">
+              <tr>
+                <th class="pl-3">Región</th>
+                <th>Peso (kg)</th>
+                <th>Precio</th>
+                <th>Courier</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for rate in shipping_rates %}
+              <tr class="{% if not rate.is_active %}text-muted{% endif %}">
+                <td class="pl-3 small">{{ rate.region }}</td>
+                <td class="small">{{ rate.weight_min_kg }}–{{ rate.weight_max_kg }}</td>
+                <td class="text-success font-weight-bold">$ {{ rate.price|floatformat:0 }}</td>
+                <td class="small">{{ rate.courier_name }}</td>
+                <td>
+                  <form method="post" action="{% url 'manageSettings' %}" style="display:inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_rate">
+                    <input type="hidden" name="rate_id" value="{{ rate.id }}">
+                    <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1" onclick="return confirm('¿Eliminar esta tarifa?')">✕</button>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-center text-muted py-3 small">Sin tarifas. Usa el formulario para añadir.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer bg-light py-3">
+        <p class="font-weight-bold small mb-2">+ Añadir Tarifa</p>
+        <form method="post" action="{% url 'manageSettings' %}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="add_rate">
+          <div class="form-row">
+            <div class="form-group col-12 mb-2">
+              <input type="text" name="region" class="form-control form-control-sm" placeholder="Región (ej: Región Metropolitana)" required>
+            </div>
+            <div class="form-group col-4 mb-2">
+              <input type="number" name="weight_min_kg" class="form-control form-control-sm" placeholder="Kg min" step="0.1" value="0" required>
+            </div>
+            <div class="form-group col-4 mb-2">
+              <input type="number" name="weight_max_kg" class="form-control form-control-sm" placeholder="Kg max" step="0.1" value="5" required>
+            </div>
+            <div class="form-group col-4 mb-2">
+              <input type="number" name="price" class="form-control form-control-sm" placeholder="$ CLP" step="1" required>
+            </div>
+            <div class="form-group col-6 mb-2">
+              <input type="text" name="courier_name" class="form-control form-control-sm" placeholder="Courier" value="Starken">
+            </div>
+            <div class="form-group col-6 mb-2">
+              <input type="text" name="estimated_days" class="form-control form-control-sm" placeholder="Días estimados" value="3-5 días hábiles">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-outline-primary btn-sm btn-block">+ Añadir Tarifa</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

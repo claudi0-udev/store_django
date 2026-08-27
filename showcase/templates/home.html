@@ -1,17 +1,25 @@
 {% extends 'base_layout.html' %}
+{% load static %}
 
 {% block body %}
+
 <section class="row align-items-center py-5">
   <div class="col-lg-7">
-    <h1 class="display-4 font-weight-bold">Descubre tu próxima compra</h1>
+    <h1 class="display-4 font-weight-bold">{{ store_settings.hero_title|default:'Descubre tu próxima compra' }}</h1>
     <p class="lead text-muted">
-      Una tienda simple, elegante y preparada para mostrar productos con una experiencia clara para el visitante.
+      {{ store_settings.hero_subtitle|default:'Una tienda simple, elegante y preparada para mostrar productos con una experiencia clara.' }}
     </p>
     <div class="d-flex flex-wrap gap-2">
-      <a class="btn btn-primary btn-lg" href="{% url 'products' %}">Explorar catálogo</a>
+      <a class="btn btn-primary btn-lg font-weight-bold shadow-sm" href="{{ store_settings.hero_button_link|default:'/products/' }}">
+        {{ store_settings.hero_button_text|default:'Explorar Catálogo 🔥' }}
+      </a>
+
+      {% if not user.is_authenticated %}
       <a class="btn btn-outline-secondary btn-lg" href="{% url 'register' %}">Crear cuenta</a>
+      {% endif %}
     </div>
   </div>
+
   <div class="col-lg-5 mt-4 mt-lg-0">
     <div class="card shadow-sm border-0 bg-light">
       <div class="card-body">
@@ -28,7 +36,7 @@
 
 <section class="row mb-4">
   <div class="col-12">
-    <div id="promoCarousel" class="carousel slide shadow-sm rounded" data-ride="carousel">
+    <div id="promoCarousel" class="carousel slide shadow-sm rounded overflow-hidden" data-ride="carousel" data-interval="4500">
       <ol class="carousel-indicators">
         <li data-target="#promoCarousel" data-slide-to="0" class="active"></li>
         <li data-target="#promoCarousel" data-slide-to="1"></li>
@@ -36,36 +44,62 @@
       </ol>
       <div class="carousel-inner">
         <div class="carousel-item active">
-          <div class="d-block w-100 p-5 rounded bg-primary text-white">
-            <h3>Promoción del mes</h3>
-            <p class="mb-0">Aprovecha descuentos especiales en productos seleccionados.</p>
+          {% if store_settings.get_banner1_image_url %}
+          <img src="{{ store_settings.get_banner1_image_url }}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Tecnológico">
+          {% else %}
+          <img src="{% static 'images/banner_tech.jpg' %}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Tecnológico">
+          {% endif %}
+          <div class="carousel-caption d-none d-md-block p-3 rounded" style="background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);">
+            <h3 class="font-weight-bold text-white">{{ store_settings.banner1_title|default:'Tecnología de Vanguardia 🔥' }}</h3>
+            <p class="mb-0 text-white-50">{{ store_settings.banner1_subtitle|default:'Descubre la última colección de smartphones, laptops y audio premium.' }}</p>
           </div>
         </div>
         <div class="carousel-item">
-          <div class="d-block w-100 p-5 rounded bg-success text-white">
-            <h3>Envío gratis</h3>
-            <p class="mb-0">Disfruta de envío gratis en pedidos por encima de un valor mínimo.</p>
+          {% if store_settings.get_banner2_image_url %}
+          <img src="{{ store_settings.get_banner2_image_url }}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Moda">
+          {% else %}
+          <img src="{% static 'images/banner_fashion.jpg' %}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Moda">
+          {% endif %}
+          <div class="carousel-caption d-none d-md-block p-3 rounded" style="background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);">
+            <h3 class="font-weight-bold text-white">{{ store_settings.banner2_title|default:'Estilo y Tendencia 👟' }}</h3>
+            <p class="mb-0 text-white-50">{{ store_settings.banner2_subtitle|default:'Renueva tu look con lo último en calzado, ropa y accesorios urbanos.' }}</p>
           </div>
         </div>
         <div class="carousel-item">
-          <div class="d-block w-100 p-5 rounded bg-warning text-dark">
-            <h3>Nuevos lanzamientos</h3>
-            <p class="mb-0">Descubre la colección más reciente para esta temporada.</p>
+          {% if store_settings.get_banner3_image_url %}
+          <img src="{{ store_settings.get_banner3_image_url }}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Hogar">
+          {% else %}
+          <img src="{% static 'images/banner_home.jpg' %}" class="d-block w-100" style="max-height: 420px; object-fit: cover;" alt="Banner Hogar">
+          {% endif %}
+          <div class="carousel-caption d-none d-md-block p-3 rounded" style="background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);">
+            <h3 class="font-weight-bold text-white">{{ store_settings.banner3_title|default:'Hogar y Confort ☕' }}</h3>
+            <p class="mb-0 text-white-50">{{ store_settings.banner3_subtitle|default:'Equipa tu hogar con cafeteras inteligentes y electrodomésticos de diseño.' }}</p>
           </div>
         </div>
+
       </div>
+      <a class="carousel-control-prev" href="#promoCarousel" role="button" data-slide="prev">
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+        <span class="sr-only">Anterior</span>
+      </a>
+      <a class="carousel-control-next" href="#promoCarousel" role="button" data-slide="next">
+        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+        <span class="sr-only">Siguiente</span>
+      </a>
     </div>
   </div>
 </section>
+
+
 
 <section class="row mb-4">
   <div class="col-12">
     <div class="card shadow-sm border-0">
       <div class="card-body">
-        <form method="get" class="row g-2 align-items-end">
+        <form method="get" class="row g-2 align-items-end" action="{% url 'home' %}#searchResultsSection">
           <div class="col-md-5">
             <label class="sr-only" for="q">Buscar</label>
-            <input class="form-control" id="q" type="search" name="q" value="{{ search_query }}" placeholder="Buscar productos por nombre">
+            <input class="form-control" id="q" type="search" name="q" value="{{ search_query }}" placeholder="Buscar productos por nombre, marca o categoría...">
           </div>
           <div class="col-md-3">
             <label class="sr-only" for="category">Categoría</label>
@@ -86,9 +120,9 @@
             </select>
           </div>
           <div class="col-md-2 d-flex gap-2">
-            <button class="btn btn-primary" type="submit">Buscar</button>
+            <button class="btn btn-primary btn-block font-weight-bold" type="submit">🔍 Buscar</button>
             {% if search_query or category_id or ordering != '-id' %}
-            <a class="btn btn-outline-secondary" href="{% url 'home' %}">Limpiar</a>
+            <a class="btn btn-outline-secondary" href="{% url 'home' %}" title="Limpiar búsqueda">✕</a>
             {% endif %}
           </div>
         </form>
@@ -97,18 +131,140 @@
   </div>
 </section>
 
-<section class="row mb-4">
+{% if is_search_active %}
+<section id="searchResultsSection" class="row mb-5">
   <div class="col-12">
-    <h2 class="h5 font-weight-bold mb-3">Categorías populares</h2>
-    <div class="d-flex flex-wrap gap-2">
-      {% for category in categories %}
-      <span class="badge badge-pill badge-light border px-3 py-2">{{ category.name }}</span>
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap bg-light p-3 rounded border">
+      <div>
+        <h2 class="h5 font-weight-bold mb-1 text-primary">
+          🔍 Resultados de Búsqueda
+        </h2>
+        <p class="text-muted small mb-0">
+          {% if search_query %}
+          Coincidencias para <strong>"{{ search_query }}"</strong>
+          {% endif %}
+          {% if selected_category %}
+          en categoría <strong>{{ selected_category.name }}</strong>
+          {% endif %}
+          <span class="badge badge-primary ml-2">{{ total_search_results }} producto{{ total_search_results|pluralize }} encontrado{{ total_search_results|pluralize }}</span>
+        </p>
+      </div>
+      <div class="mt-2 mt-sm-0">
+        <a href="{% url 'home' %}" class="btn btn-sm btn-outline-danger mr-2 font-weight-bold">✕ Limpiar búsqueda</a>
+        <a href="{% url 'products' %}?q={{ search_query }}&category={{ category_id|default:'' }}" class="btn btn-sm btn-outline-primary font-weight-bold">Ver catálogo completo →</a>
+      </div>
+    </div>
+
+    <div class="row">
+      {% for product in products %}
+      <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+          {% if product.image %}
+          <div style="height: 180px; overflow: hidden;" class="text-center bg-light p-2 rounded-top">
+            <img src="{{ product.image.url }}" class="img-fluid h-100" style="object-fit: contain;" alt="{{ product.name }}">
+          </div>
+          {% else %}
+          <div style="height: 180px;" class="bg-light d-flex align-items-center justify-content-center text-muted font-weight-bold rounded-top">
+            📦 Sin Imagen
+          </div>
+          {% endif %}
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="badge badge-info">{{ product.category.name|default:'Sin categoría' }}</span>
+              {% if product.units == 0 %}
+              <span class="badge badge-secondary">Agotado</span>
+              {% elif product.units <= 3 %}
+              <span class="badge badge-danger">🔥 ¡Últimas {{ product.units }}!</span>
+              {% else %}
+              <span class="badge badge-success">En Stock</span>
+              {% endif %}
+            </div>
+            <h5 class="card-title font-weight-bold h6 mb-1">{{ product.name }}</h5>
+            {% if product.get_review_count > 0 %}
+            <div class="small text-warning mb-1">
+              ★ <strong>{{ product.get_average_rating }}</strong> <span class="text-muted">({{ product.get_review_count }})</span>
+            </div>
+            {% endif %}
+            <p class="card-text text-muted small">{{ product.description|truncatechars:80 }}</p>
+            <p class="font-weight-bold text-primary mb-0">$ {{ product.price }}</p>
+          </div>
+          <div class="card-footer bg-white border-0 pt-0 d-flex justify-content-between">
+            <a class="btn btn-outline-secondary btn-sm mr-2 flex-fill" href="{% url 'productDetail' product.id %}">Ver detalle</a>
+            <form method="post" action="{% url 'cartAdd' product.id %}" class="ajax-add-to-cart m-0 flex-fill">
+              {% csrf_token %}
+              <input type="hidden" name="quantity" value="1">
+              <button type="submit" class="btn btn-primary btn-sm btn-block font-weight-bold" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
+                🛒 Añadir
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
       {% empty %}
-      <span class="text-muted">Pronto añadiremos más categorías.</span>
+      <div class="col-12 py-4">
+        <div class="alert alert-warning text-center border-0 shadow-sm py-4" role="alert">
+          <h5 class="font-weight-bold mb-2">🔍 No encontramos productos que coincidan con tu búsqueda</h5>
+          <p class="mb-3 text-muted">Intenta revisar la ortografía, buscar términos más generales o explorar por categoría.</p>
+          <div class="d-flex justify-content-center gap-2">
+            <a href="{% url 'home' %}" class="btn btn-secondary btn-sm font-weight-bold">Limpiar Filtros</a>
+            <a href="{% url 'products' %}" class="btn btn-primary btn-sm font-weight-bold">Ver Catálogo Completo</a>
+          </div>
+        </div>
+      </div>
       {% endfor %}
     </div>
   </div>
 </section>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var searchSec = document.getElementById('searchResultsSection');
+    if (searchSec) {
+      searchSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+</script>
+{% endif %}
+
+
+<section class="row mb-4">
+  <div class="col-12">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2 class="h5 font-weight-bold mb-0">🔥 Categorías Populares</h2>
+      <a href="{% url 'products' %}" class="small font-weight-bold text-primary">Ver catálogo completo →</a>
+    </div>
+    <div class="d-flex flex-wrap align-items-center">
+      {% for cat in popular_categories %}
+      <a href="{% url 'home' %}?category={{ cat.id }}" 
+         class="btn btn-sm {% if category_id == cat.id|stringformat:'s' %}btn-primary font-weight-bold shadow-sm{% else %}btn-outline-secondary bg-white text-dark{% endif %} m-1 rounded-pill px-3 py-2">
+        <span>{{ cat.name }}</span>
+        {% if cat.total_sold > 0 %}
+        <span class="badge badge-pill {% if category_id == cat.id|stringformat:'s' %}badge-light text-primary{% else %}badge-success{% endif %} ml-1">
+          🔥 {{ cat.total_sold }} comprados
+        </span>
+        {% elif cat.total_views > 0 %}
+        <span class="badge badge-pill {% if category_id == cat.id|stringformat:'s' %}badge-light text-primary{% else %}badge-info{% endif %} ml-1">
+          👁️ {{ cat.total_views }} vistas
+        </span>
+        {% elif cat.product_count > 0 %}
+        <span class="badge badge-pill {% if category_id == cat.id|stringformat:'s' %}badge-light text-primary{% else %}badge-light border text-muted{% endif %} ml-1">
+          {{ cat.product_count }} prod.
+        </span>
+        {% endif %}
+      </a>
+      {% empty %}
+      <span class="text-muted small">Pronto añadiremos más categorías.</span>
+      {% endfor %}
+
+      {% if category_id %}
+      <a href="{% url 'home' %}" class="btn btn-sm btn-outline-danger m-1 rounded-pill px-3 py-2 font-weight-bold">
+        ✕ Limpiar filtro
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
 
 <section class="row mb-4">
   <div class="col-12">
@@ -123,22 +279,39 @@
           </div>
           {% endif %}
           <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              {% if product.units == 0 %}
+              <span class="badge badge-secondary">Agotado</span>
+              {% elif product.units <= 3 %}
+              <span class="badge badge-danger">🔥 ¡Últimas {{ product.units }}!</span>
+              {% else %}
+              <span class="badge badge-success">En Stock</span>
+              {% endif %}
+              <span class="small text-muted">{{ product.category.name|default:'' }}</span>
+            </div>
             <h5 class="card-title h6 font-weight-bold mb-1">{{ product.name }}</h5>
-            <p class="card-text text-muted small">{{ product.description|truncatechars:80 }}</p>
+            {% if product.get_review_count > 0 %}
+            <div class="small text-warning mb-1">
+              ★ <strong>{{ product.get_average_rating }}</strong> <span class="text-muted">({{ product.get_review_count }})</span>
+            </div>
+            {% endif %}
+            <p class="card-text text-muted small">{{ product.description|truncatechars:70 }}</p>
+
             <p class="font-weight-bold text-primary mb-0">$ {{ product.price }}</p>
           </div>
           <div class="card-footer bg-white border-0 pt-0 d-flex justify-content-between">
             <a class="btn btn-outline-secondary btn-sm mr-1 flex-fill" href="{% url 'productDetail' product.id %}">Detalle</a>
-            <form method="post" action="{% url 'cartAdd' product.id %}" class="m-0 flex-fill">
+            <form method="post" action="{% url 'cartAdd' product.id %}" class="ajax-add-to-cart m-0 flex-fill">
               {% csrf_token %}
-              <input type="hidden" name="next" value="{{ request.get_full_path }}">
-              <button type="submit" class="btn btn-primary btn-sm btn-block" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
+              <input type="hidden" name="quantity" value="1">
+              <button type="submit" class="btn btn-primary btn-sm btn-block font-weight-bold" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
                 + 🛒
               </button>
             </form>
           </div>
         </div>
       </div>
+
       {% endfor %}
     </div>
   </div>
@@ -157,17 +330,30 @@
           </div>
           {% endif %}
           <div class="card-body">
-            <span class="badge badge-success mb-2">Nuevo</span>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="badge badge-success">Nuevo</span>
+              {% if product.units <= 3 and product.units > 0 %}
+              <span class="badge badge-danger">🔥 ¡Últimas {{ product.units }}!</span>
+              {% elif product.units == 0 %}
+              <span class="badge badge-secondary">Agotado</span>
+              {% endif %}
+            </div>
             <h5 class="card-title h6 font-weight-bold mb-1">{{ product.name }}</h5>
-            <p class="card-text text-muted small">{{ product.description|truncatechars:80 }}</p>
+            {% if product.get_review_count > 0 %}
+            <div class="small text-warning mb-1">
+              ★ <strong>{{ product.get_average_rating }}</strong> <span class="text-muted">({{ product.get_review_count }})</span>
+            </div>
+            {% endif %}
+            <p class="card-text text-muted small">{{ product.description|truncatechars:70 }}</p>
+
             <p class="font-weight-bold text-primary mb-0">$ {{ product.price }}</p>
           </div>
           <div class="card-footer bg-white border-0 pt-0 d-flex justify-content-between">
             <a class="btn btn-outline-secondary btn-sm mr-1 flex-fill" href="{% url 'productDetail' product.id %}">Detalle</a>
-            <form method="post" action="{% url 'cartAdd' product.id %}" class="m-0 flex-fill">
+            <form method="post" action="{% url 'cartAdd' product.id %}" class="ajax-add-to-cart m-0 flex-fill">
               {% csrf_token %}
-              <input type="hidden" name="next" value="{{ request.get_full_path }}">
-              <button type="submit" class="btn btn-primary btn-sm btn-block" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
+              <input type="hidden" name="quantity" value="1">
+              <button type="submit" class="btn btn-primary btn-sm btn-block font-weight-bold" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
                 + 🛒
               </button>
             </form>
@@ -196,16 +382,25 @@
           </div>
           {% endif %}
           <div class="card-body">
-            <span class="badge badge-info mb-2">{{ product.category.name|default:'Sin categoría' }}</span>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="badge badge-info">{{ product.category.name|default:'Sin categoría' }}</span>
+              {% if product.units == 0 %}
+              <span class="badge badge-secondary">Agotado</span>
+              {% elif product.units <= 3 %}
+              <span class="badge badge-danger">🔥 ¡Últimas {{ product.units }}!</span>
+              {% else %}
+              <span class="badge badge-success">En Stock</span>
+              {% endif %}
+            </div>
             <h5 class="card-title font-weight-bold">{{ product.name }}</h5>
             <p class="card-text text-muted">{{ product.description|truncatechars:100 }}</p>
             <p class="font-weight-bold text-primary mb-0">$ {{ product.price }}</p>
           </div>
           <div class="card-footer bg-white border-0 pt-0 d-flex justify-content-between">
             <a class="btn btn-outline-secondary btn-sm mr-2 flex-fill" href="{% url 'productDetail' product.id %}">Ver detalle</a>
-            <form method="post" action="{% url 'cartAdd' product.id %}" class="m-0 flex-fill">
+            <form method="post" action="{% url 'cartAdd' product.id %}" class="ajax-add-to-cart m-0 flex-fill">
               {% csrf_token %}
-              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <input type="hidden" name="quantity" value="1">
               <button type="submit" class="btn btn-primary btn-sm btn-block font-weight-bold" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
                 🛒 Añadir
               </button>
@@ -213,6 +408,7 @@
           </div>
         </div>
       </div>
+
       {% empty %}
       <div class="col-12">
         <div class="alert alert-light border" role="alert">

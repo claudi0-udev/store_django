@@ -120,9 +120,9 @@
 
 
         <!-- Precios y Cuotas -->
-        <div class="p-3 bg-light rounded mb-4 border">
+        <div class="p-3 bg-light rounded mb-3 border">
           <div class="d-flex align-items-baseline mb-1">
-            <h2 class="h2 text-primary font-weight-bold mr-3 mb-0">$ {{ product.price }}</h2>
+            <h2 class="h2 text-primary font-weight-bold mr-3 mb-0" id="productPriceDisplay">$ {{ product.price }}</h2>
             {% if product.msrp %}
             <span class="text-muted" style="text-decoration: line-through;">Precio normal: $ {{ product.msrp }}</span>
             {% endif %}
@@ -135,9 +135,41 @@
           </div>
         </div>
 
+        {% if product.has_variants %}
+        <!-- Selector Interactivo de Variantes (Tallas, Colores, etc.) -->
+        <div class="mb-3 p-3 bg-white rounded border">
+          <label class="font-weight-bold small text-muted text-uppercase d-block mb-2">
+            🏷️ Elige tu opción / variante: <span id="selectedVariantName" class="text-primary font-weight-bold"></span>
+          </label>
+          <div class="d-flex flex-wrap" id="variantOptionsContainer">
+            {% for v in product.get_variants %}
+            <button type="button" 
+                    class="btn btn-outline-primary mr-2 mb-2 font-weight-bold variant-btn {% if forloop.first %}active{% endif %}"
+                    data-variant-id="{{ v.id }}"
+                    data-variant-name="{{ v.name }}"
+                    data-variant-price="{{ v.get_price }}"
+                    data-variant-units="{{ v.units }}"
+                    data-variant-image="{% if v.image %}{{ v.image.url }}{% endif %}"
+                    onclick="chooseVariant(this)">
+              {{ v.name }}
+              {% if v.price_override and v.price_override != product.price %}
+              <small class="d-block font-weight-normal">($ {{ v.price_override }})</small>
+              {% endif %}
+              {% if v.units == 0 %}
+              <span class="badge badge-secondary ml-1">Agotado</span>
+              {% endif %}
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
         <!-- Formulario de Compra Rápida con botones +/- -->
         <form method="post" action="{% url 'cartAdd' product.id %}" class="ajax-add-to-cart mb-4">
           {% csrf_token %}
+          {% if product.has_variants %}
+          <input type="hidden" name="variant_id" id="variantIdInput" value="{{ product.get_variants.first.id }}">
+          {% endif %}
           <div class="form-row align-items-center">
             <div class="col-auto mb-2 mb-sm-0">
               <label class="sr-only" for="quantity">Cantidad</label>
@@ -152,7 +184,7 @@
               </div>
             </div>
             <div class="col">
-              <button type="submit" class="btn btn-primary btn-block btn-lg font-weight-bold shadow-sm" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
+              <button type="submit" id="btnAddToCart" class="btn btn-primary btn-block btn-lg font-weight-bold shadow-sm" {% if product.units == 0 %}disabled title="Agotado"{% endif %}>
                 🛒 Añadir al carrito
               </button>
             </div>
@@ -163,6 +195,7 @@
             </div>
           </div>
         </form>
+
 
 
         <!-- Sellos de Confianza y Garantía -->
@@ -382,7 +415,71 @@
 
 <script>
 
+  function chooseVariant(btn) {
+    if (!btn) return;
+    var variantId = btn.getAttribute('data-variant-id');
+    var variantName = btn.getAttribute('data-variant-name');
+    var variantPrice = btn.getAttribute('data-variant-price');
+    var variantUnits = parseInt(btn.getAttribute('data-variant-units'), 10) || 0;
+    var variantImage = btn.getAttribute('data-variant-image');
+
+    // Actualizar botón activo
+    document.querySelectorAll('.variant-btn').forEach(function(b) {
+      b.classList.remove('active');
+    });
+    btn.classList.add('active');
+
+    // Actualizar input oculto
+    var input = document.getElementById('variantIdInput');
+    if (input) input.value = variantId;
+
+    // Actualizar texto nombre
+    var nameSpan = document.getElementById('selectedVariantName');
+    if (nameSpan) nameSpan.textContent = variantName;
+
+    // Actualizar precio
+    var priceDisplay = document.getElementById('productPriceDisplay');
+    if (priceDisplay && variantPrice) {
+      priceDisplay.textContent = '$ ' + variantPrice;
+    }
+
+    // Actualizar cantidad máxima y estado de botón añadir
+    var qtyInput = document.getElementById('quantity');
+    var btnAdd = document.getElementById('btnAddToCart');
+    var btnMinus = document.getElementById('btnQtyMinus');
+    var btnPlus = document.getElementById('btnQtyPlus');
+
+    if (qtyInput) {
+      qtyInput.max = Math.max(1, variantUnits);
+      if (parseInt(qtyInput.value, 10) > variantUnits) {
+        qtyInput.value = Math.max(1, variantUnits);
+      }
+    }
+
+    if (btnAdd) {
+      if (variantUnits <= 0) {
+        btnAdd.disabled = true;
+        btnAdd.textContent = '❌ Variante Agotada';
+        if (btnMinus) btnMinus.disabled = true;
+        if (btnPlus) btnPlus.disabled = true;
+        if (qtyInput) qtyInput.disabled = true;
+      } else {
+        btnAdd.disabled = false;
+        btnAdd.textContent = '🛒 Añadir al carrito';
+        if (btnMinus) btnMinus.disabled = false;
+        if (btnPlus) btnPlus.disabled = false;
+        if (qtyInput) qtyInput.disabled = false;
+      }
+    }
+
+    // Si tiene imagen propia, cambiar la imagen principal
+    if (variantImage) {
+      switchProductImage(variantImage, null);
+    }
+  }
+
   function switchProductImage(url, btn) {
+
     var mainImg = document.getElementById('mainProductImage');
     if (mainImg) {
       mainImg.style.opacity = '0.3';

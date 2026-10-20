@@ -42,6 +42,7 @@ from .models import (
     ProductAuditLog,
     ProductImage,
     ProductReview,
+    ProductVariant,
     ShippingRate,
 
     StoreSettings,
@@ -743,6 +744,14 @@ def CartAdd(request, productId):
     cart = Cart(request)
     product = get_object_or_404(Product, pk=productId)
     quantity = 1
+    variant_id = request.POST.get('variant_id') or request.GET.get('variant_id')
+    variant = None
+    if variant_id:
+        try:
+            variant = ProductVariant.objects.get(pk=variant_id, product=product, is_active=True)
+        except ProductVariant.DoesNotExist:
+            variant = None
+
     if request.method == 'POST':
         try:
             quantity = int(request.POST.get('quantity', 1))
@@ -752,21 +761,26 @@ def CartAdd(request, productId):
     else:
         override = False
 
-    cart.add(product=product, quantity=quantity, override_quantity=override)
+    cart.add(product=product, quantity=quantity, override_quantity=override, variant=variant)
+
+    item_name = f"{product.name} ({variant.name})" if variant else product.name
+    item_price = str(variant.get_price() if variant else product.price)
+    item_image = variant.image.url if (variant and variant.image) else (product.image.url if product.image else '')
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
         return JsonResponse({
             'success': True,
-            'message': f'"{product.name}" agregado al carrito.',
+            'message': f'"{item_name}" agregado al carrito.',
             'product_id': product.id,
-            'product_name': product.name,
-            'product_image': product.image.url if product.image else '',
-            'product_price': str(product.price),
+            'variant_id': variant.id if variant else None,
+            'product_name': item_name,
+            'product_image': item_image,
+            'product_price': item_price,
             'cart_total_quantity': cart.get_total_quantity(),
             'cart_total_price': str(cart.get_total_price()),
         })
 
-    messages.success(request, f'Se agregó "{product.name}" al carrito.')
+    messages.success(request, f'Se agregó "{item_name}" al carrito.')
     next_url = request.POST.get('next') or request.GET.get('next')
     if next_url:
         return redirect(next_url)
@@ -776,7 +790,14 @@ def CartAdd(request, productId):
 def CartRemove(request, productId):
     cart = Cart(request)
     product = get_object_or_404(Product, pk=productId)
-    cart.remove(product)
+    variant_id = request.POST.get('variant_id') or request.GET.get('variant_id')
+    item_key = request.POST.get('item_key') or request.GET.get('item_key')
+
+    variant = None
+    if variant_id:
+        variant = ProductVariant.objects.filter(pk=variant_id, product=product).first()
+
+    cart.remove(product=product, variant=variant, item_key=item_key)
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
         return JsonResponse({
@@ -794,28 +815,40 @@ def CartRemove(request, productId):
 def CartUpdate(request, productId):
     cart = Cart(request)
     product = get_object_or_404(Product, pk=productId)
+    variant_id = request.POST.get('variant_id') or request.GET.get('variant_id')
+    item_key = request.POST.get('item_key') or request.GET.get('item_key')
+
+    variant = None
+    if variant_id:
+        variant = ProductVariant.objects.filter(pk=variant_id, product=product).first()
+
+    if not item_key:
+        item_key = f"{product.id}:{variant.id}" if variant else str(product.id)
+        if item_key not in cart.cart and str(product.id) in cart.cart:
+            item_key = str(product.id)
+
     action = request.POST.get('action') or request.GET.get('action')
     if action == 'increment':
-        cart.add(product, quantity=1, override_quantity=False)
+        cart.add(product, quantity=1, override_quantity=False, variant=variant)
     elif action == 'decrement':
-        cart.decrement(product)
+        cart.decrement(product, variant=variant, item_key=item_key)
     elif action == 'set':
         try:
             qty = int(request.POST.get('quantity', 1))
-            cart.add(product, quantity=qty, override_quantity=True)
+            cart.add(product, quantity=qty, override_quantity=True, variant=variant)
         except (ValueError, TypeError):
             pass
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
         item_qty = 0
         item_subtotal = '0.00'
-        product_id_str = str(product.id)
-        if product_id_str in cart.cart:
-            item_qty = cart.cart[product_id_str]['quantity']
-            item_subtotal = str(Decimal(cart.cart[product_id_str]['price']) * item_qty)
+        if item_key in cart.cart:
+            item_qty = cart.cart[item_key]['quantity']
+            item_subtotal = str(Decimal(cart.cart[item_key]['price']) * item_qty)
         return JsonResponse({
             'success': True,
             'product_id': product.id,
+            'item_key': item_key,
             'item_quantity': item_qty,
             'item_subtotal': item_subtotal,
             'cart_total_quantity': cart.get_total_quantity(),
@@ -823,6 +856,7 @@ def CartUpdate(request, productId):
         })
 
     return redirect('cartDetail')
+
 
 
 def CartClear(request):
@@ -899,18 +933,29 @@ def OrderCreate(request):
 
 
             for item in cart:
+                variant = item.get('variant')
+                variant_name = variant.name if variant else ''
                 OrderItem.objects.create(
                     order=order,
                     product=item['product'],
+                    variant=variant,
+                    variant_name=variant_name,
                     price=item['price'],
                     quantity=item['quantity'],
                 )
                 product = item['product']
+                if variant:
+                    if variant.units >= item['quantity']:
+                        variant.units -= item['quantity']
+                    else:
+                        variant.units = 0
+                    variant.save()
                 if product.units >= item['quantity']:
                     product.units -= item['quantity']
                 else:
                     product.units = 0
                 product.save()
+
 
             cart.clear()
 
@@ -1979,6 +2024,64 @@ def ManageExportProductsZIP(request):
     response = HttpResponse(buffer.getvalue(), content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="respaldo_completo_productos_{today_str}.zip"'
     return response
+
+
+@user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='login')
+def ManageProductVariants(request, productId):
+    product = get_object_or_404(Product, pk=productId)
+    if request.method == 'POST':
+        action = request.POST.get('action', 'add')
+        if action == 'add':
+            name = request.POST.get('name', '').strip()
+            sku = request.POST.get('sku', '').strip()
+            units_raw = request.POST.get('units', '0').strip()
+            price_raw = request.POST.get('price_override', '').strip()
+            image = request.FILES.get('image')
+
+            if not name:
+                messages.error(request, 'El nombre de la variante es obligatorio (ej: Talla 42 / Negro).')
+            else:
+                try:
+                    units = max(0, int(units_raw))
+                except ValueError:
+                    units = 0
+
+                price_override = None
+                if price_raw:
+                    try:
+                        price_override = Decimal(price_raw.replace(',', '.'))
+                    except Exception:
+                        price_override = None
+
+                ProductVariant.objects.create(
+                    product=product,
+                    name=name,
+                    sku=sku,
+                    units=units,
+                    price_override=price_override,
+                    image=image,
+                    is_active=True,
+                )
+                messages.success(request, f'Variante "{name}" agregada con éxito al producto.')
+                return redirect('manageProductVariants', productId=product.id)
+
+    variants = product.variants.all()
+    return render(request, 'manage_product_variants.html', {
+        'product': product,
+        'variants': variants,
+    })
+
+
+@user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='login')
+def ManageDeleteProductVariant(request, variantId):
+
+    variant = get_object_or_404(ProductVariant, pk=variantId)
+    product_id = variant.product_id
+    variant_name = variant.name
+    variant.delete()
+    messages.success(request, f'Variante "{variant_name}" eliminada correctamente.')
+    return redirect('manageProductVariants', productId=product_id)
+
 
 
 

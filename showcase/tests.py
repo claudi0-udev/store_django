@@ -2007,3 +2007,116 @@ class StoreSettingsImageURLTests(TestCase):
         self.assertEqual(settings.get_site_logo_url, 'https://example.com/custom_logo.jpg')
         self.assertEqual(settings.get_site_favicon_url, 'https://example.com/custom_favicon.ico')
         self.assertEqual(settings.get_banner1_image_url, 'https://example.com/banner1.jpg')
+
+
+class ProductVariantsTests(TestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(username='variantstaff', password='pass1234', is_staff=True)
+        self.cat = Category.objects.create(name='Calzado Deportivo')
+        self.prod = Product.objects.create(
+            name='Zapatillas Running Pro',
+            description='Zapatillas deportivas de alto rendimiento con amortiguación.',
+            price=Decimal('59990.00'),
+            category=self.cat,
+            units=15,
+            is_active=True
+        )
+
+    def test_product_variant_creation_and_properties(self):
+        from showcase.models import ProductVariant
+        v1 = ProductVariant.objects.create(
+            product=self.prod,
+            name='Talla 41 / Negro',
+            sku='ZAP-41-NEG',
+            units=6,
+        )
+        v2 = ProductVariant.objects.create(
+            product=self.prod,
+            name='Talla 42 / Rojo Edición Especial',
+            sku='ZAP-42-ROJ',
+            units=0,
+            price_override=Decimal('64990.00'),
+        )
+        self.assertTrue(self.prod.has_variants())
+        self.assertEqual(self.prod.get_variants().count(), 2)
+        self.assertEqual(self.prod.get_total_stock(), 6)
+        self.assertEqual(v1.get_price(), Decimal('59990.00'))
+        self.assertTrue(v1.is_in_stock())
+        self.assertEqual(v2.get_price(), Decimal('64990.00'))
+        self.assertFalse(v2.is_in_stock())
+
+    def test_cart_add_and_update_with_variant(self):
+        from showcase.models import ProductVariant
+        from showcase.cart import Cart
+        v1 = ProductVariant.objects.create(
+            product=self.prod,
+            name='Talla 41',
+            units=5,
+            price_override=Decimal('59990.00'),
+        )
+        response = self.client.post(f'/cart/add/{self.prod.id}/', {
+            'quantity': 2,
+            'variant_id': v1.id,
+        })
+        self.assertIn(response.status_code, [200, 302])
+        response_cart = self.client.get('/cart/')
+        self.assertEqual(response_cart.status_code, 200)
+        self.assertContains(response_cart, 'Talla 41')
+        self.assertContains(response_cart, '119980')
+
+    def test_checkout_order_with_variant_reduces_variant_stock(self):
+        from showcase.models import ProductVariant, OrderItem
+        v1 = ProductVariant.objects.create(
+            product=self.prod,
+            name='Talla 43',
+            units=10,
+            price_override=Decimal('59990.00'),
+        )
+        self.client.post(f'/cart/add/{self.prod.id}/', {
+            'quantity': 3,
+            'variant_id': v1.id,
+        })
+        response = self.client.post('/orders/checkout/', {
+            'first_name': 'Carlos',
+            'last_name': 'Valenzuela',
+            'email': 'carlos@ejemplo.cl',
+            'phone': '987654321',
+            'address': 'Av. Principal 1234',
+            'city': 'Santiago',
+            'region': 'Región Metropolitana',
+            'country': 'Chile',
+            'postal_code': '8320000',
+            'payment_method': 'transfer',
+        })
+        self.assertEqual(response.status_code, 302)
+        v1.refresh_from_db()
+        self.assertEqual(v1.units, 7)  # 10 - 3 = 7
+        order_item = OrderItem.objects.filter(variant=v1).first()
+        self.assertIsNotNone(order_item)
+        self.assertEqual(order_item.variant_name, 'Talla 43')
+        self.assertEqual(order_item.quantity, 3)
+
+    def test_manage_product_variants_views(self):
+        self.client.login(username='variantstaff', password='pass1234')
+        response = self.client.get(f'/manage/products/{self.prod.id}/variants/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Zapatillas Running Pro')
+
+        # Agregar variante vía POST
+        post_res = self.client.post(f'/manage/products/{self.prod.id}/variants/', {
+            'action': 'add',
+            'name': 'Talla 40 / Azul',
+            'sku': 'ZAP-40-AZL',
+            'units': '8',
+            'price_override': '62990',
+        })
+        self.assertEqual(post_res.status_code, 302)
+        from showcase.models import ProductVariant
+        created_v = ProductVariant.objects.get(name='Talla 40 / Azul')
+        self.assertEqual(created_v.units, 8)
+        self.assertEqual(created_v.price_override, Decimal('62990.00'))
+
+        # Eliminar variante
+        del_res = self.client.get(f'/manage/products/variants/{created_v.id}/delete/')
+        self.assertEqual(del_res.status_code, 302)
+        self.assertFalse(ProductVariant.objects.filter(id=created_v.id).exists())

@@ -51,9 +51,11 @@
             </thead>
             <tbody>
               {% for item in cart %}
-              <tr id="cart-row-{{ item.product.id }}" class="cart-item-row">
+              <tr id="cart-row-{{ item.item_key }}" class="cart-item-row">
                 <td class="align-middle">
-                  {% if item.product.image %}
+                  {% if item.variant and item.variant.image %}
+                  <img src="{{ item.variant.image.url }}" alt="{{ item.product.name }}" class="rounded img-fluid" style="width: 60px; height: 60px; object-fit: contain;">
+                  {% elif item.product.image %}
                   <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}" class="rounded img-fluid" style="width: 60px; height: 60px; object-fit: contain;">
                   {% else %}
                   <div class="bg-light rounded d-flex align-items-center justify-content-center text-muted" style="width: 60px; height: 60px; font-size: 11px;">
@@ -65,6 +67,11 @@
                   <a href="{% url 'productDetail' item.product.id %}" class="text-dark font-weight-bold text-decoration-none">
                     {{ item.product.name }}
                   </a>
+                  {% if item.variant %}
+                  <div class="mt-1">
+                    <span class="badge badge-light border text-primary font-weight-bold">🏷️ {{ item.variant.name }}</span>
+                  </div>
+                  {% endif %}
                   <div class="small text-muted">{{ item.product.category.name|default:'Sin categoría' }}</div>
                 </td>
                 <td class="align-middle text-center font-weight-bold">
@@ -72,16 +79,16 @@
                 </td>
                 <td class="align-middle text-center">
                   <div class="d-inline-flex align-items-center border rounded p-1 bg-light">
-                    <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2 font-weight-bold btn-cart-ajax-qty" data-url="{% url 'cartUpdate' item.product.id %}" data-action="decrement" title="Reducir">−</button>
-                    <span class="px-2 font-weight-bold item-qty-display" id="qty-{{ item.product.id }}">{{ item.quantity }}</span>
-                    <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2 font-weight-bold btn-cart-ajax-qty" data-url="{% url 'cartUpdate' item.product.id %}" data-action="increment" title="Aumentar" {% if item.product.units > 0 and item.quantity >= item.product.units %}disabled{% endif %}>+</button>
+                    <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2 font-weight-bold btn-cart-ajax-qty" data-url="{% url 'cartUpdate' item.product.id %}" data-item-key="{{ item.item_key }}" data-variant-id="{{ item.variant.id|default:'' }}" data-action="decrement" title="Reducir">−</button>
+                    <span class="px-2 font-weight-bold item-qty-display" id="qty-{{ item.item_key }}">{{ item.quantity }}</span>
+                    <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2 font-weight-bold btn-cart-ajax-qty" data-url="{% url 'cartUpdate' item.product.id %}" data-item-key="{{ item.item_key }}" data-variant-id="{{ item.variant.id|default:'' }}" data-action="increment" title="Aumentar" {% if item.variant %}{% if item.variant.units > 0 and item.quantity >= item.variant.units %}disabled{% endif %}{% else %}{% if item.product.units > 0 and item.quantity >= item.product.units %}disabled{% endif %}{% endif %}>+</button>
                   </div>
                 </td>
                 <td class="align-middle text-right font-weight-bold text-primary">
-                  $ <span id="subtotal-{{ item.product.id }}" class="item-subtotal-val">{{ item.total_price }}</span>
+                  $ <span id="subtotal-{{ item.item_key }}" class="item-subtotal-val">{{ item.total_price }}</span>
                 </td>
                 <td class="align-middle text-center">
-                  <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-cart-ajax-remove" data-url="{% url 'cartRemove' item.product.id %}" data-product-id="{{ item.product.id }}" title="Eliminar del carrito">
+                  <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-cart-ajax-remove" data-url="{% url 'cartRemove' item.product.id %}" data-item-key="{{ item.item_key }}" data-variant-id="{{ item.variant.id|default:'' }}" title="Eliminar del carrito">
                     &times;
                   </button>
                 </td>
@@ -237,10 +244,14 @@
       btn.addEventListener('click', function() {
         var url = this.getAttribute('data-url');
         var action = this.getAttribute('data-action');
+        var itemKey = this.getAttribute('data-item-key');
+        var variantId = this.getAttribute('data-variant-id');
         var row = this.closest('.cart-item-row');
 
         var formData = new FormData();
         formData.append('action', action);
+        if (itemKey) formData.append('item_key', itemKey);
+        if (variantId) formData.append('variant_id', variantId);
 
         fetch(url, {
           method: 'POST',
@@ -254,8 +265,9 @@
         .then(function(res) { return res.json(); })
         .then(function(data) {
           if (data && data.success) {
-            var qtySpan = document.getElementById('qty-' + data.product_id);
-            var subtotalSpan = document.getElementById('subtotal-' + data.product_id);
+            var key = data.item_key || data.product_id;
+            var qtySpan = document.getElementById('qty-' + key) || document.getElementById('qty-' + data.product_id);
+            var subtotalSpan = document.getElementById('subtotal-' + key) || document.getElementById('subtotal-' + data.product_id);
 
             if (data.item_quantity > 0) {
               if (qtySpan) qtySpan.textContent = data.item_quantity;
@@ -276,11 +288,17 @@
     document.querySelectorAll('.btn-cart-ajax-remove').forEach(function(btn) {
       btn.addEventListener('click', function() {
         var url = this.getAttribute('data-url');
-        var prodId = this.getAttribute('data-product-id');
-        var row = document.getElementById('cart-row-' + prodId);
+        var itemKey = this.getAttribute('data-item-key');
+        var variantId = this.getAttribute('data-variant-id');
+        var row = this.closest('.cart-item-row');
+
+        var formData = new FormData();
+        if (itemKey) formData.append('item_key', itemKey);
+        if (variantId) formData.append('variant_id', variantId);
 
         fetch(url, {
           method: 'POST',
+          body: formData,
           headers: {
             'X-Requested-With': 'XMLHttpRequest',
             'X-CSRFToken': '{{ csrf_token }}',
@@ -299,6 +317,7 @@
         });
       });
     });
+
   });
 </script>
 {% endblock %}

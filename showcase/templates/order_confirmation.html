@@ -193,6 +193,9 @@
               <tr>
                 <td class="align-middle">
                   <strong>{{ item.product.name|default:'Producto' }}</strong>
+                  {% if item.variant_name %}
+                  <div class="small text-primary font-weight-bold mt-1">🏷️ Variante: {{ item.variant_name }}</div>
+                  {% endif %}
                 </td>
                 <td class="align-middle text-center">$ {{ item.price }}</td>
                 <td class="align-middle text-center font-weight-bold">{{ item.quantity }}</td>

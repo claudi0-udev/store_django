@@ -1,5 +1,5 @@
 from decimal import Decimal
-from .models import Product
+from .models import Product, ProductVariant
 
 CART_SESSION_ID = 'cart'
 
@@ -16,41 +16,72 @@ class Cart:
             cart = self.session[CART_SESSION_ID] = {}
         self.cart = cart
 
-    def add(self, product, quantity=1, override_quantity=False):
-        product_id = str(product.id)
-        if product_id not in self.cart:
-            self.cart[product_id] = {
-                'quantity': 0,
-                'price': str(product.price),
-            }
+    def _get_item_key(self, product, variant=None):
+        product_id = getattr(product, 'id', product)
+        variant_id = getattr(variant, 'id', variant) if variant else None
+        if variant_id:
+            return f"{product_id}:{variant_id}"
+        return str(product_id)
 
-        available_stock = product.units if product.units > 0 else 999999
+    def add(self, product, quantity=1, override_quantity=False, variant=None):
+        item_key = self._get_item_key(product, variant)
+        variant_id = getattr(variant, 'id', variant) if variant else None
+
+        if variant:
+            item_price = str(variant.get_price())
+            available_stock = variant.units if variant.units > 0 else 999999
+        else:
+            item_price = str(product.price)
+            available_stock = product.units if product.units > 0 else 999999
+
+        if item_key not in self.cart:
+            self.cart[item_key] = {
+                'quantity': 0,
+                'price': item_price,
+                'product_id': product.id,
+                'variant_id': variant_id,
+            }
 
         if override_quantity:
             target_quantity = max(1, min(quantity, available_stock))
-            self.cart[product_id]['quantity'] = target_quantity
+            self.cart[item_key]['quantity'] = target_quantity
         else:
-            current_quantity = self.cart[product_id]['quantity']
+            current_quantity = self.cart[item_key]['quantity']
             target_quantity = min(current_quantity + quantity, available_stock)
-            self.cart[product_id]['quantity'] = target_quantity
+            self.cart[item_key]['quantity'] = target_quantity
 
-        self.cart[product_id]['price'] = str(product.price)
+        self.cart[item_key]['price'] = item_price
+        self.cart[item_key]['product_id'] = product.id
+        self.cart[item_key]['variant_id'] = variant_id
         self.save()
 
-    def decrement(self, product):
-        product_id = str(product.id)
-        if product_id in self.cart:
-            if self.cart[product_id]['quantity'] > 1:
-                self.cart[product_id]['quantity'] -= 1
+    def decrement(self, product, variant=None, item_key=None):
+        if not item_key:
+            item_key = self._get_item_key(product, variant)
+            if item_key not in self.cart and str(getattr(product, 'id', product)) in self.cart:
+                item_key = str(getattr(product, 'id', product))
+
+        if item_key in self.cart:
+            if self.cart[item_key]['quantity'] > 1:
+                self.cart[item_key]['quantity'] -= 1
             else:
-                del self.cart[product_id]
+                del self.cart[item_key]
             self.save()
 
-    def remove(self, product):
-        product_id = str(product.id)
-        if product_id in self.cart:
-            del self.cart[product_id]
+    def remove(self, product=None, variant=None, item_key=None):
+        if item_key and item_key in self.cart:
+            del self.cart[item_key]
             self.save()
+            return
+
+        if product is not None:
+            key = self._get_item_key(product, variant)
+            if key in self.cart:
+                del self.cart[key]
+                self.save()
+            elif str(getattr(product, 'id', product)) in self.cart:
+                del self.cart[str(getattr(product, 'id', product))]
+                self.save()
 
     def clear(self):
         self.cart = {}
@@ -64,13 +95,53 @@ class Cart:
             self.session.modified = True
 
     def __iter__(self):
-        product_ids = self.cart.keys()
-        products = Product.objects.filter(id__in=product_ids).select_related('category', 'brand')
         cart_copy = {k: v.copy() for k, v in self.cart.items()}
+        product_ids = set()
+        variant_ids = set()
 
-        for product in products:
-            item = cart_copy[str(product.id)]
+        for k, item in cart_copy.items():
+            p_id = item.get('product_id')
+            if not p_id:
+                try:
+                    p_id = int(str(k).split(':')[0])
+                except Exception:
+                    continue
+            product_ids.add(p_id)
+
+            v_id = item.get('variant_id')
+            if not v_id and ':' in str(k):
+                try:
+                    v_id = int(str(k).split(':')[1])
+                except Exception:
+                    pass
+            if v_id:
+                variant_ids.add(v_id)
+
+        products = {p.id: p for p in Product.objects.filter(id__in=product_ids).select_related('category', 'brand')}
+        variants = {v.id: v for v in ProductVariant.objects.filter(id__in=variant_ids)} if variant_ids else {}
+
+        for item_key, item in cart_copy.items():
+            p_id = item.get('product_id')
+            if not p_id:
+                try:
+                    p_id = int(str(item_key).split(':')[0])
+                except Exception:
+                    continue
+            product = products.get(p_id)
+            if not product:
+                continue
+
+            v_id = item.get('variant_id')
+            if not v_id and ':' in str(item_key):
+                try:
+                    v_id = int(str(item_key).split(':')[1])
+                except Exception:
+                    pass
+            variant = variants.get(v_id) if v_id else None
+
+            item['item_key'] = item_key
             item['product'] = product
+            item['variant'] = variant
             item['price'] = Decimal(item['price'])
             item['total_price'] = item['price'] * item['quantity']
             yield item
@@ -83,6 +154,7 @@ class Cart:
 
     def get_total_quantity(self):
         return sum(item['quantity'] for item in self.cart.values())
+
 
     @property
     def coupon_id(self):

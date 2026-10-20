@@ -13,6 +13,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1 class="h2 font-weight-bold mb-0">Editar Producto</h1>
   <div>
+    <a href="{% url 'manageProductVariants' product.id %}" class="btn btn-outline-primary mr-2">🏷️ Variantes ({% if product.has_variants %}{{ product.variants.count }}{% else %}0{% endif %})</a>
     <a href="{% url 'productDetail' product.id %}" class="btn btn-outline-secondary mr-2">Ver producto</a>
     <a href="{% url 'deleteProduct' product.id %}" class="btn btn-outline-danger">🗑️ Eliminar</a>
   </div>

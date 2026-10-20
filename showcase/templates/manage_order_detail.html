@@ -237,6 +237,9 @@
                     {% endif %}
                     <div>
                       <strong>{{ item.product.name|default:'Producto retirado' }}</strong>
+                      {% if item.variant_name %}
+                      <div class="small text-primary font-weight-bold">🏷️ Variante: {{ item.variant_name }}</div>
+                      {% endif %}
                       {% if item.product and item.product.category %}
                       <div class="small text-muted">{{ item.product.category.name }}</div>
                       {% endif %}

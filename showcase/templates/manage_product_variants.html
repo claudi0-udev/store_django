@@ -1,0 +1,152 @@
+{% extends 'base_layout.html' %}
+
+{% block body %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent px-0">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'products' %}">Catálogo</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'productDetail' product.id %}">{{ product.name }}</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'editProduct' product.id %}">Editar</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Variantes</li>
+  </ol>
+</nav>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h2 font-weight-bold mb-1">🏷️ Variantes de: {{ product.name }}</h1>
+    <p class="text-muted mb-0">Administra opciones de tallas, colores, capacidades y stock individual.</p>
+  </div>
+  <div class="mt-2 mt-md-0">
+    <a href="{% url 'editProduct' product.id %}" class="btn btn-outline-secondary mr-2">← Volver a Editar</a>
+    <a href="{% url 'productDetail' product.id %}" class="btn btn-outline-primary" target="_blank">👁️ Ver Ficha</a>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Formulario para agregar variante -->
+  <div class="col-lg-4 mb-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-primary text-white font-weight-bold py-3">
+        ➕ Agregar Nueva Variante
+      </div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="add">
+
+          <div class="form-group">
+            <label class="small font-weight-bold">Nombre de la Variante <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control" placeholder="Ej: Talla 42 / Negro, 128 GB" required>
+            <small class="form-text text-muted">Ejemplo: Talla M, Color Azul, 256GB, etc.</small>
+          </div>
+
+          <div class="form-group">
+            <label class="small font-weight-bold">Código SKU (Opcional)</label>
+            <input type="text" name="sku" class="form-control" placeholder="Ej: PRD-42-BLK">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label class="small font-weight-bold">Stock (Unidades) <span class="text-danger">*</span></label>
+              <input type="number" name="units" class="form-control" value="10" min="0" required>
+            </div>
+            <div class="form-group col-md-6">
+              <label class="small font-weight-bold">Precio ($ CLP)</label>
+              <input type="number" step="0.01" name="price_override" class="form-control" placeholder="{{ product.price }}">
+              <small class="form-text text-muted">Dejar vacío para usar precio base ($ {{ product.price }}).</small>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="small font-weight-bold">Imagen de la Variante (Opcional)</label>
+            <input type="file" name="image" class="form-control-file small" accept="image/*">
+            <small class="form-text text-muted">Imagen específica para este color/opción.</small>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block font-weight-bold mt-3">
+            Guardar Variante
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla de variantes existentes -->
+  <div class="col-lg-8">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white border-bottom font-weight-bold py-3 d-flex justify-content-between align-items-center">
+        <span>Variantes Activas ({{ variants.count }})</span>
+        <span class="badge badge-info">Stock Total Variantes: {{ product.get_total_stock }} un.</span>
+      </div>
+      <div class="card-body p-0">
+        {% if variants %}
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="thead-light">
+              <tr>
+                <th style="width: 60px;">Foto</th>
+                <th>Variante</th>
+                <th>SKU</th>
+                <th>Precio</th>
+                <th>Stock</th>
+                <th class="text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for v in variants %}
+              <tr>
+                <td>
+                  {% if v.image %}
+                  <img src="{{ v.image.url }}" alt="{{ v.name }}" style="width: 45px; height: 45px; object-fit: cover;" class="rounded border">
+                  {% elif product.image %}
+                  <img src="{{ product.image.url }}" alt="{{ v.name }}" style="width: 45px; height: 45px; object-fit: cover; opacity: 0.6;" class="rounded border">
+                  {% else %}
+                  <div class="bg-light rounded border text-center text-muted" style="width: 45px; height: 45px; line-height: 45px; font-size: 10px;">Sin foto</div>
+                  {% endif %}
+                </td>
+                <td class="font-weight-bold">
+                  {{ v.name }}
+                </td>
+                <td class="text-muted small">
+                  {{ v.sku|default:"-" }}
+                </td>
+                <td>
+                  {% if v.price_override %}
+                  <span class="font-weight-bold text-primary">$ {{ v.price_override }}</span>
+                  <span class="badge badge-light border ml-1">Personalizado</span>
+                  {% else %}
+                  <span class="text-muted">$ {{ product.price }}</span>
+                  <span class="badge badge-light ml-1">Base</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if v.units > 5 %}
+                  <span class="badge badge-success px-2 py-1">{{ v.units }} un.</span>
+                  {% elif v.units > 0 %}
+                  <span class="badge badge-warning px-2 py-1">{{ v.units }} un.</span>
+                  {% else %}
+                  <span class="badge badge-danger px-2 py-1">Agotado (0)</span>
+                  {% endif %}
+                </td>
+                <td class="text-right">
+                  <a href="{% url 'manageDeleteProductVariant' v.id %}" class="btn btn-outline-danger btn-sm" onclick="return confirm('¿Seguro que deseas eliminar la variante {{ v.name }}?');">
+                    🗑️ Eliminar
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+          <div style="font-size: 2.5rem;" class="mb-2">📦</div>
+          <p class="font-weight-bold mb-1">Este producto aún no tiene variantes configuradas.</p>
+          <p class="small text-muted mb-0">Actualmente se vende como producto único con el stock base del producto ({{ product.units }} un.).</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

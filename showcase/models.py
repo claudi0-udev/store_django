@@ -175,9 +175,55 @@ class Product(models.Model):
         """Devuelve el total de opiniones recibidas."""
         return self.reviews.count()
 
+    def has_variants(self):
+        """Retorna True si el producto tiene al menos una variante activa."""
+        return self.variants.filter(is_active=True).exists()
+
+    def get_variants(self):
+        """Retorna las variantes activas del producto."""
+        return self.variants.filter(is_active=True)
+
+    def get_total_stock(self):
+        """Si tiene variantes activas retorna la suma del stock de sus variantes; de lo contrario retorna units."""
+        if self.has_variants():
+            return sum(v.units for v in self.get_variants())
+        return self.units
+
     def __str__(self):
         category_name = self.category.name if self.category else 'Sin categoría'
         return self.name + ' - Category : ' + category_name
+
+
+class ProductVariant(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variants', verbose_name='Producto')
+    name = models.CharField(max_length=150, verbose_name='Nombre de la variante (ej: Talla 42 / Negro)')
+    sku = models.CharField(max_length=100, blank=True, default='', verbose_name='Código SKU')
+    price_override = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0.01'))],
+        verbose_name='Precio diferenciado (opcional)'
+    )
+    units = models.IntegerField(default=0, validators=[MinValueValidator(0)], verbose_name='Stock disponible')
+    image = models.ImageField(upload_to='product_images/variants/', null=True, blank=True, verbose_name='Imagen específica de variante')
+    is_active = models.BooleanField(default=True, verbose_name='Activo')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+        verbose_name = 'Variante de Producto'
+        verbose_name_plural = 'Variantes de Productos'
+
+    def __str__(self):
+        return f"{self.product.name} - {self.name}"
+
+    def get_price(self):
+        if self.price_override is not None:
+            return self.price_override
+        return self.product.price
+
+    def is_in_stock(self):
+        return self.units > 0
+
 
 
 class ProductImage(models.Model):
@@ -516,15 +562,20 @@ class Order(models.Model):
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='order_items', on_delete=models.SET_NULL, null=True, blank=True)
+    variant = models.ForeignKey(ProductVariant, null=True, blank=True, on_delete=models.SET_NULL, related_name='order_items', verbose_name='Variante')
+    variant_name = models.CharField(max_length=200, blank=True, default='', verbose_name='Nombre histórico de la variante')
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(1)])
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
 
     def __str__(self):
         product_name = self.product.name if self.product else 'Producto retirado'
+        if self.variant_name:
+            product_name = f"{product_name} ({self.variant_name})"
         return f"{self.quantity}x {product_name} (Orden #{self.order_id})"
 
     def get_cost(self):
         return self.price * self.quantity
+
 
 
 class ProductAuditLog(models.Model):

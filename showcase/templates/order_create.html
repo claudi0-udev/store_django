@@ -293,12 +293,17 @@
             {% for item in cart %}
             <li class="list-group-item d-flex justify-content-between align-items-center px-0">
               <div class="d-flex align-items-center">
-                {% if item.product.image %}
+                {% if item.variant and item.variant.image %}
+                <img src="{{ item.variant.image.url }}" alt="{{ item.product.name }}" class="rounded mr-2" style="width: 40px; height: 40px; object-fit: contain;">
+                {% elif item.product.image %}
                 <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}" class="rounded mr-2" style="width: 40px; height: 40px; object-fit: contain;">
                 {% endif %}
                 <div>
                   <h6 class="my-0 small font-weight-bold">{{ item.product.name }}</h6>
-                  <small class="text-muted">{{ item.quantity }} x $ {{ item.price }}</small>
+                  {% if item.variant %}
+                  <span class="badge badge-light border text-primary small font-weight-bold">🏷️ {{ item.variant.name }}</span>
+                  {% endif %}
+                  <small class="text-muted d-block">{{ item.quantity }} x $ {{ item.price }}</small>
                 </div>
               </div>
               <span class="font-weight-bold">$ {{ item.total_price }}</span>

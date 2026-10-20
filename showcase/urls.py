@@ -55,6 +55,8 @@ from .views import (
     ManageImportProducts,
     ManageExportProductsCSV,
     ManageExportProductsZIP,
+    ManageProductVariants,
+    ManageDeleteProductVariant,
     Register,
     RestoreProduct,
     ShippingQuote,
@@ -119,6 +121,8 @@ urlpatterns = [
     path('manage/products/import/template/', DownloadImportTemplate, name='downloadImportTemplate'),
     path('manage/products/export/csv/', ManageExportProductsCSV, name='manageExportProductsCSV'),
     path('manage/products/export/zip/', ManageExportProductsZIP, name='manageExportProductsZIP'),
+    path('manage/products/<int:productId>/variants/', ManageProductVariants, name='manageProductVariants'),
+    path('manage/products/variants/<int:variantId>/delete/', ManageDeleteProductVariant, name='manageDeleteProductVariant'),
     path('api/recent-sales/', RecentSalesNotificationAPI, name='recentSalesAPI'),
     path('shipping/quote/', ShippingQuote, name='shippingQuote'),
 ]
